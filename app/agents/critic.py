@@ -119,7 +119,7 @@ class Critic:
 
         structured_llm = llm.with_structured_output(
             CriticOutput,
-            method="json_schema",
+            method="function_calling",
             include_raw=False,
         )
 

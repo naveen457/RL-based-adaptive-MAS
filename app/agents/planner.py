@@ -124,7 +124,7 @@ class Planner:
 
         structured_llm = llm.with_structured_output(
             PlannerOutput,
-            method="json_schema",
+            method="function_calling",
             include_raw=False,
         )
 

@@ -106,7 +106,7 @@ class Finalizer:
 
         structured_llm = llm.with_structured_output(
             FinalizerOutput,
-            method="json_schema",
+            method="function_calling",
             include_raw=False,
         )
 

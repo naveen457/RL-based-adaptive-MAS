@@ -108,7 +108,7 @@ class Coder:
 
         structured_llm = llm.with_structured_output(
             CoderOutput,
-            method="json_schema",
+            method="function_calling",
             include_raw=False,
         )
 
