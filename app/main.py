@@ -101,12 +101,14 @@ def main():
     print("Adaptive MAS - Static Baseline")
     print("=" * 48)
 
-    if settings.openrouter_api_key:
-        print("OpenRouter API key: Loaded")
+    if settings.api_key:
+        print("NVIDIA API key: Loaded")
     else:
-        print("OpenRouter API key: NOT FOUND")
+        print("NVIDIA API key: NOT FOUND")
 
-    print(f"OpenRouter model: {settings.openrouter_model or '(NOT SET)'}")
+    print(f"NVIDIA base URL: {settings.base_url}")
+
+    print(f"NVIDIA model: {settings.model or '(NOT SET)'}")
 
     if settings.langchain_api_key:
         print("LangSmith API key: Loaded")

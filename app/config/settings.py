@@ -7,16 +7,20 @@ load_dotenv()
 
 
 class Settings(BaseModel):
-    openrouter_api_key: str = os.getenv("OPENROUTER_API_KEY", "")
-
-    openrouter_base_url: str = os.getenv(
-        "OPENROUTER_BASE_URL",
-        "https://openrouter.ai/api/v1",
+    api_key: str = os.getenv(
+        "NVIDIA_API_KEY",
+        os.getenv("OPENROUTER_API_KEY", ""),
     )
 
-    openrouter_model: str = os.getenv(
-        "OPENROUTER_MODEL",
-        "",
+    base_url: str = os.getenv(
+        "NVIDIA_BASE_URL",
+        os.getenv("OPENROUTER_BASE_URL",
+                  "https://openrouter.ai/api/v1"),
+    )
+
+    model: str = os.getenv(
+        "NVIDIA_MODEL",
+        os.getenv("OPENROUTER_MODEL", ""),
     )
 
     langchain_tracing_v2: bool = (

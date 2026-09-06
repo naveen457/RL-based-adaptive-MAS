@@ -25,7 +25,7 @@ def _make_planner_without_model() -> Planner:
 
 def _settings_has_key() -> bool:
     from app.config.settings import settings
-    return bool(settings.openrouter_api_key)
+    return bool(settings.api_key)
 
 
 # ---------------------------------------------------------------------------
@@ -57,21 +57,21 @@ def test_planner_construction_from_settings() -> None:
     """Planner can be constructed from environment/settings without error."""
     planner = Planner.from_settings()
     assert planner.model is not None
-    assert planner.model.model_name == "nvidia/nemotron-3.5-lightning:free"
-    assert planner.model.openai_api_base == "https://openrouter.ai/api/v1"
+    assert planner.model.model_name == "nvidia/nemotron-3.5-lightning-30b-a3b"
+    assert planner.model.openai_api_base == "https://integrate.api.nvidia.com/v1"
     assert planner.model.openai_api_key
     assert planner.structured_llm is not None
 
 
 def test_planner_missing_api_key_raises() -> None:
     """Construction fails early when the API key is empty."""
-    with pytest.raises(ValueError, match="OpenRouter API key"):
+    with pytest.raises(ValueError, match="API key"):
         _make_planner_with_api_key("")
 
 
 def test_planner_missing_model_raises() -> None:
     """Construction fails early when the model is empty."""
-    with pytest.raises(ValueError, match="OPENROUTER_MODEL"):
+    with pytest.raises(ValueError, match="MODEL"):
         _make_planner_without_model()
 
 
@@ -145,19 +145,19 @@ def test_researcher_output_schema_is_valid() -> None:
 def test_researcher_construction_from_settings() -> None:
     researcher = Researcher.from_settings()
     assert researcher.model is not None
-    assert researcher.model.model_name == "nvidia/nemotron-3.5-lightning:free"
-    assert researcher.model.openai_api_base == "https://openrouter.ai/api/v1"
+    assert researcher.model.model_name == "nvidia/nemotron-3.5-lightning-30b-a3b"
+    assert researcher.model.openai_api_base == "https://integrate.api.nvidia.com/v1"
     assert researcher.model.openai_api_key
     assert researcher.structured_llm is not None
 
 
 def test_researcher_missing_api_key_raises() -> None:
-    with pytest.raises(ValueError, match="OpenRouter API key"):
+    with pytest.raises(ValueError, match="API key"):
         _make_researcher_with_api_key("")
 
 
 def test_researcher_missing_model_raises() -> None:
-    with pytest.raises(ValueError, match="OPENROUTER_MODEL"):
+    with pytest.raises(ValueError, match="MODEL"):
         _make_researcher_without_model()
 
 
@@ -220,19 +220,19 @@ def test_coder_output_schema_is_valid() -> None:
 def test_coder_construction_from_settings() -> None:
     coder = Coder.from_settings()
     assert coder.model is not None
-    assert coder.model.model_name == "nvidia/nemotron-3.5-lightning:free"
-    assert coder.model.openai_api_base == "https://openrouter.ai/api/v1"
+    assert coder.model.model_name == "nvidia/nemotron-3.5-lightning-30b-a3b"
+    assert coder.model.openai_api_base == "https://integrate.api.nvidia.com/v1"
     assert coder.model.openai_api_key
     assert coder.structured_llm is not None
 
 
 def test_coder_missing_api_key_raises() -> None:
-    with pytest.raises(ValueError, match="OpenRouter API key"):
+    with pytest.raises(ValueError, match="API key"):
         _make_coder_with_api_key("")
 
 
 def test_coder_missing_model_raises() -> None:
-    with pytest.raises(ValueError, match="OPENROUTER_MODEL"):
+    with pytest.raises(ValueError, match="MODEL"):
         _make_coder_without_model()
 
 
@@ -294,19 +294,19 @@ def test_critic_output_schema_is_valid() -> None:
 def test_critic_construction_from_settings() -> None:
     critic = Critic.from_settings()
     assert critic.model is not None
-    assert critic.model.model_name == "nvidia/nemotron-3.5-lightning:free"
-    assert critic.model.openai_api_base == "https://openrouter.ai/api/v1"
+    assert critic.model.model_name == "nvidia/nemotron-3.5-lightning-30b-a3b"
+    assert critic.model.openai_api_base == "https://integrate.api.nvidia.com/v1"
     assert critic.model.openai_api_key
     assert critic.structured_llm is not None
 
 
 def test_critic_missing_api_key_raises() -> None:
-    with pytest.raises(ValueError, match="OpenRouter API key"):
+    with pytest.raises(ValueError, match="API key"):
         _make_critic_with_api_key("")
 
 
 def test_critic_missing_model_raises() -> None:
-    with pytest.raises(ValueError, match="OPENROUTER_MODEL"):
+    with pytest.raises(ValueError, match="MODEL"):
         _make_critic_without_model()
 
 
@@ -395,19 +395,19 @@ def test_finalizer_output_schema_is_valid() -> None:
 def test_finalizer_construction_from_settings() -> None:
     finalizer = Finalizer.from_settings()
     assert finalizer.model is not None
-    assert finalizer.model.model_name == "nvidia/nemotron-3.5-lightning:free"
-    assert finalizer.model.openai_api_base == "https://openrouter.ai/api/v1"
+    assert finalizer.model.model_name == "nvidia/nemotron-3.5-lightning-30b-a3b"
+    assert finalizer.model.openai_api_base == "https://integrate.api.nvidia.com/v1"
     assert finalizer.model.openai_api_key
     assert finalizer.structured_llm is not None
 
 
 def test_finalizer_missing_api_key_raises() -> None:
-    with pytest.raises(ValueError, match="OpenRouter API key"):
+    with pytest.raises(ValueError, match="API key"):
         _make_finalizer_with_api_key("")
 
 
 def test_finalizer_missing_model_raises() -> None:
-    with pytest.raises(ValueError, match="OPENROUTER_MODEL"):
+    with pytest.raises(ValueError, match="MODEL"):
         _make_finalizer_without_model()
 
 

@@ -95,12 +95,12 @@ class Planner:
         the check falls back to the configured settings so missing-config tests
         can target the settings path directly.
         """
-        resolved_model = model if model is not None else settings.openrouter_model
-        resolved_base_url = base_url if base_url is not None else settings.openrouter_base_url
+        resolved_model = model if model is not None else settings.model
+        resolved_base_url = base_url if base_url is not None else settings.base_url
 
         # Explicit None means 'use settings'; an empty string or real key is used as-is.
         if api_key is None:
-            resolved_api_key = settings.openrouter_api_key
+            resolved_api_key = settings.api_key
         else:
             resolved_api_key = api_key
 
