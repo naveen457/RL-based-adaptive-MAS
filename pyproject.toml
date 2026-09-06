@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "adaptive-mas"
+version = "0.1.0"
+description = "Meta-RL Based Adaptive Architecture for LLM-Based Multi-Agent Systems"
+requires-python = ">=3.10"
+dependencies = [
+    "langchain>=1.0.0",
+    "langgraph>=1.0.0",
+    "langsmith>=0.1.0",
+    "langchain-openai>=1.0.0",
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "httpx>=0.28.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = [
+    "integration: marks tests as integration tests (require network / API access)",
+]
