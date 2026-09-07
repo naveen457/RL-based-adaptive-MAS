@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from typing import List
+from typing import Iterable, List, Optional
 
+from app.architecture.actions import ActionType, ArchitectureAction
 from app.architecture.models import (
     AgentDefinition,
     CommunicationEdge,
@@ -112,8 +113,9 @@ class ArchitectureManager:
       - Query agents, edges, and active agents.
       - Serialize the architecture for logging / later RL state conversion.
 
-    This manager does NOT execute the LangGraph workflow and does NOT
-    mutate the architecture dynamically. Those belong to later steps.
+    This manager does NOT execute the LangGraph workflow. Its action methods
+    only manipulate the architecture representation; they do not rebuild or
+    control LangGraph execution.
     """
 
     def __init__(self, architecture: MASArchitecture) -> None:
@@ -209,4 +211,184 @@ class ArchitectureManager:
 
     def to_architecture_model(self) -> MASArchitecture:
         """Return a copy of the underlying MASArchitecture."""
-        return self._architecture.model_copy()
+        return self._architecture.model_copy(deep=True)
+
+    # ------------------------------------------------------------------
+    # Architecture actions
+    # ------------------------------------------------------------------
+
+    def apply_action(self, action: ArchitectureAction) -> MASArchitecture:
+        """Validate and apply *action*, returning the updated architecture.
+
+        Actions are applied to a deep copy and the copy is validated before it
+        replaces the manager's current architecture. Any rejected action
+        therefore leaves the original architecture untouched.
+
+        Raises:
+            TypeError: If *action* is not an ``ArchitectureAction``.
+            ValueError: If the action is not valid for the current architecture
+                or would produce an invalid architecture.
+        """
+        if not isinstance(action, ArchitectureAction):
+            raise TypeError("action must be an ArchitectureAction")
+
+        current = self._architecture
+        updated = current.model_copy(deep=True)
+
+        if action.action_type in {
+            ActionType.ACTIVATE_AGENT,
+            ActionType.DEACTIVATE_AGENT,
+            ActionType.CHANGE_ROLE,
+        }:
+            assert action.agent_id is not None
+            agent_index = self._find_agent_index(updated, action.agent_id)
+            agent = updated.agents[agent_index]
+
+            if action.action_type is ActionType.ACTIVATE_AGENT:
+                if agent.active:
+                    raise ValueError(
+                        f"Cannot activate agent '{action.agent_id}': already active"
+                    )
+                updated.agents[agent_index] = agent.model_copy(update={"active": True})
+
+            elif action.action_type is ActionType.DEACTIVATE_AGENT:
+                if not agent.active:
+                    raise ValueError(
+                        f"Cannot deactivate agent '{action.agent_id}': already inactive"
+                    )
+                if updated.active_agent_count == 1:
+                    raise ValueError(
+                        "Cannot deactivate the last active agent; the architecture "
+                        "must retain an active component"
+                    )
+                updated.agents[agent_index] = agent.model_copy(update={"active": False})
+
+            else:
+                assert action.new_role is not None
+                updated.agents[agent_index] = agent.model_copy(
+                    update={"role": action.new_role}
+                )
+
+        elif action.action_type in {ActionType.ADD_EDGE, ActionType.REMOVE_EDGE}:
+            assert action.source is not None
+            assert action.target is not None
+            self._require_agent(updated, action.source)
+            self._require_agent(updated, action.target)
+
+            if action.source == action.target:
+                raise ValueError(
+                    f"Cannot modify self-loop edge '{action.source} -> {action.target}'"
+                )
+
+            edge_key = (action.source, action.target)
+            existing_keys = {
+                (edge.source, edge.target) for edge in updated.communication_edges
+            }
+
+            if action.action_type is ActionType.ADD_EDGE:
+                if edge_key in existing_keys:
+                    raise ValueError(
+                        f"Cannot add duplicate edge '{action.source} -> {action.target}'"
+                    )
+                updated.communication_edges.append(
+                    CommunicationEdge(source=action.source, target=action.target)
+                )
+            elif edge_key not in existing_keys:
+                raise ValueError(
+                    f"Cannot remove nonexistent edge '{action.source} -> {action.target}'"
+                )
+            else:
+                updated.communication_edges = [
+                    edge
+                    for edge in updated.communication_edges
+                    if (edge.source, edge.target) != edge_key
+                ]
+
+        errors = updated.validate()
+        if errors:
+            joined_errors = "; ".join(errors)
+            raise ValueError(f"Action would produce invalid architecture: {joined_errors}")
+
+        self._architecture = updated
+        return updated
+
+    def get_possible_actions(
+        self, role_options: Optional[Iterable[str]] = None
+    ) -> List[ArchitectureAction]:
+        """Return a deterministic list of candidate actions.
+
+        Role changes require an explicit finite vocabulary because arbitrary
+        non-empty strings would not form a useful enumerable action space.
+        When ``role_options`` is omitted, all other currently applicable action
+        types are returned.
+        """
+        architecture = self._architecture
+        agent_ids = sorted(architecture.agent_ids)
+        existing_edges = {
+            (edge.source, edge.target) for edge in architecture.communication_edges
+        }
+        actions: List[ArchitectureAction] = []
+
+        for agent in sorted(architecture.agents, key=lambda item: item.agent_id):
+            action_type = (
+                ActionType.DEACTIVATE_AGENT
+                if agent.active
+                else ActionType.ACTIVATE_AGENT
+            )
+            if (
+                action_type is ActionType.DEACTIVATE_AGENT
+                and architecture.active_agent_count == 1
+            ):
+                continue
+            actions.append(
+                ArchitectureAction(action_type=action_type, agent_id=agent.agent_id)
+            )
+
+        for source in agent_ids:
+            for target in agent_ids:
+                if source != target and (source, target) not in existing_edges:
+                    actions.append(
+                        ArchitectureAction(
+                            action_type=ActionType.ADD_EDGE,
+                            source=source,
+                            target=target,
+                        )
+                    )
+
+        for edge in sorted(
+            architecture.communication_edges,
+            key=lambda item: (item.source, item.target),
+        ):
+            actions.append(
+                ArchitectureAction(
+                    action_type=ActionType.REMOVE_EDGE,
+                    source=edge.source,
+                    target=edge.target,
+                )
+            )
+
+        if role_options is not None:
+            roles = sorted({role.strip() for role in role_options if role.strip()})
+            for agent in sorted(architecture.agents, key=lambda item: item.agent_id):
+                for role in roles:
+                    if role != agent.role:
+                        actions.append(
+                            ArchitectureAction(
+                                action_type=ActionType.CHANGE_ROLE,
+                                agent_id=agent.agent_id,
+                                new_role=role,
+                            )
+                        )
+
+        return actions
+
+    @staticmethod
+    def _find_agent_index(architecture: MASArchitecture, agent_id: str) -> int:
+        for index, agent in enumerate(architecture.agents):
+            if agent.agent_id == agent_id:
+                return index
+        raise ValueError(f"Unknown agent '{agent_id}'")
+
+    @classmethod
+    def _require_agent(cls, architecture: MASArchitecture, agent_id: str) -> None:
+        cls._find_agent_index(architecture, agent_id)
