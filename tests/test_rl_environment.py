@@ -33,6 +33,7 @@ from app.architecture.actions import ActionType, ArchitectureAction
 from app.architecture.manager import ArchitectureManager
 from app.architecture.adaptive import AdaptiveArchitecture
 from app.architecture.models import MASArchitecture
+from app.evaluation.evaluator import EvaluationResult
 from app.rl.action_space import ArchitectureActionMapper
 from app.rl.environment import MASArchitectureEnv
 from app.rl.state import ArchitectureStateEncoder
@@ -335,8 +336,20 @@ def test_valid_step_returns_positive_reward() -> None:
             target="critic",
         )
     )
-    _, reward, _, _, _ = env.step(action_id)
-    assert reward == 1.0
+    _, reward, _, _, info = env.step(action_id)
+    # After a valid step, reward must come from RewardCalculator as the
+    # evaluation delta, not from a hardcoded +1.0.
+    assert reward == pytest.approx(info["evaluation"]["current_score"] - info["evaluation"]["previous_score"])
+    assert info["evaluation"]["task_success_score"] is None
+
+
+def test_environment_evaluates_initial_architecture() -> None:
+    env = MASArchitectureEnv(_default_manager())
+    env.reset()
+    evaluation = env.current_evaluation
+    assert isinstance(evaluation, EvaluationResult)
+    assert evaluation.architecture_id == "static-mas-v1"
+    assert evaluation.task_success_score is None
 
 
 def test_invalid_step_returns_negative_reward() -> None:
@@ -405,15 +418,16 @@ def test_invalid_action_stays_invalid_after_reset_rebuild() -> None:
 
     # Second step with the same action id: invalid because it already exists.
     _, reward, _, _, info = env.step(action_id)
-    assert reward == -1.0
+    assert reward == pytest.approx(-1.0)
     assert info["transition"]["valid"] is False
 
     env.reset()
 
     # After reset, the same action id is valid again.
     _, reward2, _, _, info2 = env.step(action_id)
-    assert reward2 == 1.0
+    assert reward2 == pytest.approx(info2["evaluation"]["current_score"] - info2["evaluation"]["previous_score"])
     assert info2["transition"]["valid"] is True
+    assert info2["evaluation"]["task_success_score"] is None
 
 
 # ---------------------------------------------------------------------------
@@ -656,6 +670,36 @@ def test_info_after_valid_transition_is_structured() -> None:
     assert transition["action"]["action_type"] == "add_edge"
 
 
+def test_info_contains_evaluation_fields_after_step() -> None:
+    env = MASArchitectureEnv(_default_manager())
+    _, _ = env.reset()
+    action_id = env.encode_action(
+        ArchitectureAction(
+            action_type=ActionType.ADD_EDGE,
+            source="planner",
+            target="critic",
+        )
+    )
+    _, _, _, _, info = env.step(action_id)
+    evaluation = info["evaluation"]
+    expected_keys = {
+        "architecture_id",
+        "architecture_version",
+        "validity_score",
+        "efficiency_score",
+        "communication_cost",
+        "active_agent_count",
+        "edge_count",
+        "overall_score",
+        "task_success_score",
+    }
+    for key in expected_keys:
+        assert key in evaluation, f"missing key {key} in evaluation"
+
+    # task_success_score must remain None in the baseline.
+    assert evaluation["task_success_score"] is None
+
+
 # ---------------------------------------------------------------------------
 # 16. No credentials in state/info serialization
 # ---------------------------------------------------------------------------
@@ -725,6 +769,7 @@ def test_end_to_end_add_edge_then_change_role_then_reset() -> None:
     # A0
     initial_observation, _ = env.reset()
     initial_architecture = env.manager.to_architecture_model()
+    initial_evaluation = env.current_evaluation
 
     # A0 -> A1 via ADD_EDGE(planner, critic)
     add_edge_id = env.encode_action(
@@ -741,11 +786,16 @@ def test_end_to_end_add_edge_then_change_role_then_reset() -> None:
     assert ("planner", "critic") in {
         (e.source, e.target) for e in architecture_a1.communication_edges
     }
-    assert reward_a1 == 1.0
     assert terminated_a1 is False
     assert truncated_a1 is False
     assert info_a1["architecture_version"] == 1
     assert info_a1["transition"]["valid"] is True
+
+    # A1 evaluation should exist and differ from A0 where structure changed.
+    evaluation_a1 = env.current_evaluation
+    assert evaluation_a1.architecture_id == architecture_a1.architecture_id
+    assert evaluation_a1.task_success_score is None
+    assert info_a1["evaluation"]["task_success_score"] is None
 
     # A1 -> A2 via CHANGE_ROLE(coder, analysis)
     change_role_id = env.encode_action(
@@ -759,8 +809,8 @@ def test_end_to_end_add_edge_then_change_role_then_reset() -> None:
 
     architecture_a2 = env.manager.to_architecture_model()
     assert architecture_a2.role_map["coder"] == "analysis"
-    assert reward_a2 == 1.0
     assert info_a2["architecture_version"] == 2
+    assert info_a2["evaluation"]["task_success_score"] is None
 
     # Reset
     reset_observation, reset_info = env.reset()
@@ -770,3 +820,6 @@ def test_end_to_end_add_edge_then_change_role_then_reset() -> None:
     assert reset_info["architecture_version"] == 0
     # Observation should be back to the initial encoded architecture.
     assert reset_observation == initial_observation
+    # Reset must restore the initial evaluation too.
+    assert env.current_evaluation.architecture_id == initial_evaluation.architecture_id
+    assert env.current_evaluation.task_success_score is None

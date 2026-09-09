@@ -42,6 +42,8 @@ from app.architecture.models import MASArchitecture
 from app.architecture.actions import ActionType
 from app.rl.action_space import ArchitectureActionMapper
 from app.rl.state import ArchitectureStateEncoder
+from app.evaluation.evaluator import ArchitectureEvaluator, EvaluationResult
+from app.evaluation.reward import RewardCalculator
 
 
 class MASArchitectureEnv:
@@ -87,8 +89,14 @@ class MASArchitectureEnv:
         self._terminated = False
         self._truncated = False
 
+        # Evaluation and reward integration (Step 9).
+        self._evaluator = ArchitectureEvaluator()
+        self._reward_calculator = RewardCalculator()
+        self._current_evaluation: EvaluationResult | None = None
+
         # Rebuild derived artifacts from the current architecture.
         self._rebuild()
+        self._initialize_evaluation()
 
     # ------------------------------------------------------------------
     # Environment lifecycle
@@ -118,8 +126,13 @@ class MASArchitectureEnv:
         self._truncated = False
 
         self._rebuild()
+        self._initialize_evaluation()
         observation = self._current_observation()
-        info = self._current_info(action_id=None, action=None)
+        info = self._current_info(
+            action_id=None,
+            action=None,
+            transition_result=None,
+        )
 
         return observation, info
 
@@ -183,6 +196,9 @@ class MASArchitectureEnv:
             transition_result=transition_result,
         )
 
+        if transition_result.get("valid"):
+            self._current_evaluation = self._evaluator.evaluate(self._manager.get_architecture())
+
         terminated = self._terminated
         truncated = self._truncated
         return observation, reward, terminated, truncated, info
@@ -190,6 +206,16 @@ class MASArchitectureEnv:
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    def _initialize_evaluation(self) -> None:
+        """Evaluate the current architecture and store the result.
+
+        This creates the baseline evaluation used by the reward calculator.
+        It is called after reset and after any state rebuild that changes the
+        underlying architecture.
+        """
+        architecture = self._manager.get_architecture()
+        self._current_evaluation = self._evaluator.evaluate(architecture)
 
     def _rebuild(self) -> None:
         """Rebuild encoder and action mapping from the current architecture."""
@@ -212,6 +238,7 @@ class MASArchitectureEnv:
         """Build a safe info dict for logging/debugging."""
         architecture = self._manager.get_architecture()
         architecture = self._manager.get_architecture()
+        architecture = self._manager.get_architecture()
         info: Dict[str, Any] = {
             "architecture_id": architecture.architecture_id,
             "architecture_version": self._adaptive.version(),
@@ -226,6 +253,26 @@ class MASArchitectureEnv:
         }
         if transition_result is not None:
             info["transition"] = transition_result
+
+        # Attach Step 9 evaluation information safely.
+        evaluation = self._current_evaluation
+        if evaluation is None:
+            return info
+
+        current_score = self._evaluator.evaluate(architecture).overall_score
+        info["evaluation"] = {
+            "architecture_id": evaluation.architecture_id,
+            "architecture_version": evaluation.architecture_version,
+            "previous_score": evaluation.overall_score,
+            "current_score": current_score,
+            "validity_score": evaluation.validity_score,
+            "efficiency_score": evaluation.efficiency_score,
+            "communication_cost": evaluation.communication_cost,
+            "active_agent_count": evaluation.active_agent_count,
+            "edge_count": evaluation.edge_count,
+            "overall_score": current_score,
+            "task_success_score": evaluation.task_success_score,
+        }
         return info
 
     def _apply_action(self, action: ArchitectureAction, *, action_id: int) -> Dict[str, Any]:
@@ -281,22 +328,40 @@ class MASArchitectureEnv:
             "action_id": action_id,
         }
 
-    def _compute_reward(self, transition_result: Dict[str, Any]) -> float:
-        """Compute a simple baseline reward.
+    def evaluate_architecture(self, architecture: MASArchitecture) -> EvaluationResult:
+        """Evaluate *architecture* using the current evaluator.
 
-        This is intentionally small and deterministic:
-
-        * Valid transition: +1.0
-        * Invalid action: -1.0
-        * (No explicit no-op action type exists in this baseline, so no-op
-          reward is not separately parameterized.)
-
-        This reward is a placeholder for the research baseline. It is not a
-        final reward function and is explicitly documented as such.
+        This is a small public helper for tests and for callers that want
+        direct access to the Step 9 evaluator without going through a step.
         """
-        if transition_result.get("valid"):
-            return 1.0
-        return -1.0
+        return self._evaluator.evaluate(architecture)
+
+    def _compute_reward(self, transition_result: Dict[str, Any]) -> float:
+        """Compute the reward using the Step 9 RewardCalculator.
+
+        On a valid transition this evaluates the current architecture and
+        computes the evaluation delta against the previous evaluation stored
+        in the environment. On an invalid/rejected transition it uses the
+        RewardCalculator invalid-transition penalty.
+
+        The reward formula itself lives in app/evaluation/reward.py; this
+        environment only delegates to it.
+        """
+        previous = self._current_evaluation
+        if previous is None:
+            # Should not happen in normal use after reset, but keep this
+            # defensive so the environment remains robust.
+            previous = self._evaluator.evaluate(self._manager.get_architecture())
+            self._current_evaluation = previous
+
+        current = self._evaluator.evaluate(self._manager.get_architecture())
+        valid_transition = bool(transition_result.get("valid"))
+        reward = self._reward_calculator.calculate(
+            previous_result=previous,
+            current_result=current,
+            valid_transition=valid_transition,
+        )
+        return reward
 
     # ------------------------------------------------------------------
     # Public accessors for inspection / tests
@@ -368,3 +433,28 @@ class MASArchitectureEnv:
         explicit.
         """
         return self._mapper.encode(action)
+
+    # ------------------------------------------------------------------
+    # Step 9 inspection accessors
+    # ------------------------------------------------------------------
+
+    @property
+    def evaluator(self) -> ArchitectureEvaluator:
+        """Current architecture evaluator."""
+        return self._evaluator
+
+    @property
+    def reward_calculator(self) -> RewardCalculator:
+        """Current reward calculator."""
+        return self._reward_calculator
+
+    @property
+    def current_evaluation(self) -> EvaluationResult:
+        """Current architecture evaluation result.
+
+        This is set after reset and updated after successful transitions.
+        It is unchanged by invalid/rejected transitions.
+        """
+        if self._current_evaluation is None:
+            raise RuntimeError("current evaluation has not been initialized; call reset()")
+        return self._current_evaluation
