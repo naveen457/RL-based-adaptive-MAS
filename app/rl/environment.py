@@ -188,6 +188,15 @@ class MASArchitectureEnv:
         if self._step_count >= self._max_steps:
             self._truncated = True
 
+        # Rebuild the encoder to reflect the current architecture state.
+        # This ensures the observation returned by step() is synchronized
+        # with the architecture after the action is applied.
+        # Note: We do NOT rebuild the mapper here because action_ids are
+        # only meaningful within the mapping that produced them. The mapper
+        # is rebuilt in _rebuild() which is called during reset() and when
+        # the architecture changes in a way that requires a new action space.
+        self._encoder = ArchitectureStateEncoder(self._manager.get_architecture())
+
         observation = self._current_observation()
         reward = self._compute_reward(transition_result)
         info = self._current_info(
