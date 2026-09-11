@@ -121,10 +121,7 @@ def main():
     # Display architecture
     print_architecture()
 
-    task = (
-        "Write a Python function that checks whether a string is a "
-        "palindrome and explain how it works."
-    )
+    task = "Hi,I am Naveen.What about You?"
 
     print(f"TASK: {task}")
     print("-" * 48)
