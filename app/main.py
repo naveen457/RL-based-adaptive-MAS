@@ -63,7 +63,7 @@ def print_workflow_result(state):
     if coder:
         print("CODER")
         print(f"  approach: {coder.approach}")
-        print(f"  code:\r{code.code}")
+        print(f"  code:\r{coder.code}")
         print(f"  explanation: {coder.explanation}")
         print()
 
