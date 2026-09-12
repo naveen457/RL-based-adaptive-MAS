@@ -52,6 +52,7 @@ from app.architecture.actions import ArchitectureAction
 from app.rl.environment import MASArchitectureEnv
 from app.rl.policy import BasePolicy
 from app.rl.state import ArchitectureStateEncoder
+from app.rl.meta_task import MetaTaskContext
 
 
 @dataclass
@@ -210,14 +211,33 @@ class QTable:
         Dict
             Dictionary with 'default_value' and 'entries' (list of dicts).
         """
-        # Convert state_key tuples to lists for JSON serialization
-        # State keys are tuples of (activity_vector, role_vector, agent_ids)
-        # Each component is already a tuple, so we need to convert them to lists
         def convert_state_key(key: Tuple) -> List:
-            """Convert a state key tuple to a list for JSON serialization."""
-            # key is (activity_vector, role_vector, agent_ids)
-            # Each component is a tuple that needs to be converted to a list
-            return [list(component) for component in key]
+            """Convert a state key tuple to a list for JSON serialization.
+            
+            State key structure (architecture-only or task-aware):
+            - Architecture-only: (activity_vector, role_vector, agent_ids, adjacency_matrix)
+            - Task-aware: (activity_vector, role_vector, agent_ids, adjacency_matrix,
+                          task_category, required_capabilities, difficulty, context_features)
+            """
+            # Convert each component to list
+            result = []
+            for component in key:
+                if isinstance(component, tuple):
+                    # Check if it's a nested tuple (like adjacency matrix or context_features)
+                    if component and isinstance(component[0], (tuple, str, int, float, bool)):
+                        if component and isinstance(component[0], tuple):
+                            # Nested tuples like adjacency matrix: convert each row
+                            result.append([list(row) for row in component])
+                        elif component and isinstance(component[0], (str, int, float, bool)):
+                            # Simple tuple like activity_vector, role_vector, etc.
+                            result.append(list(component))
+                        else:
+                            result.append(list(component))
+                    else:
+                        result.append(list(component))
+                else:
+                    result.append(component)
+            return result
         
         return {
             "default_value": self.default_value,
@@ -331,6 +351,130 @@ class StateEncoder:
         return self.encode(observation)
 
 
+class TaskAwareStateEncoder:
+    """
+    Deterministic task-aware state encoder for tabular Q-learning.
+
+    Extends the architecture state encoding to include task context,
+    making the RL state task-aware. This prepares the foundation for
+    future Meta-RL while remaining ordinary RL.
+
+    The state key captures:
+    1. Architecture state: activity vector, role vector, agent IDs, adjacency matrix
+    2. Task context: task_category, required_capabilities, difficulty, context_features
+
+    This ensures that:
+    - Same architecture + same task → same state key
+    - Different task + same architecture → different state key
+    - Same task + different architecture → different state key
+
+    Attributes
+    ----------
+    None (stateless encoder)
+    """
+
+    def encode(
+        self,
+        observation: Dict,
+        task_context: Optional[MetaTaskContext] = None,
+    ) -> Tuple:
+        """
+        Encode an observation and optional task context into a hashable state key.
+
+        Parameters
+        ----------
+        observation : Dict
+            Observation from ArchitectureStateEncoder.encode().
+        task_context : Optional[MetaTaskContext]
+            Task context to include in the state. If None, uses an empty/default
+            task context for backward compatibility.
+
+        Returns
+        -------
+        Tuple
+            Hashable state key representing the architecture + task state.
+
+        The state key is a tuple of:
+        - activity_vector: tuple of 0/1 for each agent
+        - role_vector: tuple of role strings
+        - agent_ids: tuple of agent ID strings
+        - adjacency_matrix: tuple of tuples representing communication topology
+        - task_category: string (empty string if no task)
+        - required_capabilities: tuple of capability strings
+        - difficulty: int (1-5, default 1 if no task)
+        - context_features: tuple of sorted (key, value) pairs for determinism
+        """
+        # Extract architecture components from observation
+        activity_vector = tuple(observation.get("activity_vector", []))
+        role_vector = tuple(observation.get("role_vector", []))
+        agent_ids = tuple(observation.get("agent_ids", []))
+
+        # Include adjacency matrix as tuple of tuples for hashability
+        adjacency_matrix = observation.get("adjacency_matrix", [])
+        adjacency_tuple = tuple(tuple(row) for row in adjacency_matrix)
+
+        # Extract or default task context components
+        if task_context is not None:
+            task_category = task_context.task_category
+            required_capabilities = tuple(task_context.required_capabilities)
+            difficulty = task_context.difficulty
+            # Convert context_features dict to sorted tuple of pairs for determinism
+            context_features_items = tuple(
+                sorted(task_context.context_features.items())
+            )
+        else:
+            # Default empty task context for backward compatibility
+            task_category = ""
+            required_capabilities = ()
+            difficulty = 1
+            context_features_items = ()
+
+        # Create a composite state key using only hashable components
+        state_key = (
+            activity_vector,
+            role_vector,
+            agent_ids,
+            adjacency_tuple,
+            task_category,
+            required_capabilities,
+            difficulty,
+            context_features_items,
+        )
+
+        return state_key
+
+    def encode_from_env(
+        self,
+        env: MASArchitectureEnv,
+        task_context: Optional[MetaTaskContext] = None,
+    ) -> Tuple:
+        """
+        Convenience method to encode the current environment state.
+
+        Parameters
+        ----------
+        env : MASArchitectureEnv
+            The environment to encode.
+        task_context : Optional[MetaTaskContext]
+            Task context to include. If None, uses environment's task context
+            if available (for MetaEnvironment), otherwise defaults.
+
+        Returns
+        -------
+        Tuple
+            State key for the current architecture + task.
+        """
+        observation = env.encoder.encode()
+
+        # If no task_context provided, try to get from environment
+        if task_context is None:
+            # Check if env has task_context attribute (MetaEnvironment)
+            if hasattr(env, 'task_context'):
+                task_context = env.task_context
+
+        return self.encode(observation, task_context)
+
+
 class QLearningPolicy(BasePolicy):
     """
     Tabular Q-learning policy for architecture adaptation.
@@ -356,8 +500,9 @@ class QLearningPolicy(BasePolicy):
     ----------
     q_table : QTable
         The tabular Q-values.
-    state_encoder : StateEncoder
-        Converts observations to state keys.
+    state_encoder : StateEncoder | TaskAwareStateEncoder
+        Converts observations to state keys. Can be architecture-only or
+        task-aware depending on configuration.
     epsilon : float
         Current exploration rate.
     epsilon_min : float
@@ -381,6 +526,7 @@ class QLearningPolicy(BasePolicy):
         epsilon_decay: float = 0.995,
         default_q_value: float = 0.0,
         seed: Optional[int] = None,
+        task_aware: bool = False,
     ) -> None:
         """
         Initialize the Q-learning policy.
@@ -401,6 +547,9 @@ class QLearningPolicy(BasePolicy):
             Default Q-value for unseen state-action pairs (default: 0.0).
         seed : int, optional
             Random seed for reproducibility.
+        task_aware : bool, optional
+            If True, use task-aware state encoding. If False (default),
+            use architecture-only state encoding for backward compatibility.
         """
         # Validate hyperparameters
         if not (0 < alpha <= 1):
@@ -415,18 +564,24 @@ class QLearningPolicy(BasePolicy):
             raise ValueError(f"epsilon_decay must be in (0, 1], got {epsilon_decay}")
 
         self.q_table = QTable(default_value=default_q_value)
-        self.state_encoder = StateEncoder()
+        # Use task-aware encoder if requested, otherwise use standard encoder
+        if task_aware:
+            self.state_encoder = TaskAwareStateEncoder()
+        else:
+            self.state_encoder = StateEncoder()
         self.alpha = alpha
         self.gamma = gamma
         self.epsilon = epsilon
         self.epsilon_min = epsilon_min
         self.epsilon_decay = epsilon_decay
         self.rng = random.Random(seed)
+        self.task_aware = task_aware
 
     def select_action(
         self,
         observation: Dict,
         valid_action_ids: List[int],
+        task_context: Optional[MetaTaskContext] = None,
     ) -> int:
         """
         Select an action using epsilon-greedy policy.
@@ -437,6 +592,10 @@ class QLearningPolicy(BasePolicy):
             Current architecture observation.
         valid_action_ids : List[int]
             List of currently valid action IDs.
+        task_context : Optional[MetaTaskContext]
+            Task context for task-aware encoding. Only used if policy is
+            configured with task_aware=True. If None and task_aware=True,
+            uses default empty task context.
 
         Returns
         -------
@@ -451,8 +610,11 @@ class QLearningPolicy(BasePolicy):
         if not valid_action_ids:
             raise ValueError("no valid actions available")
 
-        # Encode the current state
-        state_key = self.state_encoder.encode(observation)
+        # Encode the current state (with task context if task-aware)
+        if self.task_aware:
+            state_key = self.state_encoder.encode(observation, task_context)
+        else:
+            state_key = self.state_encoder.encode(observation)
 
         # Epsilon-greedy action selection
         if self.rng.random() < self.epsilon:
@@ -554,7 +716,11 @@ class QLearningPolicy(BasePolicy):
         """
         self.decay_epsilon()
 
-    def get_state_key(self, observation: Dict) -> Tuple:
+    def get_state_key(
+        self,
+        observation: Dict,
+        task_context: Optional[MetaTaskContext] = None,
+    ) -> Tuple:
         """
         Get the state key for an observation.
 
@@ -562,13 +728,19 @@ class QLearningPolicy(BasePolicy):
         ----------
         observation : Dict
             Architecture observation.
+        task_context : Optional[MetaTaskContext]
+            Task context for task-aware encoding. Only used if policy is
+            configured with task_aware=True.
 
         Returns
         -------
         Tuple
             State key.
         """
-        return self.state_encoder.encode(observation)
+        if self.task_aware:
+            return self.state_encoder.encode(observation, task_context)
+        else:
+            return self.state_encoder.encode(observation)
 
     def get_q_value(self, state_key: Tuple, action_id: int) -> float:
         """
@@ -650,27 +822,49 @@ class QLearningPolicy(BasePolicy):
         self.q_table.clear()
         self.q_table.default_value = data.get("default_value", 0.0)
         for entry in data.get("entries", []):
-            # Convert state_key from list back to tuple of tuples
-            # state_key structure can be:
-            #   Old format: [[activity_vector], [role_vector], [agent_ids]]
-            #   New format: [[activity_vector], [role_vector], [agent_ids], [adjacency_matrix]]
-            # Each component is a list that needs to be converted to a tuple
+            # Convert state_key from list back to tuple
+            # State key structure can be:
+            #   Architecture-only: [activity_vector, role_vector, agent_ids, adjacency_matrix]
+            #   Task-aware: [activity_vector, role_vector, agent_ids, adjacency_matrix,
+            #                task_category, required_capabilities, difficulty, context_features]
             state_key_list = entry["state_key"]
             
-            # Convert first three components to tuple
+            # Convert first four components to tuple
             activity_vector = tuple(state_key_list[0])
             role_vector = tuple(state_key_list[1])
             agent_ids = tuple(state_key_list[2])
             
-            # Handle adjacency matrix if present (new format)
+            # Handle adjacency matrix if present
             if len(state_key_list) >= 4 and state_key_list[3]:
-                # Adjacency matrix is list of lists, convert to tuple of tuples
                 adjacency_matrix = tuple(tuple(row) for row in state_key_list[3])
             else:
-                # Default empty adjacency matrix (old format or no topology)
                 adjacency_matrix = ()
             
-            state_key = (activity_vector, role_vector, agent_ids, adjacency_matrix)
+            # Handle task context components if present (task-aware format)
+            if len(state_key_list) >= 8 and state_key_list[4] is not None:
+                task_category = str(state_key_list[4])
+                required_capabilities = tuple(state_key_list[5]) if state_key_list[5] else ()
+                difficulty = int(state_key_list[6]) if state_key_list[6] else 1
+                # Convert context_features from list of pairs back to tuple
+                if state_key_list[7] and len(state_key_list[7]) > 0:
+                    context_features_items = tuple(tuple(pair) for pair in state_key_list[7])
+                else:
+                    context_features_items = ()
+                
+                state_key = (
+                    activity_vector,
+                    role_vector,
+                    agent_ids,
+                    adjacency_matrix,
+                    task_category,
+                    required_capabilities,
+                    difficulty,
+                    context_features_items,
+                )
+            else:
+                # Architecture-only format
+                state_key = (activity_vector, role_vector, agent_ids, adjacency_matrix)
+            
             action_id = entry["action_id"]
             q_value = entry["q_value"]
             self.q_table.set(state_key, action_id, q_value)
