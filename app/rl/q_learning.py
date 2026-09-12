@@ -231,6 +231,28 @@ class QTable:
         """Clear all entries from the Q-table."""
         self.table.clear()
 
+    def num_states(self) -> int:
+        """
+        Return the number of unique states in the Q-table.
+
+        Returns
+        -------
+        int
+            Number of unique state keys.
+        """
+        return len(self.get_all_states())
+
+    def num_state_action_pairs(self) -> int:
+        """
+        Return the number of state-action entries in the Q-table.
+
+        Returns
+        -------
+        int
+            Number of (state, action) pairs with stored Q-values.
+        """
+        return len(self.table)
+
 
 @dataclass
 class StateEncoder:
@@ -271,21 +293,23 @@ class StateEncoder:
         - activity_vector: tuple of 0/1 for each agent
         - role_vector: tuple of role strings
         - agent_ids: tuple of agent ID strings (for identification)
+        - adjacency_matrix: tuple of tuples representing communication topology
 
-        Note: We exclude the adjacency matrix from the state key because
-        the ArchitectureStateEncoder already encodes this information
-        implicitly through the activity_vector and role_vector. The
-        adjacency matrix is deterministic based on the architecture and
-        doesn't need to be part of the state key for Q-learning purposes.
+        All components are included to ensure that equivalent architectures
+        produce identical keys, while different architectures (including
+        different communication topologies) produce different keys.
         """
         # Extract components from observation
         activity_vector = tuple(observation.get("activity_vector", []))
         role_vector = tuple(observation.get("role_vector", []))
         agent_ids = tuple(observation.get("agent_ids", []))
+        
+        # Include adjacency matrix as tuple of tuples for hashability
+        adjacency_matrix = observation.get("adjacency_matrix", [])
+        adjacency_tuple = tuple(tuple(row) for row in adjacency_matrix)
 
         # Create a composite state key using only hashable components
-        # Lists are converted to tuples for hashability
-        state_key = (activity_vector, role_vector, agent_ids)
+        state_key = (activity_vector, role_vector, agent_ids, adjacency_tuple)
 
         return state_key
 
@@ -627,10 +651,26 @@ class QLearningPolicy(BasePolicy):
         self.q_table.default_value = data.get("default_value", 0.0)
         for entry in data.get("entries", []):
             # Convert state_key from list back to tuple of tuples
-            # state_key is [activity_vector, role_vector, agent_ids]
+            # state_key structure can be:
+            #   Old format: [[activity_vector], [role_vector], [agent_ids]]
+            #   New format: [[activity_vector], [role_vector], [agent_ids], [adjacency_matrix]]
             # Each component is a list that needs to be converted to a tuple
             state_key_list = entry["state_key"]
-            state_key = tuple(tuple(component) for component in state_key_list)
+            
+            # Convert first three components to tuple
+            activity_vector = tuple(state_key_list[0])
+            role_vector = tuple(state_key_list[1])
+            agent_ids = tuple(state_key_list[2])
+            
+            # Handle adjacency matrix if present (new format)
+            if len(state_key_list) >= 4 and state_key_list[3]:
+                # Adjacency matrix is list of lists, convert to tuple of tuples
+                adjacency_matrix = tuple(tuple(row) for row in state_key_list[3])
+            else:
+                # Default empty adjacency matrix (old format or no topology)
+                adjacency_matrix = ()
+            
+            state_key = (activity_vector, role_vector, agent_ids, adjacency_matrix)
             action_id = entry["action_id"]
             q_value = entry["q_value"]
             self.q_table.set(state_key, action_id, q_value)

@@ -864,14 +864,11 @@ def test_save_and_load_q_table() -> None:
     import os
 
     policy = QLearningPolicy(seed=42)
+    env = _default_env()
+    env.reset()
 
-    # Use a simple state key that's guaranteed to be hashable
-    # Format: (activity_vector, role_vector, agent_ids)
-    state_key = (
-        (1, 1, 1, 1, 1),
-        ('planning', 'research', 'implementation', 'verification', 'synthesis'),
-        ('planner', 'researcher', 'coder', 'critic', 'finalizer')
-    )
+    # Use a state key from the StateEncoder (includes adjacency matrix)
+    state_key = policy.get_state_key(env.encoder.encode())
     policy.set_q_value(state_key, 0, 1.5)
 
     # Save
@@ -885,7 +882,7 @@ def test_save_and_load_q_table() -> None:
         policy_loaded = QLearningPolicy()
         policy_loaded.load_q_table(temp_path)
 
-        # Verify Q-values match
+        # Verify Q-values match using the same state key format
         loaded_q = policy_loaded.get_q_value(state_key, 0)
         assert loaded_q == pytest.approx(1.5)
     finally:
