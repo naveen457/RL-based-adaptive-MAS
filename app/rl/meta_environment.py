@@ -10,6 +10,7 @@ The MetaEnvironment:
 * Exposes the task context derived from the MetaTask.
 * Combines the architecture observation with the task context into a
   deterministic meta-observation.
+* Optionally integrates task-performance evaluation for task-aware rewards.
 * Preserves the existing environment step/reset behavior.
 * Does NOT call an LLM.
 * Does NOT execute the actual LangGraph workflow.
@@ -39,6 +40,12 @@ Design notes
 
 * The wrapper does not change the action space, reward function, or environment
   dynamics. It only adds task context to the observation.
+
+* Step 21: Task-performance-aware reward integration.
+  When task_performance_weight > 0, the environment computes:
+    - Structural evaluation (Step 9/10)
+    - Task-performance evaluation (Step 20)
+    - Combined reward = structural_delta + weight * task_delta
 
 Meta-RL formulation (repeated for clarity)
 -------------------------------------------
@@ -75,9 +82,13 @@ ArchitectureAction selected through the existing ArchitectureActionMapper.
 
 Reward
 ~~~~~~
-Existing Step 9/10 structural evaluation delta:
-
+Default (task_performance_weight=0.0):
     reward = current.evaluation.overall_score - previous.evaluation.overall_score
+
+Task-aware (task_performance_weight > 0):
+    structural_delta = current.overall_score - previous.overall_score
+    task_delta = current_task_success - previous_task_success
+    combined_reward = structural_delta + task_performance_weight * task_delta
 
 for valid transitions, and INVALID_TRANSITION_PENALTY for invalid transitions.
 
@@ -107,6 +118,7 @@ Limitations
 * The meta-observation is a plain Python dict, not a tensor.
 * No Meta-RL training loops are implemented.
 * The wrapper does not change the underlying environment behavior.
+* Task-performance scores are deterministic compatibility proxies, NOT actual LLM execution.
 """
 
 from __future__ import annotations
@@ -116,6 +128,10 @@ from typing import Any, Dict, Optional, Tuple
 from app.architecture.manager import ArchitectureManager
 from app.rl.environment import MASArchitectureEnv
 from app.rl.meta_task import MetaTask, MetaTaskContext
+from app.evaluation.task_performance import (
+    TaskPerformanceEvaluator,
+    TaskPerformanceResult,
+)
 
 
 class MetaEnvironment:
@@ -145,6 +161,7 @@ class MetaEnvironment:
         role_options: Optional[list[str]] = None,
         max_steps: Optional[int] = None,
         task: Optional[MetaTask] = None,
+        task_performance_weight: float = 0.0,
     ) -> None:
         self._env = MASArchitectureEnv(
             manager,
@@ -153,6 +170,13 @@ class MetaEnvironment:
         )
         self._task: Optional[MetaTask] = None
         self._task_context: Optional[MetaTaskContext] = None
+        self._task_performance_weight = task_performance_weight
+        
+        # Task-performance evaluation components
+        self._task_performance_evaluator = TaskPerformanceEvaluator()
+        self._previous_task_performance: Optional[TaskPerformanceResult] = None
+        self._current_task_performance: Optional[TaskPerformanceResult] = None
+        
         if task is not None:
             self.set_task(task)
 
@@ -174,6 +198,9 @@ class MetaEnvironment:
         """
         self._task = task
         self._task_context = task.to_context()
+        # Reset task-performance evaluations when task changes
+        self._previous_task_performance = None
+        self._current_task_performance = None
 
     def get_task(self) -> Optional[MetaTask]:
         """Return the current task, or None if no task is set."""
@@ -227,6 +254,19 @@ class MetaEnvironment:
 
         architecture_observation, info = self._env.reset()
         meta_observation = self._make_meta_observation(architecture_observation)
+        
+        # Reset task-performance evaluations
+        self._previous_task_performance = None
+        self._current_task_performance = None
+        
+        # Evaluate initial architecture for task performance if task is set
+        if self._task is not None:
+            architecture = self._env.manager.get_architecture()
+            self._current_task_performance = self._task_performance_evaluator.evaluate(
+                self._task, architecture
+            )
+            self._previous_task_performance = self._current_task_performance
+        
         return meta_observation, info
 
     def step(self, action_id: int) -> Tuple[Dict[str, Any], float, bool, bool, Dict[str, Any]]:
@@ -235,6 +275,9 @@ class MetaEnvironment:
         This delegates to the underlying environment's step() and then
         combines the resulting architecture observation with the task context
         (if any) to produce the meta-observation.
+
+        If a task is set and task_performance_weight > 0, the reward is
+        computed as a combined structural + task-performance reward.
 
         Parameters
         ----------
@@ -246,7 +289,7 @@ class MetaEnvironment:
         meta_observation:
             The combined architecture + task context observation.
         reward:
-            Baseline reward for the transition.
+            Baseline reward for the transition (possibly task-aware).
         terminated:
             True when the episode reached a terminal condition.
         truncated:
@@ -254,11 +297,47 @@ class MetaEnvironment:
         info:
             Safe debug information from the underlying environment.
         """
-        architecture_observation, reward, terminated, truncated, info = (
+        # Store previous task performance before step
+        previous_task_perf = self._current_task_performance
+        
+        # Delegate to underlying environment
+        architecture_observation, structural_reward, terminated, truncated, info = (
             self._env.step(action_id)
         )
         meta_observation = self._make_meta_observation(architecture_observation)
-        return meta_observation, reward, terminated, truncated, info
+        
+        # Compute task-aware reward if task is set and weight > 0
+        combined_reward = structural_reward
+        if self._task is not None and self._task_performance_weight > 0:
+            # Evaluate current architecture for task performance
+            architecture = self._env.manager.get_architecture()
+            self._current_task_performance = self._task_performance_evaluator.evaluate(
+                self._task, architecture
+            )
+            
+            # Compute combined reward
+            from app.evaluation.task_performance import TaskPerformanceRewardCalculator
+            task_reward_calc = TaskPerformanceRewardCalculator(
+                task_performance_weight=self._task_performance_weight
+            )
+            combined_reward = task_reward_calc.calculate(
+                previous_result=self._env.current_evaluation,
+                current_result=self._env.current_evaluation,
+                valid_transition=info.get("transition", {}).get("valid", False),
+                previous_task_performance=previous_task_perf,
+                current_task_performance=self._current_task_performance,
+            )
+            
+            # Add task-aware reward info to info dict
+            info["reward"] = task_reward_calc.calculate_with_context(
+                previous_result=self._env.current_evaluation,
+                current_result=self._env.current_evaluation,
+                valid_transition=info.get("transition", {}).get("valid", False),
+                previous_task_performance=previous_task_perf,
+                current_task_performance=self._current_task_performance,
+            )
+        
+        return meta_observation, combined_reward, terminated, truncated, info
 
     # ------------------------------------------------------------------
     # Observation space placeholders
@@ -326,6 +405,26 @@ class MetaEnvironment:
         """Current reward calculator."""
         return self._env.reward_calculator
 
+    @property
+    def task_performance_weight(self) -> float:
+        """Current task-performance weight for combined rewards."""
+        return self._task_performance_weight
+
+    @property
+    def task_performance_evaluator(self) -> TaskPerformanceEvaluator:
+        """Task-performance evaluator."""
+        return self._task_performance_evaluator
+
+    @property
+    def previous_task_performance(self) -> Optional[TaskPerformanceResult]:
+        """Previous task-performance evaluation result."""
+        return self._previous_task_performance
+
+    @property
+    def current_task_performance(self) -> Optional[TaskPerformanceResult]:
+        """Current task-performance evaluation result."""
+        return self._current_task_performance
+
     def get_possible_actions(self) -> list:
         """Return the current valid action set through the manager."""
         return self._env.get_possible_actions()
@@ -341,6 +440,23 @@ class MetaEnvironment:
     def evaluate_architecture(self, architecture: Any) -> Any:
         """Evaluate an architecture using the current evaluator."""
         return self._env.evaluate_architecture(architecture)
+
+    def evaluate_task_performance(self, task: MetaTask, architecture: Any) -> TaskPerformanceResult:
+        """Evaluate task performance for a given task and architecture.
+
+        Parameters
+        ----------
+        task:
+            The MetaTask to evaluate against.
+        architecture:
+            The architecture to evaluate.
+
+        Returns
+        -------
+        TaskPerformanceResult
+            The task-performance evaluation result.
+        """
+        return self._task_performance_evaluator.evaluate(task, architecture)
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -377,3 +493,16 @@ class MetaEnvironment:
             "task_context": task_context_dict,
         }
         return meta_observation
+
+    def _update_task_performance_after_step(self) -> None:
+        """Update task-performance evaluation after a step.
+
+        This is called internally after each step to keep task-performance
+        evaluation current. Normally called automatically in step().
+        """
+        if self._task is not None:
+            architecture = self._env.manager.get_architecture()
+            self._previous_task_performance = self._current_task_performance
+            self._current_task_performance = self._task_performance_evaluator.evaluate(
+                self._task, architecture
+            )
