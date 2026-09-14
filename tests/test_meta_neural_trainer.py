@@ -18,7 +18,9 @@ def _trainer(seed: int = 17) -> MetaNeuralTrainer:
         distribution, train_ratio=0.7, seed=seed
     )
     target = distribution.get_task("task-research-002")
-    training_tasks = [task for task in train.get_tasks() if task.task_id != target.task_id]
+    training_tasks = [
+        task for task in train.get_tasks() if task.task_id != target.task_id
+    ]
     return MetaNeuralTrainer(
         task_distribution=distribution,
         training_tasks=training_tasks[:3],
@@ -93,7 +95,9 @@ def test_target_perturbation_produces_suboptimal_performance() -> None:
     assert "research" in performance.missing_capabilities
 
 
-def test_meta_and_fresh_branches_start_from_equivalent_perturbed_architectures() -> None:
+def test_meta_and_fresh_branches_start_from_equivalent_perturbed_architectures() -> (
+    None
+):
     trainer = _trainer(seed=32)
 
     meta_start = trainer._perturbed_target_architecture()
