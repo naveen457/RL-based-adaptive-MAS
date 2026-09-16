@@ -1,6 +1,6 @@
 from app.config.settings import settings
 from app.architecture.manager import ArchitectureManager
-from app.graph.workflow import run_workflow
+from app.runtime.orchestrator import run_adaptive_runtime
 
 
 def print_architecture():
@@ -118,69 +118,39 @@ def main():
     print(f"LangSmith project: {settings.langchain_project}")
     print()
 
-    # Display architecture
     print_architecture()
 
-    task = "Hi,I am Naveen.What about You?"
+    session_trace = []
+    print("Enter a task, or type 'exit' to stop.")
+    while True:
+        try:
+            task = input("\nUSER TASK> ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\nSession ended.")
+            break
 
-    print(f"TASK: {task}")
-    print("-" * 48)
-    print()
+        if task.lower() == "exit":
+            print(f"Session ended. Traces stored in memory: {len(session_trace)}")
+            break
+        if not task:
+            print("Please enter a task or type 'exit'.")
+            continue
 
-    state = run_workflow(task)
+        try:
+            result = run_adaptive_runtime(task)
+        except Exception as exc:
+            print(f"Runtime error: {type(exc).__name__}: {exc}")
+            continue
 
-    plan = state.get("planner_output")
-    print("PLANNER")
-    print(f"  task_understanding: {plan.task_understanding}")
-    print(f"  requires_research: {plan.requires_research}")
-    print(f"  requires_coding: {plan.requires_coding}")
-    print(f"  requires_verification: {plan.requires_verification}")
-    print(f"  steps: {len(plan.steps)} step(s)")
-    print()
-
-    research = state.get("research_output")
-    if research:
-        print("RESEARCHER")
-        for f in research.findings or []:
-            print(f"  - {f}")
-        print()
-
-    coder = state.get("coder_output")
-    if coder:
-        print("CODER")
-        print(f"  approach: {coder.approach}")
-        print(f"  code:\r{coder.code}")
-        print(f"  explanation: {coder.explanation}")
-        print()
-
-    critic = state.get("critic_output")
-    if critic:
-        print("CRITIC")
-        print(f"  overall_assessment: {critic.overall_assessment}")
-        print(f"  verification_status: {critic.verification_status}")
-        if critic.issues:
-            print(f"  issues:")
-            for i in critic.issues:
-                print(f"    - {i}")
-        if critic.corrections:
-            print(f"  corrections:")
-            for c in critic.corrections:
-                print(f"    - {c}")
-        print()
-
-    final = state.get("final_answer")
-    if final:
-        print("FINALIZER")
-        print(f"  final_answer: {final.final_answer}")
-        if final.key_points:
-            print(f"  key_points:")
-            for k in final.key_points:
-                print(f"    - {k}")
-        if final.limitations:
-            print(f"  limitations:")
-            for l in final.limitations:
-                print(f"    - {l}")
-    print()
+        trace = result.serialize()
+        session_trace.append(trace)
+        print("\nRUNTIME TRACE")
+        print(f"  task: {result.user_task}")
+        print(f"  architecture changed: {result.architecture_changed}")
+        print(f"  accepted actions: {result.accepted_actions}")
+        print(f"  agents invoked: {result.agents_actually_invoked}")
+        print(f"  session trace number: {len(session_trace)}")
+        print(f"  final response: {result.final_response}")
 
 
 if __name__ == "__main__":

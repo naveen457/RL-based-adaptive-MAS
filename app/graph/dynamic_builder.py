@@ -49,21 +49,29 @@ class DynamicGraphBuilder:
         *,
         architecture_version: int = 0,
         architecture_actions: list[dict[str, Any]] | None = None,
+        entry_point: Optional[str] = None,
+        excluded_nodes: Optional[Set[str]] = None,
+        include_finalizer: bool = True,
     ) -> DynamicGraphBuildResult:
         active = set(architecture.active_agent_ids)
-        required = {"planner", "finalizer"}
+        required = {"planner"}
+        if include_finalizer:
+            required.add("finalizer")
         if planner_output.requires_research:
             required.add("researcher")
         if planner_output.requires_coding:
             required.add("coder")
         if planner_output.requires_verification:
             required.add("critic")
-        if planner_output.requires_research or planner_output.requires_coding:
-            required.add("critic")
 
-        graph_nodes = sorted(active & required)
-        if "planner" not in graph_nodes:
-            graph_nodes.insert(0, "planner")
+        raw_nodes = active & required
+        if excluded_nodes:
+            raw_nodes = raw_nodes - excluded_nodes
+
+        graph_nodes = sorted(raw_nodes)
+        actual_entry = entry_point or "planner"
+        if actual_entry not in graph_nodes:
+            graph_nodes.insert(0, actual_entry)
         if not graph_nodes:
             raise ValueError("dynamic graph requires at least one active node")
 
@@ -78,6 +86,13 @@ class DynamicGraphBuilder:
                 and (planner_output.requires_research or planner_output.requires_coding)
             )
         ]
+        if "critic" not in graph_nodes and "finalizer" in graph_nodes:
+            for edge in architecture.communication_edges:
+                if edge.target == "critic" and edge.source in graph_nodes:
+                    bypass_edge = {"source": edge.source, "target": "finalizer"}
+                    if bypass_edge not in configured_edges:
+                        configured_edges.append(bypass_edge)
+
         graph_edges = sorted(
             configured_edges,
             key=lambda edge: (edge["source"], edge["target"]),
@@ -92,7 +107,7 @@ class DynamicGraphBuilder:
         graph = StateGraph(MASState)
         for node in graph_nodes:
             graph.add_node(node, node_handlers[node])
-        graph.set_entry_point("planner")
+        graph.set_entry_point(actual_entry)
 
         outgoing = {edge["source"] for edge in graph_edges}
         for edge in graph_edges:
@@ -106,7 +121,7 @@ class DynamicGraphBuilder:
         metadata = DynamicGraphMetadata(
             graph_nodes=graph_nodes,
             graph_edges=graph_edges,
-            active_agents=sorted(active),
+            active_agents=graph_nodes,
             architecture_version=architecture_version,
             architecture_actions=architecture_actions or [],
             compiled=True,

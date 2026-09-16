@@ -245,7 +245,7 @@ class ArchitectureManager:
             agent = updated.agents[agent_index]
 
             if action.action_type is ActionType.ACTIVATE_AGENT:
-                if agent.active:
+                if agent.active and action.agent_id == "planner":
                     raise ValueError(
                         f"Cannot activate agent '{action.agent_id}': already active"
                     )
