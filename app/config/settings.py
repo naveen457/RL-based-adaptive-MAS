@@ -42,5 +42,11 @@ class Settings(BaseModel):
         "adaptive-mas",
     )
 
+    tavily_api_key: str = os.getenv(
+        "TAVILY_API_KEY",
+        "",
+    )
+
 
 settings = Settings()
+

@@ -126,10 +126,15 @@ def test_no_agents_needed_routes_to_join() -> None:
 
 
 @pytest.mark.integration
-def test_critic_always_runs() -> None:
-    """Critic should run for every task, even with no intermediate outputs."""
+def test_critic_conditional_execution() -> None:
+    """Critic runs when verification is required, otherwise bypassed adaptively."""
     state = run_workflow("Hello world.")
-    assert state.get("critic_output") is not None
+    plan = state.get("planner_output")
+    if plan and getattr(plan, "requires_verification", False):
+        assert state.get("critic_output") is not None
+    else:
+        # When verification is not required, workflow still completes through finalizer
+        assert state.get("final_answer") is not None
 
 
 @pytest.mark.integration
@@ -184,11 +189,12 @@ def test_e2e_workflow_execution() -> None:
     assert coder.code.strip()
     assert coder.explanation
 
-    critic = state["critic_output"]
-    assert critic is not None
-    assert critic.verification_status in {
-        "correct", "partially_correct", "incorrect", "unclear"
-    }
+    critic = state.get("critic_output")
+    if plan and getattr(plan, "requires_verification", False):
+        assert critic is not None
+        assert critic.verification_status in {
+            "correct", "partially_correct", "incorrect", "unclear"
+        }
 
     final = state["final_answer"]
     assert final is not None

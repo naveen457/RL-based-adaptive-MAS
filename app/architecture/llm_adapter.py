@@ -110,15 +110,25 @@ Return only one JSON object with this shape:
 {"decision":"apply_actions|no_change", "reasoning":"short explanation",
  "actions":[{"action_type":"...", ...}]}
 
-Use the planner fields to decide conservatively:
-- requires_research or a research capability should retain/activate researcher.
-- requires_coding or a coding capability should retain/activate coder.
-- requires_verification should retain/activate critic.
-- summarization/synthesis should retain finalizer.
-- simple conversational tasks may use no_change.
+Adapt the architecture towards its minimal sufficient topology (Pareto-optimal efficiency):
+- If planner_output indicates requires_tools is true, or selected_agents contains "tool_executor", or tools_needed is non-empty, or capabilities include "web_search"/"tool_use":
+  * You MUST activate tool_executor: {"action_type": "activate_agent", "agent_id": "tool_executor"}
+  * You MUST deactivate unneeded specialist agents to prevent OVER_ENGINEERED waste:
+    - If requires_research is false: {"action_type": "deactivate_agent", "agent_id": "researcher"}
+    - If requires_coding is false: {"action_type": "deactivate_agent", "agent_id": "coder"}
+    - If requires_verification is false: {"action_type": "deactivate_agent", "agent_id": "critic"}
+- If requires_tools is false and tools/web_search are not needed, deactivate tool_executor if currently active.
+- If requires_research is false and in-depth synthesis is not needed, deactivate researcher if currently active.
+- If requires_coding is false and coding is not needed, deactivate coder if currently active.
+- If requires_verification is false and verification is not needed, deactivate critic if currently active.
+- If requires_research or research capability is needed, retain or activate researcher.
+- If requires_coding or coding capability is needed, retain or activate coder.
+- If requires_verification is needed, retain or activate critic.
+- Always retain planner and finalizer.
 
-Use only these action types: activate_agent, deactivate_agent, add_edge,
-remove_edge, change_role. Every action is validated by the host application.
+You may activate any agent listed in available_registry_agents (e.g. tool_executor).
+Use only these action types: activate_agent, deactivate_agent, add_edge, remove_edge, change_role.
+Every action is validated by the host application.
 For no_change, return decision="no_change" and an empty actions list.
 """
 
@@ -200,16 +210,32 @@ class LLMArchitectureAdapter:
         architecture: Optional[MASArchitecture] = None,
     ) -> List[Dict[str, str]]:
         """Build a typed decision prompt from PlannerOutput and architecture state."""
+        try:
+            from app.agents.registry import default_registry
+            registry_agents = [
+                {
+                    "agent_id": a.agent_id,
+                    "role": a.role,
+                    "description": a.description,
+                    "capabilities": a.capabilities,
+                    "tools": [t.tool_name for t in a.tools],
+                }
+                for a in default_registry.list_agents()
+            ]
+        except Exception:
+            registry_agents = []
 
         current = architecture or self.workflow_adapter.current_architecture()
         user_payload = {
             "planner_output": planner_output.model_dump(mode="json"),
             "current_architecture": current.serialize(),
+            "available_registry_agents": registry_agents,
         }
         return [
             {"role": "system", "content": PLANNER_ARCHITECTURE_SYSTEM_PROMPT},
             {"role": "user", "content": json.dumps(user_payload, sort_keys=True)},
         ]
+
 
     def recommend_from_planner_output(
         self,

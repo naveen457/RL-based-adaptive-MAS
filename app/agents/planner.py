@@ -29,7 +29,7 @@ class PlannerOutput(BaseModel):
     )
     requires_research: bool = Field(
         default=False,
-        description="Whether the task requires gathering external information before acting.",
+        description="Whether the task requires in-depth conceptual synthesis, background context analysis, or structured report writing (do NOT set true for live web search queries).",
     )
     requires_coding: bool = Field(
         default=False,
@@ -39,6 +39,18 @@ class PlannerOutput(BaseModel):
         default=False,
         description="Whether the result should be verified/critiqued before finalising.",
     )
+    requires_tools: bool = Field(
+        default=False,
+        description="Whether the task requires live external tools (e.g. web_search for real-time/current/trending events, or calculator for math).",
+    )
+    tools_needed: List[str] = Field(
+        default_factory=list,
+        description="List of specific tool names needed from tool_executor (e.g. ['web_search'], ['calculator']).",
+    )
+    selected_agents: List[str] = Field(
+        default_factory=list,
+        description="List of agent IDs selected from the registry to execute this plan.",
+    )
     estimated_complexity: str = Field(
         default="medium",
         description="Rough complexity estimate: trivial | low | medium | high | unknown.",
@@ -46,25 +58,55 @@ class PlannerOutput(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# System prompt
+# Dynamic System Prompt Generator
 # ---------------------------------------------------------------------------
 
-SYSTEM_PROMPT = """\
+def get_planner_system_prompt(registry: Optional[Any] = None) -> str:
+    """Generate dynamic planner system prompt containing all currently registered nodes and tools."""
+    try:
+        from app.agents.registry import default_registry
+        reg = registry or default_registry
+        registry_summary = reg.to_prompt_summary()
+    except Exception:
+        registry_summary = ""
+
+    return f"""\
 You are the Planner agent in an adaptive multi-agent system.
 
-Your job is to decompose the user's task into a clear, executable plan that later
+Your job is to decompose the user's task into a clear, executable plan that downstream
 agent nodes can follow. Do not execute any steps yourself — only produce the plan.
 
-Think carefully about:
-- What the user actually wants (restate it concisely).
-- Which capabilities are needed (research, coding, math, data analysis, etc.).
-- The ordered sequence of steps to complete the task.
-- Whether the task requires external research, code, or verification/criticism.
-- A rough complexity estimate (trivial, low, medium, high, or unknown).
+{registry_summary}
+
+ROUTING AND TOOL SELECTION RULES:
+1. DISTINGUISHING TOOL_EXECUTOR VS RESEARCHER & TOOL SELECTION:
+   - "web_search":
+     * If the task asks for "current trends", "current events", "trending topics", "latest updates", "recent news", "live info", or real-time facts:
+       - You MUST set requires_tools: true.
+       - You MUST include "tool_executor" in selected_agents.
+       - You MUST include "web_search" in tools_needed.
+       - Include "web_search" and "tool_use" in required_capabilities.
+     * CRITICAL RULE: Queries about "current trends", "current events", or "latest news" do NOT require the calendar date. Do NOT include "get_current_date" for these queries.
+   - "get_current_date":
+     * ONLY use when the task explicitly asks what calendar date, day of the week, month, year, or clock time it is right now (e.g. "what is today's date?", "what time is it?", "tell me today's date").
+     * Set requires_tools: true, selected_agents: ["planner", "tool_executor", "finalizer"], tools_needed: ["get_current_date"].
+   - "calculator":
+     * ONLY use if the task requires mathematical or arithmetic calculations.
+     * Set requires_tools: true, include "tool_executor" in selected_agents, include "calculator" in tools_needed.
+
+   - Only set requires_research: true if deep conceptual synthesis or in-depth document writing is needed in addition to or instead of live search.
+2. If the task requires writing or modifying code: set requires_coding: true and include "coder" in selected_agents.
+3. If the task requires quality critique/verification: set requires_verification: true and include "critic" in selected_agents.
+4. For simple greetings or conversational replies: requires_research: false, requires_coding: false, requires_verification: false, requires_tools: false, and selected_agents: ["planner", "finalizer"].
+5. Always list the exact agent IDs needed in selected_agents.
+6. Provide ordered imperative steps and complexity estimate.
 
 Output a single JSON object matching the schema. Do not include any extra text,
 explanations, or commentary outside the JSON object.
 """
+
+SYSTEM_PROMPT = get_planner_system_prompt()
+
 
 
 # ---------------------------------------------------------------------------
@@ -139,8 +181,9 @@ class Planner:
         Returns:
             PlannerOutput with the decomposition.
         """
+        sys_prompt = get_planner_system_prompt()
         messages = [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": sys_prompt},
             {"role": "user", "content": task},
         ]
         return self.structured_llm.invoke(messages)

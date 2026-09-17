@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.agents.planner import PlannerOutput
 from app.architecture.models import MASArchitecture
-from app.graph.state import MASState
+from app.graph.state import ExtendedMASState, MASState
 
 NodeHandler = Callable[[MASState], Dict[str, Any]]
 
@@ -63,6 +63,16 @@ class DynamicGraphBuilder:
             required.add("coder")
         if planner_output.requires_verification:
             required.add("critic")
+        if "tool_executor" in active and (
+            "tool_use" in planner_output.required_capabilities
+            or "web_search" in planner_output.required_capabilities
+            or "tools" in planner_output.required_capabilities
+            or any(
+                e.source == "tool_executor" or e.target == "tool_executor"
+                for e in architecture.communication_edges
+            )
+        ):
+            required.add("tool_executor")
 
         raw_nodes = active & required
         if excluded_nodes:
@@ -83,7 +93,7 @@ class DynamicGraphBuilder:
             and not (
                 edge.source == "planner"
                 and edge.target == "finalizer"
-                and (planner_output.requires_research or planner_output.requires_coding)
+                and (planner_output.requires_research or planner_output.requires_coding or "tool_executor" in graph_nodes)
             )
         ]
         if "critic" not in graph_nodes and "finalizer" in graph_nodes:
@@ -92,6 +102,11 @@ class DynamicGraphBuilder:
                     bypass_edge = {"source": edge.source, "target": "finalizer"}
                     if bypass_edge not in configured_edges:
                         configured_edges.append(bypass_edge)
+
+        if "tool_executor" in graph_nodes and "finalizer" in graph_nodes:
+            has_outgoing = any(e["source"] == "tool_executor" for e in configured_edges)
+            if not has_outgoing:
+                configured_edges.append({"source": "tool_executor", "target": "finalizer"})
 
         graph_edges = sorted(
             configured_edges,
@@ -104,7 +119,7 @@ class DynamicGraphBuilder:
                 f"missing handlers for dynamic graph nodes: {missing_handlers}"
             )
 
-        graph = StateGraph(MASState)
+        graph = StateGraph(ExtendedMASState)
         for node in graph_nodes:
             graph.add_node(node, node_handlers[node])
         graph.set_entry_point(actual_entry)

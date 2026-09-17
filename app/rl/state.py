@@ -49,10 +49,16 @@ class ArchitectureStateEncoder:
     into a Gymnasium/NumPy/JAX representation as needed.
     """
 
-    def __init__(self, architecture: MASArchitecture) -> None:
-        self._architecture = architecture
-        self._agent_ids: List[str] = sorted(architecture.agent_ids)
-        self._role_map: Dict[str, str] = architecture.role_map
+    def __init__(self, architecture: Any) -> None:
+        if hasattr(architecture, "get_architecture"):
+            arch = architecture.get_architecture()
+        else:
+            arch = architecture
+        if isinstance(arch, dict):
+            arch = MASArchitecture.model_validate(arch)
+        self._architecture = arch
+        self._agent_ids: List[str] = sorted(arch.agent_ids)
+        self._role_map: Dict[str, str] = arch.role_map
 
     # ------------------------------------------------------------------
     # Public encoding API

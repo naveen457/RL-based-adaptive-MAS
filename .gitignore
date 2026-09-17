@@ -1,5 +1,6 @@
 .venv/
 .env
+runs/
 __pycache__/
 *.pyc
 .pytest_cache/
@@ -18,3 +19,4 @@ build/
 # OS metadata
 Thumbs.db
 .DS_Store
+ROADMAP.md

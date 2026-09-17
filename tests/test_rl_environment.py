@@ -823,3 +823,69 @@ def test_end_to_end_add_edge_then_change_role_then_reset() -> None:
     # Reset must restore the initial evaluation too.
     assert env.current_evaluation.architecture_id == initial_evaluation.architecture_id
     assert env.current_evaluation.task_success_score is None
+
+
+# ---------------------------------------------------------------------------
+# Theoretical Architecture Evaluator & Multi-Objective Reward Integration
+# ---------------------------------------------------------------------------
+
+def test_env_with_theoretical_evaluator_and_multiobjective_reward() -> None:
+    from app.evaluation.theoretical_evaluator import TheoreticalArchitectureEvaluator
+    from app.evaluation.reward import MultiObjectiveRewardCalculator
+
+    evaluator = TheoreticalArchitectureEvaluator()
+    reward_calc = MultiObjectiveRewardCalculator(simplification_bonus=0.25)
+    env = MASArchitectureEnv(
+        _default_manager(),
+        evaluator=evaluator,
+        reward_calculator=reward_calc,
+        required_capabilities=["coding"],
+    )
+
+    obs, info = env.reset()
+    assert isinstance(obs, dict)
+    assert hasattr(env.current_evaluation, "pareto")
+    assert "theoretical_evaluation" in info
+    assert info["theoretical_evaluation"]["coverage_score"] == 1.0
+
+    # Pruning surplus researcher should trigger a simplification bonus
+    deactivate_researcher = ArchitectureAction(
+        action_type=ActionType.DEACTIVATE_AGENT,
+        agent_id="researcher",
+    )
+    action_id = env.encode_action(deactivate_researcher)
+    _, reward, _, _, step_info = env.step(action_id)
+
+    assert reward > 0.0
+    assert "theoretical_evaluation" in step_info
+    assert step_info["theoretical_evaluation"]["coverage_score"] == 1.0
+    assert "researcher" not in env.manager.get_architecture().active_agent_ids
+
+
+def test_env_with_theoretical_evaluator_coverage_drop_penalty() -> None:
+    from app.evaluation.theoretical_evaluator import TheoreticalArchitectureEvaluator
+    from app.evaluation.reward import MultiObjectiveRewardCalculator
+
+    evaluator = TheoreticalArchitectureEvaluator()
+    reward_calc = MultiObjectiveRewardCalculator(coverage_drop_penalty=0.35)
+    env = MASArchitectureEnv(
+        _default_manager(),
+        evaluator=evaluator,
+        reward_calculator=reward_calc,
+        required_capabilities=["coding"],
+    )
+
+    env.reset()
+    # Deactivating coder drops required capability "coding"
+    deactivate_coder = ArchitectureAction(
+        action_type=ActionType.DEACTIVATE_AGENT,
+        agent_id="coder",
+    )
+    action_id = env.encode_action(deactivate_coder)
+    _, reward, _, _, step_info = env.step(action_id)
+
+    # Should receive a negative penalty for dropping task coverage
+    assert reward < 0.0
+    assert step_info["theoretical_evaluation"]["coverage_score"] == 0.0
+
+

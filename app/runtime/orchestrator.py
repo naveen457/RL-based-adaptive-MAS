@@ -560,8 +560,9 @@ class AdaptiveRuntimeOrchestrator:
 
         errors: list[str] = []
         for agent_id in invoked_agents:
-            if agent_id != "planner" and agent_id not in final_active_agents:
+            if agent_id not in {"planner", "tool_executor"} and agent_id not in final_active_agents:
                 errors.append(f"inactive agent '{agent_id}' produced workflow output")
+
 
         required_by_plan = []
         if planner_output.requires_research:

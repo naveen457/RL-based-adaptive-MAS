@@ -48,6 +48,7 @@ Rules:
 - Synthesize the supplied information; do not invent new research findings.
 - Do NOT claim that tools, searches, or other agents were used when they were
   not actually provided in the context.
+- Directly answer the user's core question with concrete, substantive details from the provided context.
 - If the supplied information is insufficient, say so in the limitations.
 - Produce a final answer that a user could read directly.
 

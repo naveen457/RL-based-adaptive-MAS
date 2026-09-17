@@ -62,6 +62,7 @@ ROLE_CAPABILITY_MAP: Dict[str, Set[str]] = {
     "implementation": {"coding", "implementation"},
     "verification": {"verification", "testing", "analysis"},
     "synthesis": {"synthesis", "summarization"},
+    "tool_execution": {"tool_use", "web_search", "external_api"},
 }
 
 

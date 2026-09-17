@@ -118,8 +118,11 @@ class ArchitectureManager:
     control LangGraph execution.
     """
 
-    def __init__(self, architecture: MASArchitecture) -> None:
-        self._architecture = architecture
+    def __init__(self, architecture: MASArchitecture | Dict[str, Any]) -> None:
+        if isinstance(architecture, dict):
+            self._architecture = MASArchitecture.model_validate(architecture)
+        else:
+            self._architecture = architecture
 
     # ------------------------------------------------------------------
     # Factory
@@ -250,6 +253,16 @@ class ArchitectureManager:
                         f"Cannot activate agent '{action.agent_id}': already active"
                     )
                 updated.agents[agent_index] = agent.model_copy(update={"active": True})
+                if action.agent_id == "tool_executor":
+                    edge_keys = {(e.source, e.target) for e in updated.communication_edges}
+                    if ("planner", "tool_executor") not in edge_keys:
+                        updated.communication_edges.append(
+                            CommunicationEdge(source="planner", target="tool_executor")
+                        )
+                    if ("tool_executor", "finalizer") not in edge_keys:
+                        updated.communication_edges.append(
+                            CommunicationEdge(source="tool_executor", target="finalizer")
+                        )
 
             elif action.action_type is ActionType.DEACTIVATE_AGENT:
                 if not agent.active:
@@ -387,6 +400,24 @@ class ArchitectureManager:
         for index, agent in enumerate(architecture.agents):
             if agent.agent_id == agent_id:
                 return index
+
+        # Dynamically discover and attach agents registered in default_registry
+        try:
+            from app.agents.registry import default_registry
+            spec = default_registry.get(agent_id)
+            if spec is not None:
+                new_agent = AgentDefinition(
+                    agent_id=spec.agent_id,
+                    role=spec.role,
+                    description=spec.description,
+                    capabilities=list(spec.capabilities),
+                    active=False,
+                )
+                architecture.agents.append(new_agent)
+                return len(architecture.agents) - 1
+        except Exception:
+            pass
+
         raise ValueError(f"Unknown agent '{agent_id}'")
 
     @classmethod

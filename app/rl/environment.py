@@ -43,7 +43,11 @@ from app.architecture.actions import ActionType
 from app.rl.action_space import ArchitectureActionMapper
 from app.rl.state import ArchitectureStateEncoder
 from app.evaluation.evaluator import ArchitectureEvaluator, EvaluationResult
-from app.evaluation.reward import RewardCalculator
+from app.evaluation.reward import RewardCalculator, MultiObjectiveRewardCalculator
+from app.evaluation.theoretical_evaluator import (
+    TheoreticalArchitectureEvaluator,
+    ComprehensiveArchitectureEvaluation,
+)
 
 
 class MASArchitectureEnv:
@@ -60,6 +64,14 @@ class MASArchitectureEnv:
     max_steps:
         Maximum number of architecture transitions per episode. After this
         many steps the episode is truncated. If None, use a default of 50.
+    evaluator:
+        Optional architecture evaluator (ArchitectureEvaluator or TheoreticalArchitectureEvaluator).
+        Defaults to ArchitectureEvaluator().
+    reward_calculator:
+        Optional reward calculator (RewardCalculator or MultiObjectiveRewardCalculator).
+        Defaults to RewardCalculator().
+    required_capabilities:
+        Optional list of capabilities required for the task.
     """
 
     DEFAULT_MAX_STEPS = 50
@@ -69,6 +81,9 @@ class MASArchitectureEnv:
         manager: ArchitectureManager,
         role_options: Optional[List[str]] = None,
         max_steps: Optional[int] = None,
+        evaluator: Optional[ArchitectureEvaluator | TheoreticalArchitectureEvaluator] = None,
+        reward_calculator: Optional[RewardCalculator | MultiObjectiveRewardCalculator] = None,
+        required_capabilities: Optional[List[str]] = None,
     ) -> None:
         if max_steps is None:
             max_steps = self.DEFAULT_MAX_STEPS
@@ -83,16 +98,19 @@ class MASArchitectureEnv:
 
         self._role_options = list(role_options) if role_options is not None else None
         self._max_steps = max_steps
+        self._required_capabilities = list(required_capabilities) if required_capabilities is not None else None
 
         # Episode state
         self._step_count = 0
         self._terminated = False
         self._truncated = False
 
-        # Evaluation and reward integration (Step 9).
-        self._evaluator = ArchitectureEvaluator()
-        self._reward_calculator = RewardCalculator()
-        self._current_evaluation: EvaluationResult | None = None
+        # Evaluation and reward integration.
+        self._evaluator = evaluator if evaluator is not None else ArchitectureEvaluator()
+        self._reward_calculator = (
+            reward_calculator if reward_calculator is not None else RewardCalculator()
+        )
+        self._current_evaluation: EvaluationResult | ComprehensiveArchitectureEvaluation | None = None
 
         # Rebuild derived artifacts from the current architecture.
         self._rebuild()
@@ -206,7 +224,7 @@ class MASArchitectureEnv:
         )
 
         if transition_result.get("valid"):
-            self._current_evaluation = self._evaluator.evaluate(self._manager.get_architecture())
+            self._current_evaluation = self.evaluate_architecture(self._manager.get_architecture())
 
         terminated = self._terminated
         truncated = self._truncated
@@ -224,7 +242,7 @@ class MASArchitectureEnv:
         underlying architecture.
         """
         architecture = self._manager.get_architecture()
-        self._current_evaluation = self._evaluator.evaluate(architecture)
+        self._current_evaluation = self.evaluate_architecture(architecture)
 
     def _rebuild(self) -> None:
         """Rebuild encoder and action mapping from the current architecture."""
@@ -246,8 +264,6 @@ class MASArchitectureEnv:
     ) -> Dict[str, Any]:
         """Build a safe info dict for logging/debugging."""
         architecture = self._manager.get_architecture()
-        architecture = self._manager.get_architecture()
-        architecture = self._manager.get_architecture()
         info: Dict[str, Any] = {
             "architecture_id": architecture.architecture_id,
             "architecture_version": self._adaptive.version(),
@@ -263,25 +279,45 @@ class MASArchitectureEnv:
         if transition_result is not None:
             info["transition"] = transition_result
 
-        # Attach Step 9 evaluation information safely.
+        # Attach evaluation information safely.
         evaluation = self._current_evaluation
         if evaluation is None:
             return info
 
-        current_score = self._evaluator.evaluate(architecture).overall_score
+        current_eval = self.evaluate_architecture(architecture)
+        current_score = current_eval.overall_score
         info["evaluation"] = {
-            "architecture_id": evaluation.architecture_id,
-            "architecture_version": evaluation.architecture_version,
-            "previous_score": evaluation.overall_score,
+            "architecture_id": getattr(current_eval, "architecture_id", architecture.architecture_id),
+            "architecture_version": getattr(current_eval, "architecture_version", self._adaptive.version()),
+            "previous_score": getattr(evaluation, "overall_score", 0.0),
             "current_score": current_score,
-            "validity_score": evaluation.validity_score,
-            "efficiency_score": evaluation.efficiency_score,
-            "communication_cost": evaluation.communication_cost,
-            "active_agent_count": evaluation.active_agent_count,
-            "edge_count": evaluation.edge_count,
+            "validity_score": getattr(current_eval, "validity_score", 1.0),
+            "efficiency_score": getattr(
+                current_eval,
+                "efficiency_score",
+                getattr(getattr(current_eval, "topology", None), "topological_efficiency", 0.0),
+            ),
+            "communication_cost": getattr(
+                current_eval,
+                "communication_cost",
+                getattr(current_eval, "edge_count", 0),
+            ),
+            "active_agent_count": architecture.active_agent_count,
+            "edge_count": getattr(current_eval, "edge_count", len(architecture.communication_edges)),
             "overall_score": current_score,
-            "task_success_score": evaluation.task_success_score,
+            "task_success_score": getattr(current_eval, "task_success_score", None),
         }
+
+        if hasattr(current_eval, "pareto"):
+            info["theoretical_evaluation"] = {
+                "classification": current_eval.pareto.classification,
+                "net_utility": current_eval.pareto.net_utility,
+                "coverage_score": current_eval.alignment.coverage_score,
+                "surplus_agents": current_eval.alignment.surplus_agents,
+                "has_cycles": current_eval.topology.has_cycles,
+                "detected_cycles": current_eval.topology.detected_cycles,
+                "critical_path_length": current_eval.topology.critical_path_length,
+            }
         return info
 
     def _apply_action(self, action: ArchitectureAction, *, action_id: int) -> Dict[str, Any]:
@@ -337,33 +373,34 @@ class MASArchitectureEnv:
             "action_id": action_id,
         }
 
-    def evaluate_architecture(self, architecture: MASArchitecture) -> EvaluationResult:
+    def evaluate_architecture(self, architecture: MASArchitecture) -> Any:
         """Evaluate *architecture* using the current evaluator.
 
-        This is a small public helper for tests and for callers that want
-        direct access to the Step 9 evaluator without going through a step.
+        This delegates to either ArchitectureEvaluator or TheoreticalArchitectureEvaluator.
         """
+        if isinstance(self._evaluator, TheoreticalArchitectureEvaluator):
+            return self._evaluator.evaluate(
+                architecture,
+                required_capabilities=self._required_capabilities,
+            )
         return self._evaluator.evaluate(architecture)
 
     def _compute_reward(self, transition_result: Dict[str, Any]) -> float:
-        """Compute the reward using the Step 9 RewardCalculator.
+        """Compute the reward using the configured RewardCalculator.
 
         On a valid transition this evaluates the current architecture and
         computes the evaluation delta against the previous evaluation stored
         in the environment. On an invalid/rejected transition it uses the
         RewardCalculator invalid-transition penalty.
-
-        The reward formula itself lives in app/evaluation/reward.py; this
-        environment only delegates to it.
         """
         previous = self._current_evaluation
         if previous is None:
             # Should not happen in normal use after reset, but keep this
             # defensive so the environment remains robust.
-            previous = self._evaluator.evaluate(self._manager.get_architecture())
+            previous = self.evaluate_architecture(self._manager.get_architecture())
             self._current_evaluation = previous
 
-        current = self._evaluator.evaluate(self._manager.get_architecture())
+        current = self.evaluate_architecture(self._manager.get_architecture())
         valid_transition = bool(transition_result.get("valid"))
         reward = self._reward_calculator.calculate(
             previous_result=previous,
@@ -448,17 +485,17 @@ class MASArchitectureEnv:
     # ------------------------------------------------------------------
 
     @property
-    def evaluator(self) -> ArchitectureEvaluator:
+    def evaluator(self) -> ArchitectureEvaluator | TheoreticalArchitectureEvaluator:
         """Current architecture evaluator."""
         return self._evaluator
 
     @property
-    def reward_calculator(self) -> RewardCalculator:
+    def reward_calculator(self) -> RewardCalculator | MultiObjectiveRewardCalculator:
         """Current reward calculator."""
         return self._reward_calculator
 
     @property
-    def current_evaluation(self) -> EvaluationResult:
+    def current_evaluation(self) -> Any:
         """Current architecture evaluation result.
 
         This is set after reset and updated after successful transitions.
@@ -467,3 +504,8 @@ class MASArchitectureEnv:
         if self._current_evaluation is None:
             raise RuntimeError("current evaluation has not been initialized; call reset()")
         return self._current_evaluation
+
+    @property
+    def required_capabilities(self) -> Optional[List[str]]:
+        """Optional list of capabilities required by the task."""
+        return self._required_capabilities

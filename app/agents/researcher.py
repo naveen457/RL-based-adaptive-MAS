@@ -117,18 +117,22 @@ class Researcher:
 
         return cls(model=llm, structured_llm=structured_llm)
 
-    def research(self, task: str) -> ResearcherOutput:
+    def research(self, task: str, supporting_context: Optional[str] = None) -> ResearcherOutput:
         """Research *task* and return a structured report.
 
         Args:
             task: The research question or task description.
+            supporting_context: Optional external context or tool execution results.
 
         Returns:
             ResearcherOutput with findings and evidence.
         """
+        user_content = task
+        if supporting_context:
+            user_content = f"Research Query: {task}\n\nExternal Context / Live Search Results:\n{supporting_context}"
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": task},
+            {"role": "user", "content": user_content},
         ]
         return self.structured_llm.invoke(messages)
 

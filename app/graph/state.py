@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TypedDict, Optional
+from typing import Any, Optional, TypedDict
 
 from app.agents.critic import CriticOutput
 from app.agents.coder import CoderOutput
@@ -34,3 +34,11 @@ class MASState(TypedDict, total=False):
     # Built by the graph from the available agent outputs so the Finalizer
     # receives a single readable block rather than raw state keys.
     aggregated_context: str
+
+
+class ExtendedMASState(MASState, total=False):
+    """Extended state supporting tool calling and dynamic node extensions."""
+
+    tool_output: Any
+    tool_calls: list[dict[str, Any]]
+
