@@ -162,6 +162,26 @@ class MetricsLogger:
 
         return log_record
 
+    def log_reward(
+        self,
+        *,
+        step: int,
+        r_arch: float,
+        r_resp: float,
+        total_reward: float,
+        components: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Log dual-objective reward signals to TensorBoard."""
+        if self._writer is not None:
+            self._writer.add_scalar("Reward/Total", total_reward, step)
+            self._writer.add_scalar("Reward/Architecture", r_arch, step)
+            self._writer.add_scalar("Reward/ResponseQuality", r_resp, step)
+            if components:
+                for k, v in components.items():
+                    if isinstance(v, (int, float)):
+                        self._writer.add_scalar(f"RewardComponents/{k}", float(v), step)
+            self._writer.flush()
+
     def close(self) -> None:
         """Flush and close all writer handles."""
         if self._writer is not None:

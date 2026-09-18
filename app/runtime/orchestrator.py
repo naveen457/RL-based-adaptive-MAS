@@ -117,6 +117,7 @@ class DynamicGraphExecutionResult(BaseModel):
     rejected_actions_list: list[Dict[str, Any]] = Field(default_factory=list)
     thread_id: str = "thread-1"
     messages: list[Dict[str, Any]] = Field(default_factory=list)
+    tools_executed: list[str] = Field(default_factory=list)
 
     @property
     def agents_actually_invoked(self) -> list[str]:
@@ -464,6 +465,14 @@ class AdaptiveRuntimeOrchestrator:
             if raw_messages:
                 self.thread_store.sync_thread(thread_id, raw_messages)
             serialized_messages = [serialize_message(m) for m in raw_messages]
+
+            raw_tool_output = state.get("tool_output", []) if isinstance(state, dict) else []
+            tools_called: list[str] = []
+            if isinstance(raw_tool_output, list):
+                for t in raw_tool_output:
+                    if isinstance(t, dict) and "tool_name" in t:
+                        tools_called.append(t["tool_name"])
+
             return DynamicGraphExecutionResult(
                 task=user_task,
                 planner_output=plan_output_dict,
@@ -487,6 +496,7 @@ class AdaptiveRuntimeOrchestrator:
                 rejected_actions_list=rejected_actions_list,
                 thread_id=thread_id,
                 messages=serialized_messages,
+                tools_executed=tools_called,
             )
 
         # ------------------------------------------------------------------
@@ -711,6 +721,11 @@ class AdaptiveRuntimeOrchestrator:
                 if isinstance(final_state, dict)
                 else []
             ),
+            tools_executed=[
+                t.get("tool_name")
+                for t in (final_state.get("tool_output", []) if isinstance(final_state, dict) else [])
+                if isinstance(t, dict) and "tool_name" in t
+            ],
         )
         if isinstance(final_state, dict) and final_state.get("messages"):
             self.thread_store.sync_thread(thread_id, final_state.get("messages", []))

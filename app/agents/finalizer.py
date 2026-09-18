@@ -33,13 +33,23 @@ class FinalizerOutput(BaseModel):
 # System prompt
 # ---------------------------------------------------------------------------
 
-def get_finalizer_system_prompt() -> str:
+def get_finalizer_system_prompt(registry: Optional[Any] = None) -> str:
     """Generate dynamic finalizer system prompt containing all registered specialist capabilities and tools."""
     try:
         from app.agents.registry import default_registry
-        registry_summary = default_registry.to_prompt_summary()
+        reg = registry or default_registry
+        registry_summary = reg.to_prompt_summary()
+        agent_names = [f"'{a.agent_id}'" for a in reg.list_agents()]
+        tool_names = []
+        for a in reg.list_agents():
+            for t in a.tools:
+                tool_names.append(f"'{t.tool_name}'")
+        agents_str = ", ".join(sorted(agent_names))
+        tools_str = ", ".join(sorted(tool_names))
     except Exception:
         registry_summary = ""
+        agents_str = "registered agents"
+        tools_str = "registered tools"
 
     return f"""\
 You are the Finalizer agent in an adaptive multi-agent system.
@@ -58,7 +68,7 @@ Guidelines:
 2. Ground your response in the provided tool and agent outputs. If tool results (such as live date/time, search results, or calculations) are present in the supporting information, integrate those factual results into your answer.
 3. Maintain conversational continuity across multi-turn interactions. If prior conversation history includes the user's name, previous preferences, questions, or context, directly incorporate and acknowledge it to personalize your answer.
 4. If the user asks about available tools, system capabilities, or what this system can do:
-   - Accurately describe the multi-agent system and its registered tools (e.g. 'web_search', 'calculator', 'get_current_date') and specialist agents ('planner', 'researcher', 'coder', 'critic', 'finalizer').
+   - Accurately describe the multi-agent system and its currently registered tools ({tools_str}) and specialist agents ({agents_str}) dynamically present in the registry.
    - Note: Structured schema formatters (such as FinalizerOutput or ResearcherOutput) are internal response data models, not tools.
 5. If no external tools were invoked, answer using your comprehensive knowledge without inventing false citations or claiming external tools were used.
 6. Provide clear, well-structured explanations with actionable key points.

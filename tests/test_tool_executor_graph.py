@@ -68,3 +68,149 @@ def test_tool_disambiguation_prunes_date_on_trends_query():
     assert len(tool_trace) == 1
     assert "web_search" in tool_trace[0].output
     assert "get_current_date" not in tool_trace[0].output
+
+
+def test_multi_tool_execution_with_context_chaining():
+    """Verify that multiple tools execute together and pass context from date tool to search tool."""
+    mock_tool_executor = MagicMock()
+    executed_tools = []
+    executed_queries = []
+
+    def mock_execute(tool_name, kwargs):
+        executed_tools.append(tool_name)
+        res = MagicMock()
+        if tool_name == "get_current_date":
+            res.status = "success"
+            res.result = {"current_date": "2026-09-19", "year": 2026}
+            res.serialize.return_value = {"tool_name": "get_current_date", "result": res.result}
+        else:
+            res.status = "success"
+            executed_queries.append(kwargs.get("query"))
+            res.result = [{"title": "BRICS 2026 Outcome", "content": "18th summit concluded"}]
+            res.serialize.return_value = {"tool_name": "web_search", "result": res.result}
+        return res
+
+    mock_tool_executor.execute = mock_execute
+    mock_tool_executor.registered_tools = {"web_search", "get_current_date", "calculator"}
+
+    executor = ExistingLLMAgentExecutor(
+        finalizer_factory=lambda: MagicMock(finalize=lambda original_task, supporting_info: "final"),
+        tool_executor_factory=lambda: mock_tool_executor,
+    )
+
+    task = "explain what happened at the 18th BRICS summit today"
+    planner_out = PlannerOutput(
+        task_understanding="find live outcome of 18th BRICS summit",
+        required_capabilities=["web_search", "tool_use"],
+        requires_tools=True,
+        tools_needed=["web_search", "get_current_date"],
+        selected_agents=["planner", "tool_executor", "finalizer"],
+    )
+    arch = ArchitectureManager.create_default_architecture().get_architecture()
+
+    res = executor.execute(task, planner_out, arch)
+    tool_trace = [rec for rec in res.execution_trace if rec.agent_id == "tool_executor"]
+    assert len(tool_trace) == 1
+
+    # Both tools must execute
+    assert "get_current_date" in executed_tools
+    assert "web_search" in executed_tools
+
+    # Priority order: get_current_date must run before web_search
+    assert executed_tools.index("get_current_date") < executed_tools.index("web_search")
+
+    # Tool-to-tool communication: web_search must receive the 2026 year context
+    assert len(executed_queries) > 0
+    assert "2026" in executed_queries[0]
+
+
+def test_multi_tool_automatic_temporal_expansion():
+    """Even if planner only specifies ['web_search'], temporal queries automatically include get_current_date."""
+    mock_tool_executor = MagicMock()
+    executed_tools = []
+    executed_queries = []
+
+    def mock_execute(tool_name, kwargs):
+        executed_tools.append(tool_name)
+        res = MagicMock()
+        if tool_name == "get_current_date":
+            res.status = "success"
+            res.result = {"current_date": "2026-09-19", "year": 2026}
+            res.serialize.return_value = {"tool_name": "get_current_date", "result": res.result}
+        else:
+            res.status = "success"
+            executed_queries.append(kwargs.get("query"))
+            res.result = [{"title": "Live Summit News", "content": "Ongoing discussions"}]
+            res.serialize.return_value = {"tool_name": "web_search", "result": res.result}
+        return res
+
+    mock_tool_executor.execute = mock_execute
+    mock_tool_executor.registered_tools = {"web_search", "get_current_date", "calculator"}
+
+    executor = ExistingLLMAgentExecutor(
+        finalizer_factory=lambda: MagicMock(finalize=lambda original_task, supporting_info: "final"),
+        tool_executor_factory=lambda: mock_tool_executor,
+    )
+
+    # Prompt with temporal signal 'latest', but planner only emitted 'web_search'
+    task = "find the latest summit developments today"
+    planner_out = PlannerOutput(
+        task_understanding="find latest summit developments",
+        required_capabilities=["web_search"],
+        requires_tools=True,
+        tools_needed=["web_search"],  # Only 1 tool specified by planner
+        selected_agents=["planner", "tool_executor", "finalizer"],
+    )
+    arch = ArchitectureManager.create_default_architecture().get_architecture()
+
+    res = executor.execute(task, planner_out, arch)
+
+    # Both tools must execute due to automatic temporal grounding
+    assert "get_current_date" in executed_tools
+    assert "web_search" in executed_tools
+    assert executed_tools.index("get_current_date") < executed_tools.index("web_search")
+    assert any("2026" in q for q in executed_queries)
+
+
+def test_multi_tool_loop_with_calculation():
+    """Verify 3-tool sequential execution with calculator when math intent is present."""
+    mock_tool_executor = MagicMock()
+    executed_tools = []
+
+    def mock_execute(tool_name, kwargs):
+        executed_tools.append(tool_name)
+        res = MagicMock()
+        res.status = "success"
+        if tool_name == "get_current_date":
+            res.result = {"current_date": "2026-09-19", "year": 2026}
+        elif tool_name == "calculator":
+            res.result = 42
+        else:
+            res.result = "search results"
+        res.serialize.return_value = {"tool_name": tool_name, "result": res.result}
+        return res
+
+    mock_tool_executor.execute = mock_execute
+    mock_tool_executor.registered_tools = {"web_search", "get_current_date", "calculator"}
+
+    executor = ExistingLLMAgentExecutor(
+        finalizer_factory=lambda: MagicMock(finalize=lambda original_task, supporting_info: "final"),
+        tool_executor_factory=lambda: mock_tool_executor,
+    )
+
+    task = "find latest oil price today and calculate the 10% tax"
+    planner_out = PlannerOutput(
+        task_understanding="find price and calculate tax",
+        required_capabilities=["web_search", "tool_use"],
+        requires_tools=True,
+        tools_needed=["web_search"],
+        selected_agents=["planner", "tool_executor", "finalizer"],
+    )
+    arch = ArchitectureManager.create_default_architecture().get_architecture()
+
+    res = executor.execute(task, planner_out, arch)
+
+    # All 3 synergistic tools must execute in topological order
+    assert executed_tools == ["get_current_date", "web_search", "calculator"]
+
+

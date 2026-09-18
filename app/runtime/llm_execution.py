@@ -77,6 +77,135 @@ class ExistingLLMAgentExecutor:
         supporting_outputs: Dict[str, Any] = {}
 
         # 1. Execute tools first if tool need is detected
+    def _resolve_tools_to_run(self, task: str, requested_tools: list[str]) -> list[str]:
+        """Dynamically resolve and expand tools needed for the task, ensuring multi-tool synergies."""
+        tools = list(requested_tools or [])
+        if not tools:
+            tools = ["web_search"]
+
+        q_lower = task.lower()
+        is_pure_trend = any(t in q_lower for t in ["trend", "treand"]) and not any(
+            w in q_lower for w in ["today", "year", "date", "time", "clock", "now", "recent", "latest", "summit"]
+        )
+
+        # Prune date only for pure generic trend searches without temporal indicator
+        if is_pure_trend:
+            tools = [t for t in tools if t not in {"get_current_date", "date", "time"}]
+        else:
+            # Temporal grounding: if search is requested or query has temporal intent, include get_current_date
+            temporal_signals = ["today", "current", "latest", "recent", "now", "date", "time", "year", "summit", "events", "this year"]
+            if any(w in q_lower for w in temporal_signals):
+                if not any(t in tools for t in ["get_current_date", "date", "time"]):
+                    tools.append("get_current_date")
+
+        # News / search grounding: if date is requested and query also asks for news/events/search
+        if any(w in q_lower for w in ["news", "search", "summit", "happened", "event", "headline", "outcome", "what is", "tell me about"]):
+            if "web_search" not in tools:
+                tools.append("web_search")
+
+        # Computational grounding: if query contains math/calculation intent
+        if any(w in q_lower for w in ["calculate", "math", "sum", "average", "multiply", "divide", "%", "compute", "difference"]):
+            if "calculator" not in tools:
+                tools.append("calculator")
+
+        # Priority sort: temporal tools (1) -> search tools (2) -> calculator (3)
+        priority_map = {
+            "get_current_date": 1,
+            "date": 1,
+            "time": 1,
+            "web_search": 2,
+            "retriever": 2,
+            "calculator": 3,
+        }
+        return sorted(list(dict.fromkeys(tools)), key=lambda t: priority_map.get(t, 2))
+
+    def _execute_tool_workflow(
+        self,
+        task: str,
+        requested_tools: list[str],
+        executor: Any,
+        explicit_tool_calls: Optional[list[dict[str, Any]]] = None,
+    ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+        """Execute a multi-tool workflow with tool-to-tool communication and dynamic cyclic looping."""
+        if explicit_tool_calls:
+            results = [r.serialize() for r in executor.execute_calls(explicit_tool_calls)]
+            outputs = {r.get("tool_name", f"tool_{i}"): r for i, r in enumerate(results)}
+            return outputs, results
+
+        tools_to_run = self._resolve_tools_to_run(task, requested_tools)
+        tool_outputs: dict[str, Any] = {}
+        serialized_results: list[dict[str, Any]] = []
+        accumulated_tool_context: dict[str, Any] = {}
+        executed_tool_set: set[str] = set()
+
+        max_iterations = 3
+        iteration = 0
+
+        while tools_to_run and iteration < max_iterations:
+            iteration += 1
+            t_name = tools_to_run.pop(0)
+            if t_name in executed_tool_set:
+                continue
+            executed_tool_set.add(t_name)
+
+            if t_name in {"get_current_date", "date", "time"}:
+                res = executor.execute("get_current_date", {})
+                ser = res.serialize()
+                tool_outputs["get_current_date"] = ser
+                serialized_results.append(ser)
+                if res.status == "success" and isinstance(res.result, dict):
+                    accumulated_tool_context["current_date"] = res.result.get("current_date")
+                    accumulated_tool_context["year"] = res.result.get("year")
+            elif t_name == "calculator":
+                calc_expr = task
+                res = executor.execute("calculator", {"expression": calc_expr})
+                ser = res.serialize()
+                tool_outputs["calculator"] = ser
+                serialized_results.append(ser)
+                if res.status == "success":
+                    accumulated_tool_context["calculation_result"] = res.result
+            elif t_name == "web_search":
+                search_query = task
+                # Tool-to-tool context communication: enrich query with discovered live date if temporal query
+                if "current_date" in accumulated_tool_context:
+                    curr_yr = str(accumulated_tool_context.get("year", ""))
+                    temporal_signals = ["latest", "current", "recent", "today", "now", "summit", "events", "this year"]
+                    if any(w in task.lower() for w in temporal_signals):
+                        if curr_yr and curr_yr not in search_query:
+                            search_query = f"{task} {curr_yr}"
+                res = executor.execute("web_search", {"query": search_query})
+                ser = res.serialize()
+                tool_outputs["web_search"] = ser
+                serialized_results.append(ser)
+                if res.status == "success":
+                    accumulated_tool_context["search_findings"] = res.result
+            elif t_name in executor.registered_tools:
+                res = executor.execute(t_name, {"query": task, "context": accumulated_tool_context})
+                ser = res.serialize()
+                tool_outputs[t_name] = ser
+                serialized_results.append(ser)
+            else:
+                res = executor.execute("web_search", {"query": task})
+                ser = res.serialize()
+                tool_outputs["web_search"] = ser
+                serialized_results.append(ser)
+
+        return tool_outputs, serialized_results
+
+    def execute(
+        self,
+        task: str,
+        planner_output: PlannerOutput,
+        architecture: MASArchitecture,
+        conversation_history: Optional[str] = None,
+    ) -> LLMExecutionResult:
+        """Run the active agents in topological order and collect their outputs."""
+
+        active_agents = set(architecture.active_agent_ids)
+        supporting_outputs: Dict[str, Any] = {}
+        trace: list[AgentExecutionRecord] = []
+
+        # 1. Tool execution (dedicated tool_executor node)
         requires_tools = getattr(planner_output, "requires_tools", False)
         tools_needed = list(getattr(planner_output, "tools_needed", []) or [])
         selected_agents = list(getattr(planner_output, "selected_agents", []) or [])
@@ -93,29 +222,7 @@ class ExistingLLMAgentExecutor:
         tool_outputs = {}
         if has_tool_need:
             executor = self.tool_executor_factory()
-            if not tools_needed:
-                tools_needed = ["web_search"]
-
-            # Disambiguation: if both web_search and get_current_date were selected, but date/time not in query, prune date
-            if "web_search" in tools_needed and "get_current_date" in tools_needed:
-                q_lower = task.lower()
-                if not any(w in q_lower for w in ["date", "time", "clock"]):
-                    tools_needed = [t for t in tools_needed if t not in {"get_current_date", "date", "time"}]
-
-            for t_name in tools_needed:
-                if t_name in {"get_current_date", "date", "time"}:
-                    res = executor.execute("get_current_date", {})
-                    tool_outputs["get_current_date"] = res.serialize()
-                elif t_name == "calculator":
-                    res = executor.execute("calculator", {"expression": task})
-                    tool_outputs["calculator"] = res.serialize()
-                elif t_name in executor.registered_tools:
-                    res = executor.execute(t_name, {"query": task})
-                    tool_outputs[t_name] = res.serialize()
-                else:
-                    res = executor.execute("web_search", {"query": task})
-                    tool_outputs["web_search"] = res.serialize()
-
+            tool_outputs, _ = self._execute_tool_workflow(task, tools_needed, executor)
             supporting_outputs["tool_executor"] = tool_outputs
             trace.append(self._completed("tool_executor", tool_outputs))
         elif "tool_executor" in active_agents:
@@ -256,30 +363,13 @@ class ExistingLLMAgentExecutor:
             event("started", "tool_executor")
             tool_calls = state.get("tool_calls")
             executor = self.tool_executor_factory()
-            results = []
-            if tool_calls:
-                results = [r.serialize() for r in executor.execute_calls(tool_calls)]
-            else:
-                tools_to_run = list(getattr(planner_output, "tools_needed", []) or [])
-                if not tools_to_run:
-                    tools_to_run = ["web_search"]
-
-                # Disambiguation: if both web_search and get_current_date were selected, but date/time not in query, prune date
-                if "web_search" in tools_to_run and "get_current_date" in tools_to_run:
-                    q_lower = task.lower()
-                    if not any(w in q_lower for w in ["date", "time", "clock"]):
-                        tools_to_run = [t for t in tools_to_run if t not in {"get_current_date", "date", "time"}]
-
-                for t_name in tools_to_run:
-                    if t_name in {"get_current_date", "date", "time"}:
-                        res = executor.execute("get_current_date", {})
-                    elif t_name == "calculator":
-                        res = executor.execute("calculator", {"expression": task})
-                    elif t_name in executor.registered_tools:
-                        res = executor.execute(t_name, {"query": task})
-                    else:
-                        res = executor.execute("web_search", {"query": task})
-                    results.append(res.serialize())
+            tools_to_run = list(getattr(planner_output, "tools_needed", []) or [])
+            _, results = self._execute_tool_workflow(
+                task,
+                tools_to_run,
+                executor,
+                explicit_tool_calls=tool_calls,
+            )
             event("completed", "tool_executor")
             tool_summary = json.dumps(results, default=str)
             return {

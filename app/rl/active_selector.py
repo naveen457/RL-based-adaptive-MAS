@@ -63,8 +63,9 @@ class RLArchitectureSelector:
         """Derive a deterministic MetaTaskContext from PlannerOutput."""
         req_caps = list(planner_output.required_capabilities or [])
         tools_needed = list(planner_output.tools_needed or [])
-        if "web_search" in tools_needed and "web_search" not in req_caps:
-            req_caps.append("web_search")
+        for t in tools_needed:
+            if t not in req_caps:
+                req_caps.append(t)
         if getattr(planner_output, "requires_research", False) and "research" not in req_caps:
             req_caps.append("research")
         if getattr(planner_output, "requires_coding", False) and "coding" not in req_caps:
@@ -72,7 +73,7 @@ class RLArchitectureSelector:
         if getattr(planner_output, "requires_verification", False) and "verification" not in req_caps:
             req_caps.append("verification")
 
-        if "web_search" in req_caps or "tool_use" in req_caps:
+        if bool(tools_needed) or "web_search" in req_caps or "tool_use" in req_caps or getattr(planner_output, "requires_tools", False):
             cat = "tool_use"
         elif "coding" in req_caps:
             cat = "coding"

@@ -241,3 +241,128 @@ class MultiObjectiveRewardCalculator:
             "notes": notes or "",
         }
 
+
+# ---------------------------------------------------------------------------
+# Decoupled Dual-Objective Reward Calculator (Architecture vs. Response)
+# ---------------------------------------------------------------------------
+
+class DualObjectiveRewardCalculator:
+    """Decoupled reward calculator balancing Architecture Efficiency (R_arch) with Response Quality (R_resp).
+    
+    Prevents reward hacking where strong LLMs output correct answers despite bloated topologies
+    or redundant tools, while ensuring topologies missing necessary tools/nodes are heavily penalized.
+    """
+
+    def __init__(
+        self,
+        *,
+        missing_capability_penalty: float = 0.40,
+        unnecessary_tool_penalty: float = 0.35,
+        surplus_agent_penalty: float = 0.25,
+        parsimony_bonus: float = 0.30,
+        human_approval_reward: float = 0.50,
+        human_rejection_penalty: float = 0.60,
+    ) -> None:
+        self.missing_capability_penalty = missing_capability_penalty
+        self.unnecessary_tool_penalty = unnecessary_tool_penalty
+        self.surplus_agent_penalty = surplus_agent_penalty
+        self.parsimony_bonus = parsimony_bonus
+        self.human_approval_reward = human_approval_reward
+        self.human_rejection_penalty = human_rejection_penalty
+
+    def calculate(
+        self,
+        *,
+        required_capabilities: list[str],
+        active_agents: list[str],
+        invoked_agents: list[str],
+        tools_executed: list[str],
+        coverage_score: float,
+        missing_capabilities: list[str],
+        surplus_agents: list[str],
+        user_feedback: Optional[str] = None,
+        final_response: Any = None,
+    ) -> Dict[str, Any]:
+        """Compute decoupled architecture and response rewards.
+        
+        Returns:
+            Dict with total_reward, r_arch, r_resp, component breakdowns, and explanations.
+        """
+        # 1. Architecture Reward (R_arch)
+        # Missing capabilities penalty: task needed a capability that graph failed to provide
+        missing_pen = -self.missing_capability_penalty * len(missing_capabilities) if missing_capabilities else 0.0
+
+        # Unnecessary tools penalty: tool was run whose capability was not required
+        tool_to_cap = {
+            "web_search": "web_search",
+            "calculator": "math",
+            "get_current_date": "web_search",
+            "code_interpreter": "coding",
+            "retriever": "research",
+        }
+        unnecessary_tools = []
+        for t in tools_executed:
+            cap = tool_to_cap.get(t, t)
+            if cap not in required_capabilities:
+                unnecessary_tools.append(t)
+        tool_pen = -self.unnecessary_tool_penalty * len(unnecessary_tools)
+
+        # Surplus agent penalty: nodes active that were not required
+        surplus_pen = -self.surplus_agent_penalty * len(surplus_agents) if surplus_agents else 0.0
+
+        # Parsimony bonus: minimal sufficient topology with 0 waste
+        parsimony = 0.0
+        if len(missing_capabilities) == 0 and len(surplus_agents) == 0 and len(unnecessary_tools) == 0:
+            parsimony = self.parsimony_bonus
+
+        # 2. Response Quality Reward (R_resp) and Human-Directed Feedback
+        human_choice = str(user_feedback or "").strip().lower()
+        if human_choice in {"y", "perfect", "p"}:
+            r_resp = self.human_approval_reward
+            resp_reason = "Human confirmed PERFECT execution & answer (+0.50)"
+            if len(missing_capabilities) == 0 and len(surplus_agents) == 0 and len(unnecessary_tools) == 0:
+                parsimony += 0.15  # Extra precision bonus for verified minimal topology
+        elif human_choice in {"over", "o"}:
+            r_resp = 0.10  # Answer was usable, but topology was bloated
+            surplus_pen -= 0.40  # Direct architectural penalty for over-provisioning
+            resp_reason = "Human flagged OVER-USED topology: unnecessary tools or redundant nodes (-0.40)"
+        elif human_choice in {"under", "u"}:
+            r_resp = -0.30  # Answer was deficient due to missing nodes
+            missing_pen -= 0.50  # Direct architectural penalty for under-provisioning
+            resp_reason = "Human flagged UNDER-USED topology: missing essential nodes or tools (-0.50)"
+        elif human_choice in {"n", "bad", "no"}:
+            r_resp = -self.human_rejection_penalty
+            resp_reason = "Human rejected task answer (-0.60)"
+        else:
+            # Automated verification without human bias
+            if missing_capabilities:
+                r_resp = -0.30
+                resp_reason = "Automated evaluation: necessary capabilities missing (-0.30)"
+            elif final_response is None or (isinstance(final_response, dict) and not final_response.get("final_answer")):
+                r_resp = -0.40
+                resp_reason = "Automated evaluation: empty or invalid final answer (-0.40)"
+            else:
+                r_resp = 0.20
+                resp_reason = "Automated evaluation: complete execution and capability satisfaction (+0.20)"
+
+        r_arch = round(coverage_score + missing_pen + tool_pen + surplus_pen + parsimony, 4)
+        total_reward = round(r_arch + r_resp, 4)
+
+        return {
+            "total_reward": total_reward,
+            "r_arch": r_arch,
+            "r_resp": r_resp,
+            "components": {
+                "coverage_score": round(coverage_score, 4),
+                "missing_capability_penalty": round(missing_pen, 4),
+                "unnecessary_tool_penalty": round(tool_pen, 4),
+                "surplus_agent_penalty": round(surplus_pen, 4),
+                "parsimony_bonus": round(parsimony, 4),
+            },
+            "unnecessary_tools": unnecessary_tools,
+            "missing_capabilities": missing_capabilities,
+            "surplus_agents": surplus_agents,
+            "response_reason": resp_reason,
+        }
+
+

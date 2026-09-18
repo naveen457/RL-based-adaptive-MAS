@@ -299,13 +299,33 @@ def main():
             if getattr(result, "is_instant_rl", False)
             else f"LLM Adapter ({getattr(result, 'decision_source', 'llm')})"
         )
+        tools_executed = getattr(result, "tools_executed", [])
+        missing_list = logged.get("missing_capabilities", [])
+        surplus_list = logged.get("surplus_agents", [])
+        tool_to_cap = {"web_search": "web_search", "calculator": "math", "get_current_date": "web_search"}
+        unnecessary_tools_preview = [t for t in tools_executed if tool_to_cap.get(t, t) not in req_caps]
+
+        if missing_list:
+            util_status = f"UNDER-USED (Missing: {', '.join(missing_list)})"
+        elif surplus_list or unnecessary_tools_preview:
+            over_items = []
+            if surplus_list:
+                over_items.append(f"surplus nodes: {', '.join(surplus_list)}")
+            if unnecessary_tools_preview:
+                over_items.append(f"unneeded tools: {', '.join(unnecessary_tools_preview)}")
+            util_status = f"OVER-USED ({'; '.join(over_items)})"
+        else:
+            util_status = "PERFECT (Optimal Minimal DAG - All required capabilities satisfied without bloat)"
+
         print("\nEXECUTION SUMMARY:")
         print(f"  * Thread ID:            {getattr(result, 'thread_id', 'thread-1')} ({len(getattr(result, 'messages', []))} messages queued)")
         print(f"  * Architecture Version: v{result.architecture_version}")
         print(f"  * Decision Engine:      {decision_engine_str}")
-        print(f"  * RL Self-Evaluation:   {rl_classification}")
+        print(f"  * Topology Status:      {util_status}")
         print(f"  * Architecture Changed: {arch_changed}")
         print(f"  * Agents Invoked:       {', '.join(result.agents_actually_invoked)}")
+        if tools_executed:
+            print(f"  * Tools Executed:       {', '.join(tools_executed)}")
         print(f"  * Critical Path:        {logged['critical_path_length']} nodes")
         print(f"  * Capability Coverage:  {logged['coverage_score'] * 100:.1f}%")
         if logged.get("missing_capabilities"):
@@ -322,31 +342,63 @@ def main():
             print(final_resp)
         print("-" * 50)
 
-        # 5. Interactive Human Feedback (RLHF Verification)
+        # 5. Interactive Human Feedback & Decoupled Dual-Objective Reward Calculation
         print(f"\n[HUMAN VERIFICATION & RLHF]")
-        print(f"  * RL Architecture Status: [{rl_classification}]")
-        if logged.get("surplus_agents"):
-            print(f"    (Topology has surplus agents: {', '.join(logged['surplus_agents'])}; adapt/prune to reach OPTIMAL)")
-        print(f"  * Agents Invoked:         [{', '.join(invoked)}]")
+        print(f"  * Detected Topology:    [{util_status}]")
+        print(f"  * Agents Invoked:       [{', '.join(invoked)}]")
+        if tools_executed:
+            print(f"  * Tools Executed:       [{', '.join(tools_executed)}]")
 
-        print("  Did the system solve your task well?")
-        print("    [y] Yes, good execution & answer (Rewards RL agent +0.5)")
-        print("    [n] No, bad execution or wrong answer (Penalizes RL agent -0.5)")
-        print("    [Enter] Accept RL internal evaluation without human bias")
+        print("\n  Evaluate the execution & architecture:")
+        print("    [p] or [y]     - PERFECT: minimal sufficient nodes and accurate answer (+0.5 reward)")
+        print("    [over] or [o]  - OVER-USED: answer is okay, but used unneeded tools or redundant nodes (-0.4 arch penalty)")
+        print("    [under] or [u] - UNDER-USED: missing necessary tools or agents needed for the task (-0.5 arch penalty)")
+        print("    [n]            - FAILED: wrong answer or poor execution (-0.6 penalty)")
+        print("    [Enter]        - Accept automated verification without human bias")
         try:
-            user_choice = input("  Your choice (y/n/Enter): ").strip().lower()
+            user_choice = input("  Your choice (p/over/under/n/Enter): ").strip().lower()
         except (EOFError, KeyboardInterrupt):
             user_choice = ""
 
-        human_reward = 0.0
-        if user_choice == "y":
-            human_reward = 0.5
-            print("  [Feedback] +0.5 reward bonus applied (user approved task solution).")
-        elif user_choice == "n":
-            human_reward = -0.5
-            print("  [Feedback] -0.5 penalty applied (user rejected task solution).")
-        else:
-            print("  [Feedback] Accepted RL self-evaluation tag without human bias.")
+        from app.evaluation.reward import DualObjectiveRewardCalculator
+        dual_calc = DualObjectiveRewardCalculator()
+        reward_info = dual_calc.calculate(
+            required_capabilities=req_caps,
+            active_agents=[a["agent_id"] for a in final_arch.get("agents", []) if a.get("active")],
+            invoked_agents=invoked,
+            tools_executed=tools_executed,
+            coverage_score=logged.get("coverage_score", 1.0),
+            missing_capabilities=logged.get("missing_capabilities", []),
+            surplus_agents=logged.get("surplus_agents", []),
+            user_feedback=user_choice,
+            final_response=result.final_response,
+        )
+
+        step_reward = reward_info["total_reward"]
+        comps = reward_info["components"]
+
+        print(f"\n[DUAL-OBJECTIVE REWARD BREAKDOWN]")
+        print(f"  * Architecture Reward (R_arch):     {reward_info['r_arch']:+.4f}")
+        print(f"    - Capability Coverage:             {comps['coverage_score'] * 100:.1f}%")
+        if comps['missing_capability_penalty'] != 0.0:
+            print(f"    - Missing Capability Penalty:      {comps['missing_capability_penalty']:+.4f} (missing: {', '.join(reward_info['missing_capabilities'])})")
+        if comps['unnecessary_tool_penalty'] != 0.0:
+            print(f"    - Unnecessary Tools Penalty:       {comps['unnecessary_tool_penalty']:+.4f} (unused tools: {', '.join(reward_info['unnecessary_tools'])})")
+        if comps['surplus_agent_penalty'] != 0.0:
+            print(f"    - Surplus Agents Penalty:          {comps['surplus_agent_penalty']:+.4f} (surplus: {', '.join(reward_info['surplus_agents'])})")
+        if comps['parsimony_bonus'] != 0.0:
+            print(f"    - Parsimony / Minimal DAG Bonus:    {comps['parsimony_bonus']:+.4f} (100% minimal sufficient)")
+        print(f"  * Response Quality Reward (R_resp):    {reward_info['r_resp']:+.4f} [{reward_info['response_reason']}]")
+        print(f"  => NET STEP REWARD FOR Q-TABLE:       {step_reward:+.4f}")
+
+        # Log dual rewards to TensorBoard
+        logger.log_reward(
+            step=step_counter,
+            r_arch=reward_info["r_arch"],
+            r_resp=reward_info["r_resp"],
+            total_reward=step_reward,
+            components=comps,
+        )
 
         # 6. Update Q-learning policy with transition & persist to disk
         try:
@@ -372,7 +424,6 @@ def main():
             obs_final = ArchitectureStateEncoder(final_arch_obj).encode()
             next_state_key = q_policy.get_state_key(obs_final, task_ctx)
 
-            step_reward = logged.get("net_utility", 0.0) + human_reward
             chosen_action_id = result.action_ids[0] if getattr(result, "action_ids", None) else 0
 
             q_policy.update(

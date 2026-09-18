@@ -103,34 +103,48 @@ Do not invent agents, roles, or fields. The host application validates every
 action before applying it.
 """
 
-PLANNER_ARCHITECTURE_SYSTEM_PROMPT = """You convert an existing PlannerOutput into a typed
-architecture decision for an existing multi-agent architecture.
+def get_planner_architecture_system_prompt(registry: Optional[Any] = None) -> str:
+    """Generate dynamic architecture adaptation prompt derived completely from the registry using loops."""
+    try:
+        from app.agents.registry import default_registry
+        reg = registry or default_registry
+    except Exception:
+        reg = None
 
-Return only one JSON object with this shape:
-{"decision":"apply_actions|no_change", "reasoning":"short explanation",
- "actions":[{"action_type":"...", ...}]}
+    lines = [
+        "You convert an existing PlannerOutput into a typed architecture decision for an existing multi-agent architecture.",
+        "",
+        'Return only one JSON object with this shape:',
+        '{"decision":"apply_actions|no_change", "reasoning":"short explanation", "actions":[{"action_type":"...", ...}]}',
+        "",
+        "### Dynamic Adaptation Directives (Minimal Sufficient Topology):",
+        "- Inspect the PlannerOutput's required_capabilities, selected_agents, and tools_needed.",
+        "- Minimal Sufficient Topology: Every active specialist node must directly fulfill a requirement in PlannerOutput.",
+    ]
 
-Adapt the architecture towards its minimal sufficient topology (Pareto-optimal efficiency):
-- If planner_output indicates requires_tools is true, or selected_agents contains "tool_executor", or tools_needed is non-empty, or capabilities include "web_search"/"tool_use":
-  * You MUST activate tool_executor: {"action_type": "activate_agent", "agent_id": "tool_executor"}
-  * You MUST deactivate unneeded specialist agents to prevent OVER_ENGINEERED waste:
-    - If requires_research is false: {"action_type": "deactivate_agent", "agent_id": "researcher"}
-    - If requires_coding is false: {"action_type": "deactivate_agent", "agent_id": "coder"}
-    - If requires_verification is false: {"action_type": "deactivate_agent", "agent_id": "critic"}
-- If requires_tools is false and tools/web_search are not needed, deactivate tool_executor if currently active.
-- If requires_research is false and in-depth synthesis is not needed, deactivate researcher if currently active.
-- If requires_coding is false and coding is not needed, deactivate coder if currently active.
-- If requires_verification is false and verification is not needed, deactivate critic if currently active.
-- If requires_research or research capability is needed, retain or activate researcher.
-- If requires_coding or coding capability is needed, retain or activate coder.
-- If requires_verification is needed, retain or activate critic.
-- Always retain planner and finalizer.
+    if reg is not None:
+        lines.append("\nRegistered Agents in the system to consider:")
+        for agent in reg.list_agents():
+            lines.append(f"- '{agent.agent_id}' (role: {agent.role}): {agent.description}")
+            if agent.capabilities:
+                lines.append(f"  Capabilities: {', '.join(agent.capabilities)}")
+            if agent.tools:
+                tool_list = ", ".join(f"`{t.tool_name}`" for t in agent.tools)
+                lines.append(f"  Hosts tools: {tool_list}")
 
-You may activate any agent listed in available_registry_agents (e.g. tool_executor).
-Use only these action types: activate_agent, deactivate_agent, add_edge, remove_edge, change_role.
-Every action is validated by the host application.
-For no_change, return decision="no_change" and an empty actions list.
-"""
+    lines.extend([
+        "",
+        "Rules for Adapting:",
+        "- If an agent is in selected_agents, or its capability/tool is needed, activate it: {\"action_type\": \"activate_agent\", \"agent_id\": \"<agent_id>\"}.",
+        "- If an agent is currently active but neither its role nor its capability is needed, deactivate it to prevent over-engineering waste: {\"action_type\": \"deactivate_agent\", \"agent_id\": \"<agent_id>\"}.",
+        "- Always maintain workflow continuity from entry to terminal synthesis.",
+        "- Use only valid action types: activate_agent, deactivate_agent, add_edge, remove_edge, change_role.",
+        "- For no_change, return decision='no_change' and actions=[].",
+    ])
+    return "\n".join(lines)
+
+
+PLANNER_ARCHITECTURE_SYSTEM_PROMPT = get_planner_architecture_system_prompt()
 
 
 class LLMArchitectureAdapter:

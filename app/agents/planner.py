@@ -62,50 +62,71 @@ class PlannerOutput(BaseModel):
 # ---------------------------------------------------------------------------
 
 def get_planner_system_prompt(registry: Optional[Any] = None) -> str:
-    """Generate dynamic planner system prompt containing all currently registered nodes and tools."""
+    """Generate dynamic planner system prompt derived completely from the dynamic registry using loops."""
     try:
         from app.agents.registry import default_registry
         reg = registry or default_registry
-        registry_summary = reg.to_prompt_summary()
     except Exception:
-        registry_summary = ""
+        reg = None
 
-    return f"""\
-You are the Planner agent in an adaptive multi-agent system.
+    lines = [
+        "You are the Planner agent in an adaptive multi-agent system.",
+        "Your role is to decompose the user's task into a minimal, precise, and executable plan",
+        "that downstream specialist agents and tools can execute. Do not execute any task steps yourself.",
+        "",
+        "### Available System Capabilities and Registered Nodes:",
+    ]
 
-Your job is to decompose the user's task into a clear, executable plan that downstream
-specialist agents and tools can execute. Do not execute any task steps yourself — only produce the structured plan.
+    cognitive_agents = []
+    tool_nodes = []
 
-{registry_summary}
+    if reg is not None:
+        for agent in reg.list_agents():
+            if agent.agent_id == "planner":
+                continue
+            if agent.node_type == "tool_executor" or bool(agent.tools):
+                tool_nodes.append(agent)
+            else:
+                cognitive_agents.append(agent)
 
-PLANNING & ROUTING GUIDELINES:
-1. EXTERNAL TOOLS & CAPABILITIES:
-   - Tool Execution (`tool_executor`):
-     * Set `requires_tools: true` and include `"tool_executor"` in `selected_agents` whenever the task needs external live data, real-time factual lookups, current calendar/clock time, or calculation.
-     * Populate `tools_needed` with the specific tool name(s) from the registry:
-       - `"get_current_date"`: For current date, time, weekday, month, or year queries.
-       - `"calculator"`: For arithmetic, mathematical calculations, or numerical evaluations.
-       - `"web_search"`: For live web search, current news, recent developments, real-world factual information, or external search retrieval.
-     * Include `"tool_use"` and specific tool names (e.g. `"web_search"`) in `required_capabilities`.
+    if tool_nodes:
+        lines.append("\n#### Tool-Calling Nodes & Registered External Tools:")
+        for node in tool_nodes:
+            lines.append(f"- **{node.agent_id}** ({node.role}): {node.description}")
+            if node.capabilities:
+                lines.append(f"  * Node capabilities: {', '.join(node.capabilities)}")
+            if node.tools:
+                lines.append("  * Available Tools on this node:")
+                for tool in node.tools:
+                    param_str = ", ".join(f"{k}: {v}" for k, v in tool.parameters.items())
+                    lines.append(f"    - `{tool.tool_name}({param_str})`: {tool.description}")
 
-2. SPECIALIST COGNITIVE AGENTS:
-   - `"researcher"`: Set `requires_research: true` and include `"researcher"` in `selected_agents` when the task requires in-depth conceptual synthesis, background context analysis, or structured report writing.
-   - `"coder"`: Set `requires_coding: true` and include `"coder"` in `selected_agents` when the task involves writing, explaining, modifying, or debugging programming code.
-   - `"critic"`: Set `requires_verification: true` and include `"critic"` in `selected_agents` when the task benefits from rigorous verification, code review, or quality critique.
-   - `"finalizer"`: Always included in `selected_agents` to synthesize the final polished response.
+    if cognitive_agents:
+        lines.append("\n#### Specialist Cognitive Agents:")
+        for agent in cognitive_agents:
+            lines.append(f"- **{agent.agent_id}** ({agent.role}): {agent.description}")
+            if agent.capabilities:
+                lines.append(f"  * Capabilities provided: {', '.join(agent.capabilities)}")
 
-3. CONVERSATIONAL & CHIT-CHAT INPUTS:
-   - For basic conversational greetings or acknowledgments (e.g. "hi", "hello", "thank you"):
-     Set all specialized capability flags to false (`requires_research: false`, `requires_coding: false`, `requires_verification: false`, `requires_tools: false`) and `selected_agents: ["planner", "finalizer"]`.
+    lines.extend([
+        "",
+        "### Dynamic Planning Directives:",
+        "1. Minimal Sufficient Composition (Parsimony):",
+        "   - Select ONLY the agents whose roles or capabilities are strictly needed for the task in `selected_agents`.",
+        "   - Do not include specialist agents whose capabilities are irrelevant to prevent over-engineering waste.",
+        "2. Multi-Tool & Synergistic Composition:",
+        "   - Review all registered tools listed above.",
+        "   - When a task benefits from multiple tools (e.g. establishing context, querying data, performing computation),",
+        "     list ALL relevant tools in `tools_needed`, set `requires_tools: true`, and include the host tool node in `selected_agents`.",
+        "   - Tools execute sequentially with accumulated context passed forward.",
+        "3. Conversational & Context Continuity:",
+        "   - If prior conversation history is provided, incorporate context from previous turns.",
+        "   - For simple conversational greetings or acknowledgments without task work, keep the plan minimal without specialist nodes.",
+        "4. Output Requirements:",
+        "   - Output a single JSON object conforming to the schema without any markdown formatting or text outside the JSON.",
+    ])
+    return "\n".join(lines)
 
-4. CONVERSATIONAL CONTINUITY & CONTEXT:
-   - If prior conversation context is provided, consider previous turns (user identity, past questions, referenced tools or code) when planning and decomposing the current task.
-
-5. OUTPUT REQUIREMENTS:
-   - List the exact minimal agent IDs needed in `selected_agents`.
-   - Provide concise, ordered imperative steps and an estimated complexity.
-   - Output a single JSON object conforming to the schema without any markdown formatting or commentary outside the JSON.
-"""
 
 SYSTEM_PROMPT = get_planner_system_prompt()
 

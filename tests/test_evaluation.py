@@ -555,3 +555,64 @@ def test_evaluation_does_not_import_or_touch_agent_code() -> None:
     import app.evaluation.reward as reward_module
     assert hasattr(evaluator_module, "ArchitectureEvaluator")
     assert hasattr(reward_module, "RewardCalculator")
+
+
+def test_dual_objective_reward_penalizes_unnecessary_tools():
+    from app.evaluation.reward import DualObjectiveRewardCalculator
+
+    calc = DualObjectiveRewardCalculator()
+
+    # Case 1: Trivial task with 0 tool requirements, but policy ran 'get_current_date'
+    res = calc.calculate(
+        required_capabilities=[],
+        active_agents=["planner", "tool_executor", "finalizer"],
+        invoked_agents=["planner", "tool_executor", "finalizer"],
+        tools_executed=["get_current_date"],
+        coverage_score=1.0,
+        missing_capabilities=[],
+        surplus_agents=["tool_executor"],
+        user_feedback="y", # User said good answer (+0.50)
+        final_response="Answer text",
+    )
+
+    # Tool penalty must be negative for running unnecessary tool
+    assert res["components"]["unnecessary_tool_penalty"] < 0.0
+    assert "get_current_date" in res["unnecessary_tools"]
+    assert res["components"]["surplus_agent_penalty"] < 0.0
+
+    # Case 2: Minimal optimal task where tool WAS required and executed
+    res_opt = calc.calculate(
+        required_capabilities=["web_search"],
+        active_agents=["planner", "tool_executor", "finalizer"],
+        invoked_agents=["planner", "tool_executor", "finalizer"],
+        tools_executed=["web_search"],
+        coverage_score=1.0,
+        missing_capabilities=[],
+        surplus_agents=[],
+        user_feedback="y",
+        final_response="Answer with web search",
+    )
+    assert res_opt["components"]["unnecessary_tool_penalty"] == 0.0
+    assert res_opt["components"]["parsimony_bonus"] > 0.0
+    assert res_opt["total_reward"] > res["total_reward"]
+
+
+def test_dual_objective_reward_penalizes_missing_capabilities():
+    from app.evaluation.reward import DualObjectiveRewardCalculator
+
+    calc = DualObjectiveRewardCalculator()
+    res = calc.calculate(
+        required_capabilities=["web_search", "math"],
+        active_agents=["planner", "finalizer"],
+        invoked_agents=["planner", "finalizer"],
+        tools_executed=[],
+        coverage_score=0.0,
+        missing_capabilities=["web_search", "math"],
+        surplus_agents=[],
+        user_feedback="n", # User rejected failed answer (-0.60)
+        final_response="I don't know",
+    )
+    assert res["components"]["missing_capability_penalty"] < 0.0
+    assert res["r_resp"] == -0.60
+    assert res["total_reward"] < 0.0
+

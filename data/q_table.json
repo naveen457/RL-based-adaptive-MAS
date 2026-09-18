@@ -67,7 +67,7 @@
         []
       ],
       "action_id": 0,
-      "q_value": 0.5855993
+      "q_value": 0.67703937
     },
     {
       "state_key": [
@@ -548,6 +548,149 @@
       ],
       "action_id": 0,
       "q_value": 0.133
+    },
+    {
+      "state_key": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          "implementation",
+          "verification",
+          "synthesis",
+          "planning",
+          "research"
+        ],
+        [
+          "coder",
+          "critic",
+          "finalizer",
+          "planner",
+          "researcher"
+        ],
+        [
+          [
+            0,
+            1,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            1,
+            0,
+            1,
+            0,
+            1
+          ],
+          [
+            0,
+            1,
+            0,
+            0,
+            0
+          ]
+        ],
+        "coding",
+        [
+          "coding",
+          "synthesis",
+          "verification"
+        ],
+        1,
+        []
+      ],
+      "action_id": 0,
+      "q_value": 0.06999999999999999
+    },
+    {
+      "state_key": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          "implementation",
+          "verification",
+          "synthesis",
+          "planning",
+          "research"
+        ],
+        [
+          "coder",
+          "critic",
+          "finalizer",
+          "planner",
+          "researcher"
+        ],
+        [
+          [
+            0,
+            1,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            1,
+            0,
+            1,
+            0,
+            1
+          ],
+          [
+            0,
+            1,
+            0,
+            0,
+            0
+          ]
+        ],
+        "coding",
+        [
+          "coding",
+          "verification"
+        ],
+        1,
+        []
+      ],
+      "action_id": 0,
+      "q_value": 0.16970000000000002
     }
   ]
 }
