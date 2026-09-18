@@ -22,7 +22,7 @@ from app.runtime.llm_execution import (
     ExistingLLMAgentExecutor,
     LLMExecutionResult,
 )
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage
 
 
 class PlannerRunner(Protocol):
@@ -276,6 +276,14 @@ class AdaptiveRuntimeOrchestrator:
             )
             if isinstance(final_response, BaseModel):
                 final_response = final_response.model_dump(mode="json")
+            if final_response:
+                self.thread_store.add_message(thread_id, HumanMessage(content=user_task))
+                resp_text = (
+                    final_response.get("final_answer", str(final_response))
+                    if isinstance(final_response, dict)
+                    else str(final_response)
+                )
+                self.thread_store.add_message(thread_id, AIMessage(content=str(resp_text), name="finalizer"))
             execution_trace = self._observe_execution(state)
         invoked_agents = [
             record.agent_id for record in execution_trace if record.invoked
@@ -453,6 +461,8 @@ class AdaptiveRuntimeOrchestrator:
                     if event.node not in invoked:
                         invoked.append(event.node)
             raw_messages = state.get("messages", []) if isinstance(state, dict) else []
+            if raw_messages:
+                self.thread_store.sync_thread(thread_id, raw_messages)
             serialized_messages = [serialize_message(m) for m in raw_messages]
             return DynamicGraphExecutionResult(
                 task=user_task,
@@ -664,7 +674,7 @@ class AdaptiveRuntimeOrchestrator:
             e for e in final_built.metadata.graph_edges if e not in built_v0.metadata.graph_edges
         ]
 
-        return DynamicGraphExecutionResult(
+        result_obj = DynamicGraphExecutionResult(
             task=user_task,
             planner_output=adaptation.planner_output,
             architecture_decision=adaptation.architecture_decision,
@@ -696,23 +706,44 @@ class AdaptiveRuntimeOrchestrator:
             execution_path_after=path_after,
             actual_execution_path=invoked,
             thread_id=thread_id,
-            messages=[serialize_message(m) for m in final_state.get("messages", [])] if isinstance(final_state, dict) else [],
+            messages=(
+                [serialize_message(m) for m in final_state.get("messages", [])]
+                if isinstance(final_state, dict)
+                else []
+            ),
         )
+        if isinstance(final_state, dict) and final_state.get("messages"):
+            self.thread_store.sync_thread(thread_id, final_state.get("messages", []))
+        return result_obj
 
     @staticmethod
     def _observe_execution(state: Any) -> list[AgentExecutionRecord]:
-        """Observe existing workflow outputs without invoking agents again."""
+        """Observe existing workflow outputs dynamically without hardcoding agent IDs."""
 
         state_dict = state if isinstance(state, dict) else {}
-        output_keys = {
+        output_keys: dict[str, str] = {
             "planner": "planner_output",
-            "researcher": "research_output",
-            "coder": "coder_output",
-            "critic": "critic_output",
             "finalizer": "final_answer",
         }
+
+        # Dynamic loop: automatically register any key ending with '_output'
+        for key in state_dict.keys():
+            if key.endswith("_output"):
+                agent_id = key[:-7]
+                output_keys[agent_id] = key
+
+        # Dynamic loop: query registry for any additional custom agent specs
+        try:
+            from app.agents.registry import default_registry
+            for spec in default_registry.list_agents():
+                candidate_key = f"{spec.agent_id}_output"
+                if candidate_key in state_dict and spec.agent_id not in output_keys:
+                    output_keys[spec.agent_id] = candidate_key
+        except Exception:
+            pass
+
         records: list[AgentExecutionRecord] = []
-        for agent_id, output_key in output_keys.items():
+        for agent_id, output_key in sorted(output_keys.items()):
             output = state_dict.get(output_key)
             invoked = output is not None
             if invoked and isinstance(output, BaseModel):
@@ -734,21 +765,36 @@ class AdaptiveRuntimeOrchestrator:
         planner_output: PlannerOutput,
         invoked_agents: list[str],
     ) -> list[str]:
-        """Report mismatches between architecture state and observed workflow output."""
+        """Report mismatches between architecture state and observed workflow output dynamically."""
 
         errors: list[str] = []
         for agent_id in invoked_agents:
             if agent_id not in {"planner", "tool_executor"} and agent_id not in final_active_agents:
                 errors.append(f"inactive agent '{agent_id}' produced workflow output")
 
+        capability_to_agent = {
+            "research": "researcher",
+            "coding": "coder",
+            "verification": "critic",
+            "tool_use": "tool_executor",
+            "web_search": "tool_executor",
+        }
 
-        required_by_plan = []
-        if planner_output.requires_research:
-            required_by_plan.append("researcher")
-        if planner_output.requires_coding:
-            required_by_plan.append("coder")
-        if planner_output.requires_verification:
-            required_by_plan.append("critic")
+        required_by_plan: list[str] = []
+        plan_dict = planner_output.model_dump() if hasattr(planner_output, "model_dump") else {}
+        # Dynamic loop: scan plan_dict for requires_* flags
+        for key, val in plan_dict.items():
+            if key.startswith("requires_") and val:
+                cap = key[len("requires_"):]
+                target_agent = capability_to_agent.get(cap, cap)
+                if target_agent not in required_by_plan:
+                    required_by_plan.append(target_agent)
+
+        for cap in getattr(planner_output, "required_capabilities", []):
+            target_agent = capability_to_agent.get(cap, cap)
+            if target_agent not in required_by_plan:
+                required_by_plan.append(target_agent)
+
         for agent_id in required_by_plan:
             if agent_id in final_active_agents and agent_id not in invoked_agents:
                 errors.append(

@@ -254,3 +254,62 @@ def test_finalizer_and_planner_receive_conversation_history():
     assert "hi my name is naveen" in captured_finalizer_history[1]
     assert "greet me with my name" in captured_finalizer_history[1]
 
+
+def test_thread_store_add_and_list_threads(tmp_path):
+    from app.memory.store import ThreadMessageStore, deserialize_message
+
+    store = ThreadMessageStore(storage_dir=tmp_path / "threads")
+    store.add_message("thread-alpha", HumanMessage(content="Alpha task"))
+    store.add_message("thread-alpha", AIMessage(content="Alpha response", name="finalizer"))
+    store.add_message("thread-beta", HumanMessage(content="Beta task"))
+
+    threads = store.list_threads()
+    assert "thread-alpha" in threads
+    assert "thread-beta" in threads
+
+    alpha_msgs = store.get_messages("thread-alpha")
+    assert len(alpha_msgs) == 2
+    assert alpha_msgs[0].content == "Alpha task"
+    assert alpha_msgs[1].content == "Alpha response"
+
+    stats_alpha = store.get_thread_stats("thread-alpha")
+    assert stats_alpha["message_count"] == 2
+    assert stats_alpha["human_messages"] == 1
+    assert stats_alpha["ai_messages"] == 1
+
+    # Persistence verification: reload from same directory
+    reloaded = ThreadMessageStore(storage_dir=tmp_path / "threads")
+    assert "thread-alpha" in reloaded.list_threads()
+    assert len(reloaded.get_messages("thread-alpha")) == 2
+
+
+def test_thread_store_export_and_import(tmp_path):
+    from app.memory.store import ThreadMessageStore
+
+    store = ThreadMessageStore()
+    store.add_message("thread-x", HumanMessage(content="Export me"))
+    store.add_message("thread-x", AIMessage(content="Exported answer", name="finalizer"))
+
+    export_file = tmp_path / "exported_thread.json"
+    store.export_thread("thread-x", export_file)
+    assert export_file.exists()
+
+    new_store = ThreadMessageStore()
+    imported_count = new_store.import_thread("thread-imported", export_file)
+    assert imported_count == 2
+    msgs = new_store.get_messages("thread-imported")
+    assert len(msgs) == 2
+    assert msgs[0].content == "Export me"
+
+
+def test_thread_store_clear(tmp_path):
+    from app.memory.store import ThreadMessageStore
+
+    store = ThreadMessageStore(storage_dir=tmp_path / "threads")
+    store.add_message("thread-temp", HumanMessage(content="Temporary"))
+    assert len(store.get_messages("thread-temp")) == 1
+
+    store.clear_thread("thread-temp")
+    assert len(store.get_messages("thread-temp")) == 0
+
+
