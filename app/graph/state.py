@@ -1,6 +1,7 @@
-from __future__ import annotations
+from typing import Annotated, Any, Optional, Sequence, TypedDict
 
-from typing import Any, Optional, TypedDict
+from langchain_core.messages import BaseMessage
+from langgraph.graph.message import add_messages
 
 from app.agents.critic import CriticOutput
 from app.agents.coder import CoderOutput
@@ -37,8 +38,14 @@ class MASState(TypedDict, total=False):
 
 
 class ExtendedMASState(MASState, total=False):
-    """Extended state supporting tool calling and dynamic node extensions."""
+    """Extended state supporting tool calling, dynamic node extensions, and conversation threading."""
+
+    # Threading and message queueing (default thread: 'thread-1')
+    messages: Annotated[Sequence[BaseMessage], add_messages]
+    thread_id: str
 
     tool_output: Any
     tool_calls: list[dict[str, Any]]
+    _feedback_iterations: int
+
 

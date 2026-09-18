@@ -23,7 +23,7 @@ These tests cover:
 19. No invalid actions selected
 20. Reproducibility with a fixed random seed
 
-These tests are fully offline. No OpenRouter calls are made.
+These tests are fully offline. No external API calls are made.
 """
 
 from __future__ import annotations

@@ -74,35 +74,37 @@ def get_planner_system_prompt(registry: Optional[Any] = None) -> str:
 You are the Planner agent in an adaptive multi-agent system.
 
 Your job is to decompose the user's task into a clear, executable plan that downstream
-agent nodes can follow. Do not execute any steps yourself — only produce the plan.
+specialist agents and tools can execute. Do not execute any task steps yourself — only produce the structured plan.
 
 {registry_summary}
 
-ROUTING AND TOOL SELECTION RULES:
-1. DISTINGUISHING TOOL_EXECUTOR VS RESEARCHER & TOOL SELECTION:
-   - "web_search":
-     * If the task asks for "current trends", "current events", "trending topics", "latest updates", "recent news", "live info", or real-time facts:
-       - You MUST set requires_tools: true.
-       - You MUST include "tool_executor" in selected_agents.
-       - You MUST include "web_search" in tools_needed.
-       - Include "web_search" and "tool_use" in required_capabilities.
-     * CRITICAL RULE: Queries about "current trends", "current events", or "latest news" do NOT require the calendar date. Do NOT include "get_current_date" for these queries.
-   - "get_current_date":
-     * ONLY use when the task explicitly asks what calendar date, day of the week, month, year, or clock time it is right now (e.g. "what is today's date?", "what time is it?", "tell me today's date").
-     * Set requires_tools: true, selected_agents: ["planner", "tool_executor", "finalizer"], tools_needed: ["get_current_date"].
-   - "calculator":
-     * ONLY use if the task requires mathematical or arithmetic calculations.
-     * Set requires_tools: true, include "tool_executor" in selected_agents, include "calculator" in tools_needed.
+PLANNING & ROUTING GUIDELINES:
+1. EXTERNAL TOOLS & CAPABILITIES:
+   - Tool Execution (`tool_executor`):
+     * Set `requires_tools: true` and include `"tool_executor"` in `selected_agents` whenever the task needs external live data, real-time factual lookups, current calendar/clock time, or calculation.
+     * Populate `tools_needed` with the specific tool name(s) from the registry:
+       - `"get_current_date"`: For current date, time, weekday, month, or year queries.
+       - `"calculator"`: For arithmetic, mathematical calculations, or numerical evaluations.
+       - `"web_search"`: For live web search, current news, recent developments, real-world factual information, or external search retrieval.
+     * Include `"tool_use"` and specific tool names (e.g. `"web_search"`) in `required_capabilities`.
 
-   - Only set requires_research: true if deep conceptual synthesis or in-depth document writing is needed in addition to or instead of live search.
-2. If the task requires writing or modifying code: set requires_coding: true and include "coder" in selected_agents.
-3. If the task requires quality critique/verification: set requires_verification: true and include "critic" in selected_agents.
-4. For simple greetings or conversational replies: requires_research: false, requires_coding: false, requires_verification: false, requires_tools: false, and selected_agents: ["planner", "finalizer"].
-5. Always list the exact agent IDs needed in selected_agents.
-6. Provide ordered imperative steps and complexity estimate.
+2. SPECIALIST COGNITIVE AGENTS:
+   - `"researcher"`: Set `requires_research: true` and include `"researcher"` in `selected_agents` when the task requires in-depth conceptual synthesis, background context analysis, or structured report writing.
+   - `"coder"`: Set `requires_coding: true` and include `"coder"` in `selected_agents` when the task involves writing, explaining, modifying, or debugging programming code.
+   - `"critic"`: Set `requires_verification: true` and include `"critic"` in `selected_agents` when the task benefits from rigorous verification, code review, or quality critique.
+   - `"finalizer"`: Always included in `selected_agents` to synthesize the final polished response.
 
-Output a single JSON object matching the schema. Do not include any extra text,
-explanations, or commentary outside the JSON object.
+3. CONVERSATIONAL & CHIT-CHAT INPUTS:
+   - For basic conversational greetings or acknowledgments (e.g. "hi", "hello", "thank you"):
+     Set all specialized capability flags to false (`requires_research: false`, `requires_coding: false`, `requires_verification: false`, `requires_tools: false`) and `selected_agents: ["planner", "finalizer"]`.
+
+4. CONVERSATIONAL CONTINUITY & CONTEXT:
+   - If prior conversation context is provided, consider previous turns (user identity, past questions, referenced tools or code) when planning and decomposing the current task.
+
+5. OUTPUT REQUIREMENTS:
+   - List the exact minimal agent IDs needed in `selected_agents`.
+   - Provide concise, ordered imperative steps and an estimated complexity.
+   - Output a single JSON object conforming to the schema without any markdown formatting or commentary outside the JSON.
 """
 
 SYSTEM_PROMPT = get_planner_system_prompt()
@@ -115,7 +117,7 @@ SYSTEM_PROMPT = get_planner_system_prompt()
 
 @dataclass
 class Planner:
-    """Planner agent backed by an OpenRouter LLM.
+    """Planner agent backed by an NVIDIA NIM LLM.
 
     Designed to be stateless and reusable, so it can later be wrapped as a
     LangGraph node without modification.
@@ -148,13 +150,13 @@ class Planner:
 
         if not resolved_api_key:
             raise ValueError(
-                "OpenRouter API key is not configured. "
-                "Set OPENROUTER_API_KEY in your environment or .env file."
+                "NVIDIA API key is not configured. "
+                "Set NVIDIA_API_KEY in your environment or .env file."
             )
         if not resolved_model:
             raise ValueError(
-                "OPENROUTER_MODEL is not configured. "
-                "Set OPENROUTER_MODEL in your environment or .env file."
+                "NVIDIA_MODEL is not configured. "
+                "Set NVIDIA_MODEL in your environment or .env file."
             )
 
         llm = ChatOpenAI(
@@ -162,6 +164,7 @@ class Planner:
             openai_api_key=resolved_api_key,
             openai_api_base=resolved_base_url,
             temperature=0.0,
+            max_tokens=settings.max_tokens,
         )
 
         structured_llm = llm.with_structured_output(
@@ -172,21 +175,43 @@ class Planner:
 
         return cls(model=llm, structured_llm=structured_llm)
 
-    def plan(self, task: str) -> PlannerOutput:
+    def plan(
+        self,
+        task: str,
+        conversation_history: Optional[str] = None,
+    ) -> PlannerOutput:
         """ Decompose *task* into a structured plan.
 
         Args:
             task: The user's natural-language task description.
+            conversation_history: Optional multi-turn conversation history.
 
         Returns:
             PlannerOutput with the decomposition.
         """
+        import time
+
+        parts = []
+        if conversation_history:
+            parts.append(f"Conversation Context & Thread History:\n{conversation_history}")
+        parts.append(f"Current task to plan:\n{task}")
+
+        user_content = "\n\n".join(parts)
         sys_prompt = get_planner_system_prompt()
         messages = [
             {"role": "system", "content": sys_prompt},
-            {"role": "user", "content": task},
+            {"role": "user", "content": user_content},
         ]
-        return self.structured_llm.invoke(messages)
+        for attempt in range(3):
+            try:
+                return self.structured_llm.invoke(messages)
+            except Exception as e:
+                err_str = str(e).lower()
+                if ("rate_limit" in err_str or "429" in err_str or "tokens per minute" in err_str) and attempt < 2:
+                    print("  [Rate Limit] Replenishing tokens, waiting 5s...")
+                    time.sleep(5)
+                    continue
+                raise
 
 
 # ---------------------------------------------------------------------------

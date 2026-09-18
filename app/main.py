@@ -1,10 +1,11 @@
+import argparse
 from pathlib import Path
 from app.config.settings import settings
-from app.runtime.orchestrator import run_adaptive_runtime
+from app.runtime.orchestrator import AdaptiveRuntimeOrchestrator, run_dynamic_runtime
 from app.evaluation.metrics_logger import MetricsLogger
 from app.graph.visualizer import format_architecture_display
 from app.rl.q_learning import QLearningPolicy
-
+import time
 
 def print_workflow_result(state):
     """Print the result of running the MAS workflow."""
@@ -29,12 +30,33 @@ def print_workflow_result(state):
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Adaptive Multi-Agent System (RL-AMAS) - Runtime")
+    mode_group = parser.add_mutually_exclusive_group()
+    mode_group.add_argument(
+        "--continuous",
+        dest="session_mode",
+        action="store_const",
+        const="continuous",
+        default="continuous",
+        help="Preserve and evolve adapted architecture across consecutive user tasks (default)",
+    )
+    mode_group.add_argument(
+        "--fresh",
+        dest="session_mode",
+        action="store_const",
+        const="fresh",
+        help="Reset architecture to baseline v0 on every task",
+    )
+    args, _ = parser.parse_known_args()
+    session_mode = args.session_mode
+
     print("=" * 80)
     print("  ADAPTIVE MULTI-AGENT SYSTEM (RL-AMAS) - RUNTIME")
     print("=" * 80)
 
     api_status = "Loaded" if settings.api_key else "NOT FOUND"
     print(f"  Model Endpoint: {settings.base_url} ({settings.model or 'default'}) [{api_status}]")
+    print(f"  Session Mode:   {session_mode.upper()} ({'continuous multi-turn evolution' if session_mode == 'continuous' else 'fresh baseline on every task'})")
 
     # Initialize persistent metrics logger (TensorBoard + JSONL)
     logger = MetricsLogger(log_base_dir="runs")
@@ -59,6 +81,9 @@ def main():
         q_table_path.parent.mkdir(parents=True, exist_ok=True)
         print(f"  [Q-Learning Memory] Initialized fresh Q-learning policy (persists to {q_table_path})")
 
+    # Initialize orchestrator with active RL policy
+    orchestrator = AdaptiveRuntimeOrchestrator.from_settings(q_policy=q_policy)
+
     print("=" * 80)
 
     step_counter = 0
@@ -70,7 +95,7 @@ def main():
         except (EOFError, KeyboardInterrupt):
             print("\nSession ended.")
             break
-
+        start_time = time.perf_counter()
         if task.lower() == "exit":
             print(f"Session ended. Total tasks executed & logged: {step_counter}")
             print(f"View runs via TensorBoard: tensorboard --logdir {logger.log_base_dir}")
@@ -79,11 +104,15 @@ def main():
             print("Please enter a task or type 'exit'.")
             continue
 
+        if session_mode == "fresh":
+            orchestrator.reset_to_baseline()
+
+        active_thread_id = "thread-1"
         step_counter += 1
-        print(f"\n[Processing Task #{step_counter}] \"{task}\" ...")
+        print(f"\n[Processing Task #{step_counter} | Thread: {active_thread_id}] \"{task}\" (Architecture: v{orchestrator.current_version}) ...")
 
         try:
-            result = run_adaptive_runtime(task)
+            result = orchestrator.run_dynamic(task, thread_id=active_thread_id)
         except Exception as exc:
             print(f"Runtime error: {type(exc).__name__}: {exc}")
             continue
@@ -170,7 +199,14 @@ def main():
         # 3. RL Self-Evaluation Tag (genuine theoretical evaluation, no hardcoded override)
         rl_classification = logged.get("classification", "OPTIMAL").upper()
 
-        actual_tokens = len(invoked) * 650 + max(0, len(invoked) - 1) * 150
+        total_text_chars = len(task) + len(str(result.final_response or ""))
+        if result.planner_output:
+            total_text_chars += len(str(result.planner_output))
+        for trace_event in getattr(result, "execution_trace", []):
+            if hasattr(trace_event, "output") and trace_event.output:
+                total_text_chars += len(str(trace_event.output))
+        prompt_overhead = len(invoked) * 350
+        actual_tokens = prompt_overhead + max(40, total_text_chars // 4)
         actual_cost = round((actual_tokens / 1000.0) * 0.0015, 5)
         cost_profile = {
             "estimated_tokens": actual_tokens,
@@ -188,7 +224,15 @@ def main():
 
 
         # 4. Print runtime trace and execution summary
+        decision_engine_str = (
+            "Active RL Policy (Instant Zero-LLM, ~1.2s saved)"
+            if getattr(result, "is_instant_rl", False)
+            else f"LLM Adapter ({getattr(result, 'decision_source', 'llm')})"
+        )
         print("\nEXECUTION SUMMARY:")
+        print(f"  * Thread ID:            {getattr(result, 'thread_id', 'thread-1')} ({len(getattr(result, 'messages', []))} messages queued)")
+        print(f"  * Architecture Version: v{result.architecture_version}")
+        print(f"  * Decision Engine:      {decision_engine_str}")
         print(f"  * RL Self-Evaluation:   {rl_classification}")
         print(f"  * Architecture Changed: {arch_changed}")
         print(f"  * Agents Invoked:       {', '.join(result.agents_actually_invoked)}")
@@ -240,26 +284,31 @@ def main():
             from app.rl.state import ArchitectureStateEncoder
             from app.rl.meta_task import MetaTaskContext
 
-            if isinstance(final_arch, dict):
-                arch_obj = MASArchitecture.model_validate(final_arch)
-            else:
-                arch_obj = final_arch
+            init_arch_raw = getattr(result, "initial_architecture", final_arch)
+            init_arch_obj = MASArchitecture.model_validate(init_arch_raw)
+            final_arch_obj = MASArchitecture.model_validate(final_arch)
 
-            encoder = ArchitectureStateEncoder(arch_obj)
-            obs = encoder.encode()
             task_ctx = MetaTaskContext(
-                task_category="research" if "research" in req_caps else "general",
-                required_capabilities=req_caps,
+                task_category="research" if "research" in req_caps else ("coding" if "coding" in req_caps else "general"),
+                required_capabilities=sorted(req_caps),
                 difficulty=1,
             )
-            state_key = q_policy.get_state_key(obs, task_ctx)
+
+            obs_init = ArchitectureStateEncoder(init_arch_obj).encode()
+            state_key = q_policy.get_state_key(obs_init, task_ctx)
+
+            obs_final = ArchitectureStateEncoder(final_arch_obj).encode()
+            next_state_key = q_policy.get_state_key(obs_final, task_ctx)
+
             step_reward = logged.get("net_utility", 0.0) + human_reward
+            chosen_action_id = result.action_ids[0] if getattr(result, "action_ids", None) else 0
+
             q_policy.update(
                 state_key=state_key,
-                action_id=0,
+                action_id=chosen_action_id,
                 reward=step_reward,
-                next_state_key=state_key,
-                next_valid_actions=[0],
+                next_state_key=next_state_key,
+                next_valid_actions=getattr(result, "action_ids", [0]) or [0],
                 terminated=True,
                 truncated=False,
             )
@@ -269,6 +318,11 @@ def main():
         except Exception as q_err:
             print(f"  [Q-Learning Memory] Note: Q-table update deferred ({q_err})")
 
+        end_time = time.perf_counter()
+        # Calculate the interval
+        execution_time = end_time - start_time
+        print(f" Elapsed time: {execution_time:.6f} seconds")
+        
     logger.close()
 
 

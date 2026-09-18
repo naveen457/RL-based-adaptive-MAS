@@ -14,6 +14,8 @@ from app.agents.planner import PlannerOutput
 from app.agents.researcher import Researcher
 from app.agents.tool_executor import ToolExecutor
 from app.architecture.models import MASArchitecture
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from app.memory.store import format_history_for_prompt
 
 
 class AgentExecutionRecord(BaseModel):
@@ -59,6 +61,7 @@ class ExistingLLMAgentExecutor:
         task: str,
         planner_output: PlannerOutput,
         architecture: MASArchitecture,
+        conversation_history: Optional[str] = None,
     ) -> LLMExecutionResult:
         """Execute only active agents required by the PlannerOutput."""
 
@@ -78,15 +81,11 @@ class ExistingLLMAgentExecutor:
         tools_needed = list(getattr(planner_output, "tools_needed", []) or [])
         selected_agents = list(getattr(planner_output, "selected_agents", []) or [])
         req_caps = set(planner_output.required_capabilities or [])
-        query_lower = task.lower()
-        temporal_keywords = ["current", "trending", "latest", "today", "live", "recent", "events in"]
-        query_needs_search = any(k in query_lower for k in temporal_keywords)
 
         has_tool_need = (
             "tool_executor" in active_agents
             or "tool_executor" in selected_agents
             or requires_tools
-            or query_needs_search
             or bool(tools_needed)
             or bool(req_caps & {"tool_use", "web_search", "external_api", "tools"})
         )
@@ -94,25 +93,14 @@ class ExistingLLMAgentExecutor:
         tool_outputs = {}
         if has_tool_need:
             executor = self.tool_executor_factory()
-            # Determine which tools to invoke
             if not tools_needed:
-                if query_needs_search or requires_tools or ("web_search" in req_caps):
-                    tools_needed.append("web_search")
+                tools_needed = ["web_search"]
 
-            # Check for explicit date/time query
-            explicit_date_keywords = [
-                "today's date", "what is today", "what is the date",
-                "what's the date", "what day is it", "today date",
-                "current time", "what time is it", "what day is today"
-            ]
-            is_explicit_date_query = any(k in query_lower for k in explicit_date_keywords)
-            if is_explicit_date_query and "get_current_date" not in tools_needed:
-                tools_needed.append("get_current_date")
-
-            # If web_search is needed and the user did NOT explicitly ask for today's date/time,
-            # prune get_current_date to prevent an unnecessary second loop
-            if not is_explicit_date_query and "web_search" in tools_needed:
-                tools_needed = [t for t in tools_needed if t not in {"get_current_date", "date", "time"}]
+            # Disambiguation: if both web_search and get_current_date were selected, but date/time not in query, prune date
+            if "web_search" in tools_needed and "get_current_date" in tools_needed:
+                q_lower = task.lower()
+                if not any(w in q_lower for w in ["date", "time", "clock"]):
+                    tools_needed = [t for t in tools_needed if t not in {"get_current_date", "date", "time"}]
 
             for t_name in tools_needed:
                 if t_name in {"get_current_date", "date", "time"}:
@@ -121,19 +109,12 @@ class ExistingLLMAgentExecutor:
                 elif t_name == "calculator":
                     res = executor.execute("calculator", {"expression": task})
                     tool_outputs["calculator"] = res.serialize()
-                elif t_name == "web_search":
-                    res = executor.execute("web_search", {"query": task})
-                    tool_outputs["web_search"] = res.serialize()
                 elif t_name in executor.registered_tools:
                     res = executor.execute(t_name, {"query": task})
                     tool_outputs[t_name] = res.serialize()
-
-            # If no specific tools were matched but search is needed
-            if not tool_outputs and (query_needs_search or requires_tools):
-                fallback_query = optimize_search_query(task)
-                res = executor.execute("web_search", {"query": fallback_query})
-                tool_outputs["web_search"] = res.serialize()
-
+                else:
+                    res = executor.execute("web_search", {"query": task})
+                    tool_outputs["web_search"] = res.serialize()
 
             supporting_outputs["tool_executor"] = tool_outputs
             trace.append(self._completed("tool_executor", tool_outputs))
@@ -181,10 +162,18 @@ class ExistingLLMAgentExecutor:
         final_response = None
         if "finalizer" in active_agents:
             finalizer_context = self._supporting_text(supporting_outputs)
-            final_response = self.finalizer_factory().finalize(
-                original_task=task,
-                supporting_info=finalizer_context,
-            )
+            finalizer_inst = self.finalizer_factory()
+            try:
+                final_response = finalizer_inst.finalize(
+                    original_task=task,
+                    supporting_info=finalizer_context,
+                    conversation_history=conversation_history,
+                )
+            except TypeError:
+                final_response = finalizer_inst.finalize(
+                    original_task=task,
+                    supporting_info=finalizer_context,
+                )
             trace.append(self._completed("finalizer", final_response))
         else:
             trace.append(self._not_invoked("finalizer"))
@@ -209,19 +198,39 @@ class ExistingLLMAgentExecutor:
         def planner_node(state: Dict[str, Any]) -> Dict[str, Any]:
             event("started", "planner")
             event("completed", "planner")
-            return {"planner_output": planner_output}
+            plan_summary = f"Plan: {planner_output.task_understanding}\nSteps: " + "; ".join(planner_output.steps)
+            return {
+                "planner_output": planner_output,
+                "messages": [AIMessage(content=plan_summary, name="planner")],
+            }
 
         def researcher_node(state: Dict[str, Any]) -> Dict[str, Any]:
             event("started", "researcher")
-            output = self.researcher_factory().research(task)
+            res_agent = self.researcher_factory()
+            if state.get("tool_output"):
+                supporting = json.dumps(state["tool_output"], default=str)
+                try:
+                    output = res_agent.research(task, supporting_context=supporting)
+                except TypeError:
+                    output = res_agent.research(task)
+            else:
+                output = res_agent.research(task)
             event("completed", "researcher")
-            return {"research_output": output}
+            findings_str = "; ".join(getattr(output, "findings", [])) or str(output)
+            return {
+                "research_output": output,
+                "messages": [AIMessage(content=f"Research Findings: {findings_str}", name="researcher")],
+            }
 
         def coder_node(state: Dict[str, Any]) -> Dict[str, Any]:
             event("started", "coder")
             output = self.coder_factory().code(task)
             event("completed", "coder")
-            return {"coder_output": output}
+            code_content = getattr(output, "code", str(output))
+            return {
+                "coder_output": output,
+                "messages": [AIMessage(content=f"Generated Code:\n{code_content}", name="coder")],
+            }
 
         def critic_node(state: Dict[str, Any]) -> Dict[str, Any]:
             event("started", "critic")
@@ -230,23 +239,53 @@ class ExistingLLMAgentExecutor:
                 outputs["researcher"] = state["research_output"]
             if state.get("coder_output") is not None:
                 outputs["coder"] = state["coder_output"]
+            if state.get("tool_output") is not None:
+                outputs["tool_executor"] = state["tool_output"]
             output = self.critic_factory().review(
                 original_task=task,
                 output_to_review=self._supporting_text(outputs),
             )
             event("completed", "critic")
-            return {"critic_output": output}
+            critique_str = getattr(output, "overall_assessment", str(output))
+            return {
+                "critic_output": output,
+                "messages": [AIMessage(content=f"Review Critique: {critique_str}", name="critic")],
+            }
 
         def tool_executor_node(state: Dict[str, Any]) -> Dict[str, Any]:
             event("started", "tool_executor")
             tool_calls = state.get("tool_calls")
             executor = self.tool_executor_factory()
+            results = []
             if tool_calls:
                 results = [r.serialize() for r in executor.execute_calls(tool_calls)]
             else:
-                results = [executor.execute("web_search", {"query": task}).serialize()]
+                tools_to_run = list(getattr(planner_output, "tools_needed", []) or [])
+                if not tools_to_run:
+                    tools_to_run = ["web_search"]
+
+                # Disambiguation: if both web_search and get_current_date were selected, but date/time not in query, prune date
+                if "web_search" in tools_to_run and "get_current_date" in tools_to_run:
+                    q_lower = task.lower()
+                    if not any(w in q_lower for w in ["date", "time", "clock"]):
+                        tools_to_run = [t for t in tools_to_run if t not in {"get_current_date", "date", "time"}]
+
+                for t_name in tools_to_run:
+                    if t_name in {"get_current_date", "date", "time"}:
+                        res = executor.execute("get_current_date", {})
+                    elif t_name == "calculator":
+                        res = executor.execute("calculator", {"expression": task})
+                    elif t_name in executor.registered_tools:
+                        res = executor.execute(t_name, {"query": task})
+                    else:
+                        res = executor.execute("web_search", {"query": task})
+                    results.append(res.serialize())
             event("completed", "tool_executor")
-            return {"tool_output": results}
+            tool_summary = json.dumps(results, default=str)
+            return {
+                "tool_output": results,
+                "messages": [AIMessage(content=f"Tool Execution Results: {tool_summary}", name="tool_executor")],
+            }
 
         def finalizer_node(state: Dict[str, Any]) -> Dict[str, Any]:
             event("started", "finalizer")
@@ -259,12 +298,28 @@ class ExistingLLMAgentExecutor:
             ):
                 if state.get(key) is not None:
                     outputs[agent_id] = state[key]
-            output = self.finalizer_factory().finalize(
-                original_task=task,
-                supporting_info=self._supporting_text(outputs),
-            )
+
+            all_msgs = state.get("messages", [])
+            history_str = format_history_for_prompt(all_msgs) if all_msgs else None
+
+            finalizer_inst = self.finalizer_factory()
+            try:
+                output = finalizer_inst.finalize(
+                    original_task=task,
+                    supporting_info=self._supporting_text(outputs),
+                    conversation_history=history_str,
+                )
+            except TypeError:
+                output = finalizer_inst.finalize(
+                    original_task=task,
+                    supporting_info=self._supporting_text(outputs),
+                )
             event("completed", "finalizer")
-            return {"final_answer": output}
+            final_text = getattr(output, "final_answer", str(output))
+            return {
+                "final_answer": output,
+                "messages": [AIMessage(content=final_text, name="finalizer")],
+            }
 
         return {
             "planner": planner_node,

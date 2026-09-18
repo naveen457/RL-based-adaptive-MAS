@@ -17,7 +17,7 @@ These tests cover:
 12. No LLM/API calls.
 13. Existing Step 13 behavior unchanged.
 
-These tests are fully offline. No OpenRouter calls are made.
+These tests are fully offline. No external API calls are made.
 """
 
 from __future__ import annotations

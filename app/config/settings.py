@@ -7,21 +7,11 @@ load_dotenv()
 
 
 class Settings(BaseModel):
-    api_key: str = os.getenv(
-        "NVIDIA_API_KEY",
-        os.getenv("OPENROUTER_API_KEY", ""),
-    )
-
-    base_url: str = os.getenv(
-        "NVIDIA_BASE_URL",
-        os.getenv("OPENROUTER_BASE_URL",
-                  "https://openrouter.ai/api/v1"),
-    )
-
-    model: str = os.getenv(
-        "NVIDIA_MODEL",
-        os.getenv("OPENROUTER_MODEL", ""),
-    )
+    # NVIDIA NIM Configuration
+    api_key: str = os.getenv("NVIDIA_API_KEY", "")
+    base_url: str = os.getenv("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1")
+    model: str = os.getenv("NVIDIA_MODEL", "mistralai/mistral-nemotron")
+    max_tokens: int = int(os.getenv("MAX_TOKENS", "4096"))
 
     langchain_tracing_v2: bool = (
         os.getenv("LANGCHAIN_TRACING_V2", "false").lower() == "true"

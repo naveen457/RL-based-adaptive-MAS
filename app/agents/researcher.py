@@ -49,6 +49,7 @@ You are the Researcher agent in an adaptive multi-agent system.
 Your job is to research the given task or question and return a structured report.
 
 Important constraints:
+- Keep findings concise and prioritized (top 3 to 5 core findings maximum, 1-2 clear sentences each).
 - You do NOT have access to a live web-search tool.
 - Do NOT claim that you searched the internet or fetched live pages.
 - Where information comes from your training knowledge or from supplied context,
@@ -67,7 +68,7 @@ explanations, or commentary outside the JSON object.
 
 @dataclass
 class Researcher:
-    """Researcher agent backed by an OpenRouter LLM.
+    """Researcher agent backed by an NVIDIA NIM LLM.
 
     Stateless and reusable, suitable for later use as a LangGraph node.
     """
@@ -93,13 +94,13 @@ class Researcher:
 
         if not resolved_api_key:
             raise ValueError(
-                "OpenRouter API key is not configured. "
-                "Set OPENROUTER_API_KEY in your environment or .env file."
+                "NVIDIA API key is not configured. "
+                "Set NVIDIA_API_KEY in your environment or .env file."
             )
         if not resolved_model:
             raise ValueError(
-                "OPENROUTER_MODEL is not configured. "
-                "Set OPENROUTER_MODEL in your environment or .env file."
+                "NVIDIA_MODEL is not configured. "
+                "Set NVIDIA_MODEL in your environment or .env file."
             )
 
         llm = ChatOpenAI(
@@ -107,6 +108,7 @@ class Researcher:
             openai_api_key=resolved_api_key,
             openai_api_base=resolved_base_url,
             temperature=0.0,
+            max_tokens=settings.max_tokens,
         )
 
         structured_llm = llm.with_structured_output(
@@ -127,6 +129,8 @@ class Researcher:
         Returns:
             ResearcherOutput with findings and evidence.
         """
+        import time
+
         user_content = task
         if supporting_context:
             user_content = f"Research Query: {task}\n\nExternal Context / Live Search Results:\n{supporting_context}"
@@ -134,7 +138,16 @@ class Researcher:
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_content},
         ]
-        return self.structured_llm.invoke(messages)
+        for attempt in range(3):
+            try:
+                return self.structured_llm.invoke(messages)
+            except Exception as e:
+                err_str = str(e).lower()
+                if ("rate_limit" in err_str or "429" in err_str or "tokens per minute" in err_str) and attempt < 2:
+                    print("  [Rate Limit] Replenishing tokens, waiting 5s...")
+                    time.sleep(5)
+                    continue
+                raise
 
 
 # ---------------------------------------------------------------------------

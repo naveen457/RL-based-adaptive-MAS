@@ -7,6 +7,7 @@ from app.agents.coder import Coder, CoderOutput, create_code_solution
 from app.agents.finalizer import Finalizer, FinalizerOutput, create_final_answer
 from app.agents.planner import Planner, PlannerOutput
 from app.agents.researcher import Researcher, ResearcherOutput, create_research_report
+from app.config.settings import settings
 
 
 # ---------------------------------------------------------------------------
@@ -57,7 +58,7 @@ def test_planner_construction_from_settings() -> None:
     """Planner can be constructed from environment/settings without error."""
     planner = Planner.from_settings()
     assert planner.model is not None
-    assert planner.model.model_name == "nvidia/nemotron-3.5-lightning-30b-a3b"
+    assert planner.model.model_name == settings.model
     assert planner.model.openai_api_base == "https://integrate.api.nvidia.com/v1"
     assert planner.model.openai_api_key
     assert planner.structured_llm is not None
@@ -100,7 +101,7 @@ def test_planner_output_default_fields() -> None:
 
 @pytest.mark.integration
 def test_planner_real_call() -> None:
-    """End-to-end: Planner plans a real task via OpenRouter."""
+    """End-to-end: Planner plans a real task via NVIDIA NIM."""
     planner = Planner.from_settings()
     result = planner.plan(
         "List three ways a multi-agent system can improve over a single LLM."
@@ -145,7 +146,7 @@ def test_researcher_output_schema_is_valid() -> None:
 def test_researcher_construction_from_settings() -> None:
     researcher = Researcher.from_settings()
     assert researcher.model is not None
-    assert researcher.model.model_name == "nvidia/nemotron-3.5-lightning-30b-a3b"
+    assert researcher.model.model_name == settings.model
     assert researcher.model.openai_api_base == "https://integrate.api.nvidia.com/v1"
     assert researcher.model.openai_api_key
     assert researcher.structured_llm is not None
@@ -220,7 +221,7 @@ def test_coder_output_schema_is_valid() -> None:
 def test_coder_construction_from_settings() -> None:
     coder = Coder.from_settings()
     assert coder.model is not None
-    assert coder.model.model_name == "nvidia/nemotron-3.5-lightning-30b-a3b"
+    assert coder.model.model_name == settings.model
     assert coder.model.openai_api_base == "https://integrate.api.nvidia.com/v1"
     assert coder.model.openai_api_key
     assert coder.structured_llm is not None
@@ -294,7 +295,7 @@ def test_critic_output_schema_is_valid() -> None:
 def test_critic_construction_from_settings() -> None:
     critic = Critic.from_settings()
     assert critic.model is not None
-    assert critic.model.model_name == "nvidia/nemotron-3.5-lightning-30b-a3b"
+    assert critic.model.model_name == settings.model
     assert critic.model.openai_api_base == "https://integrate.api.nvidia.com/v1"
     assert critic.model.openai_api_key
     assert critic.structured_llm is not None
@@ -395,7 +396,7 @@ def test_finalizer_output_schema_is_valid() -> None:
 def test_finalizer_construction_from_settings() -> None:
     finalizer = Finalizer.from_settings()
     assert finalizer.model is not None
-    assert finalizer.model.model_name == "nvidia/nemotron-3.5-lightning-30b-a3b"
+    assert finalizer.model.model_name == settings.model
     assert finalizer.model.openai_api_base == "https://integrate.api.nvidia.com/v1"
     assert finalizer.model.openai_api_key
     assert finalizer.structured_llm is not None

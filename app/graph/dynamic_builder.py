@@ -52,6 +52,7 @@ class DynamicGraphBuilder:
         entry_point: Optional[str] = None,
         excluded_nodes: Optional[Set[str]] = None,
         include_finalizer: bool = True,
+        checkpointer: Optional[Any] = None,
     ) -> DynamicGraphBuildResult:
         active = set(architecture.active_agent_ids)
         required = {"planner"}
@@ -63,18 +64,23 @@ class DynamicGraphBuilder:
             required.add("coder")
         if planner_output.requires_verification:
             required.add("critic")
-        if "tool_executor" in active and (
-            "tool_use" in planner_output.required_capabilities
-            or "web_search" in planner_output.required_capabilities
-            or "tools" in planner_output.required_capabilities
+        has_tool_demand = (
+            "tool_executor" in active
+            or getattr(planner_output, "requires_tools", False)
+            or "tool_executor" in (getattr(planner_output, "selected_agents", []) or [])
+            or bool(getattr(planner_output, "tools_needed", []))
+            or bool(set(getattr(planner_output, "required_capabilities", []) or []) & {"tool_use", "web_search", "external_api", "tools"})
             or any(
                 e.source == "tool_executor" or e.target == "tool_executor"
                 for e in architecture.communication_edges
             )
-        ):
+        )
+        if has_tool_demand:
             required.add("tool_executor")
 
-        raw_nodes = active & required
+        raw_nodes = set(active & required)
+        if has_tool_demand:
+            raw_nodes.add("tool_executor")
         if excluded_nodes:
             raw_nodes = raw_nodes - excluded_nodes
 
@@ -103,10 +109,13 @@ class DynamicGraphBuilder:
                     if bypass_edge not in configured_edges:
                         configured_edges.append(bypass_edge)
 
-        if "tool_executor" in graph_nodes and "finalizer" in graph_nodes:
+        if "tool_executor" in graph_nodes:
+            if "planner" in graph_nodes and not any(e["source"] == "planner" and e["target"] == "tool_executor" for e in configured_edges):
+                configured_edges.append({"source": "planner", "target": "tool_executor"})
             has_outgoing = any(e["source"] == "tool_executor" for e in configured_edges)
-            if not has_outgoing:
-                configured_edges.append({"source": "tool_executor", "target": "finalizer"})
+            if not has_outgoing and "finalizer" in graph_nodes:
+                target_node = "critic" if "critic" in graph_nodes else "finalizer"
+                configured_edges.append({"source": "tool_executor", "target": target_node})
 
         graph_edges = sorted(
             configured_edges,
@@ -119,19 +128,64 @@ class DynamicGraphBuilder:
                 f"missing handlers for dynamic graph nodes: {missing_handlers}"
             )
 
+        # Detect feedback loops (e.g. finalizer -> planner) to prevent infinite recursion
+        feedback_edges = {
+            (edge["source"], edge["target"])
+            for edge in graph_edges
+            if edge["source"] == "finalizer" and edge["target"] in graph_nodes
+        }
+        feedback_sources = {src for src, _ in feedback_edges}
+
+        wrapped_handlers = dict(node_handlers)
+        for src_node in feedback_sources:
+            if src_node in wrapped_handlers:
+                orig_handler = wrapped_handlers[src_node]
+                def _wrap(fn):
+                    def _wrapped(state: Any) -> Dict[str, Any]:
+                        res = fn(state)
+                        curr_count = state.get("_feedback_iterations", 0) if isinstance(state, dict) else 0
+                        if isinstance(res, dict):
+                            res["_feedback_iterations"] = curr_count + 1
+                        return res
+                    return _wrapped
+                wrapped_handlers[src_node] = _wrap(orig_handler)
+
         graph = StateGraph(ExtendedMASState)
         for node in graph_nodes:
-            graph.add_node(node, node_handlers[node])
+            graph.add_node(node, wrapped_handlers[node])
         graph.set_entry_point(actual_entry)
 
         outgoing = {edge["source"] for edge in graph_edges}
         for edge in graph_edges:
-            graph.add_edge(edge["source"], edge["target"])
+            src = edge["source"]
+            tgt = edge["target"]
+            if (src, tgt) in feedback_edges:
+                # Conditional router: allows 1 feedback loop (when count <= 1), then terminates cleanly at END
+                def _make_feedback_router(target_node: str):
+                    def _router(state: Any) -> str:
+                        count = state.get("_feedback_iterations", 0) if isinstance(state, dict) else 0
+                        if count > 1:
+                            return END
+                        return target_node
+                    return _router
+
+                graph.add_conditional_edges(
+                    src,
+                    _make_feedback_router(tgt),
+                    {tgt: tgt, END: END},
+                )
+            else:
+                graph.add_edge(src, tgt)
+
         for node in graph_nodes:
             if node not in outgoing:
                 graph.add_edge(node, END)
 
-        compiled_graph = graph.compile()
+        compiled_graph = (
+            graph.compile(checkpointer=checkpointer)
+            if checkpointer is not None
+            else graph.compile()
+        )
         representation = compiled_graph.get_graph().draw_mermaid()
         metadata = DynamicGraphMetadata(
             graph_nodes=graph_nodes,

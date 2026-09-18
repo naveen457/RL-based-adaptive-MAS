@@ -27,7 +27,7 @@ Design notes
   order from the distribution.
 * Result representations use Pydantic models consistent with the rest of the
   project.
-* Serialization is safe: no API keys, passwords, OpenRouter credentials,
+* Serialization is safe: no API keys, passwords, NVIDIA NIM credentials,
   LangSmith credentials, or environment secrets are included.
 """
 

@@ -816,7 +816,7 @@ def test_serialized_result_contains_no_environment_secrets() -> None:
     result = controller.run_experiment(distribution, n=1, seed=42)
     data = result.serialize()
     text = json.dumps(data, default=str).lower()
-    for var in ("openrouter", "langsmith", "api_key", "password"):
+    for var in ("nvidia", "langsmith", "api_key", "password"):
         assert var not in text, f"found forbidden token: {var}"
 
 

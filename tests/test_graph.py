@@ -164,7 +164,7 @@ def test_workflow_does_not_expose_credentials() -> None:
 
 @pytest.mark.integration
 def test_e2e_workflow_execution() -> None:
-    """Run the full static MAS end-to-end once via OpenRouter.
+    """Run the full static MAS end-to-end once via NVIDIA NIM.
 
     This is the single integration test for Step 4. It makes one workflow
     execution that internally triggers however many agent calls the Planner

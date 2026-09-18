@@ -1,7 +1,7 @@
 """
 Tests for the Step 8 RL environment baseline.
 
-These tests are fully offline. No OpenRouter calls are made.
+These tests are fully offline. No external API calls are made.
 
 Coverage targets
 ----------------

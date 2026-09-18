@@ -33,28 +33,40 @@ class FinalizerOutput(BaseModel):
 # System prompt
 # ---------------------------------------------------------------------------
 
-SYSTEM_PROMPT = """\
+def get_finalizer_system_prompt() -> str:
+    """Generate dynamic finalizer system prompt containing all registered specialist capabilities and tools."""
+    try:
+        from app.agents.registry import default_registry
+        registry_summary = default_registry.to_prompt_summary()
+    except Exception:
+        registry_summary = ""
+
+    return f"""\
 You are the Finalizer agent in an adaptive multi-agent system.
 
-Your job is to synthesize the supplied information into a clear, final answer to
-the original task.
+Your job is to synthesize all available context into a clear, comprehensive, and accurate final answer to the original task.
 
-You are given:
-- The original task.
-- Relevant outputs or context from other agents (research findings, code,
-  critique, etc.).
+{registry_summary}
 
-Rules:
-- Synthesize the supplied information; do not invent new research findings.
-- Do NOT claim that tools, searches, or other agents were used when they were
-  not actually provided in the context.
-- Directly answer the user's core question with concrete, substantive details from the provided context.
-- If the supplied information is insufficient, say so in the limitations.
-- Produce a final answer that a user could read directly.
+You are provided with:
+- The original user task.
+- Context and outputs from upstream specialist agents and external tools (if invoked).
+- Conversation context & thread history from prior dialogue turns (if available).
 
-Output a single JSON object matching the schema. Do not include any extra text,
-explanations, or commentary outside the JSON object.
+Guidelines:
+1. Answer the user's task directly, accurately, and thoroughly.
+2. Ground your response in the provided tool and agent outputs. If tool results (such as live date/time, search results, or calculations) are present in the supporting information, integrate those factual results into your answer.
+3. Maintain conversational continuity across multi-turn interactions. If prior conversation history includes the user's name, previous preferences, questions, or context, directly incorporate and acknowledge it to personalize your answer.
+4. If the user asks about available tools, system capabilities, or what this system can do:
+   - Accurately describe the multi-agent system and its registered tools (e.g. 'web_search', 'calculator', 'get_current_date') and specialist agents ('planner', 'researcher', 'coder', 'critic', 'finalizer').
+   - Note: Structured schema formatters (such as FinalizerOutput or ResearcherOutput) are internal response data models, not tools.
+5. If no external tools were invoked, answer using your comprehensive knowledge without inventing false citations or claiming external tools were used.
+6. Provide clear, well-structured explanations with actionable key points.
+
+Output a single JSON object matching the schema. Do not include any extra text, explanations, or commentary outside the JSON object.
 """
+
+SYSTEM_PROMPT = get_finalizer_system_prompt()
 
 
 # ---------------------------------------------------------------------------
@@ -63,7 +75,7 @@ explanations, or commentary outside the JSON object.
 
 @dataclass
 class Finalizer:
-    """Finalizer agent backed by an OpenRouter LLM.
+    """Finalizer agent backed by an NVIDIA NIM LLM.
 
     Stateless and reusable, suitable for later use as a LangGraph node.
     """
@@ -89,13 +101,13 @@ class Finalizer:
 
         if not resolved_api_key:
             raise ValueError(
-                "OpenRouter API key is not configured. "
-                "Set OPENROUTER_API_KEY in your environment or .env file."
+                "NVIDIA API key is not configured. "
+                "Set NVIDIA_API_KEY in your environment or .env file."
             )
         if not resolved_model:
             raise ValueError(
-                "OPENROUTER_MODEL is not configured. "
-                "Set OPENROUTER_MODEL in your environment or .env file."
+                "NVIDIA_MODEL is not configured. "
+                "Set NVIDIA_MODEL in your environment or .env file."
             )
 
         llm = ChatOpenAI(
@@ -103,6 +115,7 @@ class Finalizer:
             openai_api_key=resolved_api_key,
             openai_api_base=resolved_base_url,
             temperature=0.0,
+            max_tokens=settings.max_tokens,
         )
 
         structured_llm = llm.with_structured_output(
@@ -117,25 +130,43 @@ class Finalizer:
         self,
         original_task: str,
         supporting_info: str,
+        conversation_history: Optional[str] = None,
     ) -> FinalizerOutput:
         """Synthesize *supporting_info* into a final answer for *original_task*.
 
         Args:
             original_task: The original task or question.
             supporting_info: Relevant outputs/context from other agents.
+            conversation_history: Optional multi-turn dialog history.
 
         Returns:
             FinalizerOutput with the final answer, key points, and limitations.
         """
-        user_content = (
-            f"Original task:\n{original_task}\n\n"
-            f"Supporting information from other agents:\n{supporting_info}"
-        )
+        import time
+
+        parts = []
+        if conversation_history:
+            parts.append(f"Conversation Context & Thread History:\n{conversation_history}")
+        parts.append(f"Original task:\n{original_task}")
+        if supporting_info:
+            parts.append(f"Supporting information from other agents:\n{supporting_info}")
+
+        user_content = "\n\n".join(parts)
+        sys_prompt = get_finalizer_system_prompt()
         messages = [
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": sys_prompt},
             {"role": "user", "content": user_content},
         ]
-        return self.structured_llm.invoke(messages)
+        for attempt in range(3):
+            try:
+                return self.structured_llm.invoke(messages)
+            except Exception as e:
+                err_str = str(e).lower()
+                if ("rate_limit" in err_str or "429" in err_str or "tokens per minute" in err_str) and attempt < 2:
+                    print("  [Rate Limit] Replenishing tokens, waiting 5s...")
+                    time.sleep(5)
+                    continue
+                raise
 
 
 # ---------------------------------------------------------------------------

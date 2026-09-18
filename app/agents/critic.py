@@ -75,7 +75,7 @@ explanations, or commentary outside the JSON object.
 
 @dataclass
 class Critic:
-    """Critic agent backed by an OpenRouter LLM.
+    """Critic agent backed by an NVIDIA NIM LLM.
 
     Stateless and reusable, suitable for later use as a LangGraph node.
     """
@@ -101,13 +101,13 @@ class Critic:
 
         if not resolved_api_key:
             raise ValueError(
-                "OpenRouter API key is not configured. "
-                "Set OPENROUTER_API_KEY in your environment or .env file."
+                "NVIDIA API key is not configured. "
+                "Set NVIDIA_API_KEY in your environment or .env file."
             )
         if not resolved_model:
             raise ValueError(
-                "OPENROUTER_MODEL is not configured. "
-                "Set OPENROUTER_MODEL in your environment or .env file."
+                "NVIDIA_MODEL is not configured. "
+                "Set NVIDIA_MODEL in your environment or .env file."
             )
 
         llm = ChatOpenAI(
@@ -115,6 +115,7 @@ class Critic:
             openai_api_key=resolved_api_key,
             openai_api_base=resolved_base_url,
             temperature=0.0,
+            max_tokens=settings.max_tokens,
         )
 
         structured_llm = llm.with_structured_output(
@@ -139,6 +140,8 @@ class Critic:
         Returns:
             CriticOutput with assessment, issues, and corrections.
         """
+        import time
+
         user_content = (
             f"Original task / context:\n{original_task}\n\n"
             f"Output to review:\n{output_to_review}"
@@ -147,7 +150,16 @@ class Critic:
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_content},
         ]
-        return self.structured_llm.invoke(messages)
+        for attempt in range(3):
+            try:
+                return self.structured_llm.invoke(messages)
+            except Exception as e:
+                err_str = str(e).lower()
+                if ("rate_limit" in err_str or "429" in err_str or "tokens per minute" in err_str) and attempt < 2:
+                    print("  [Rate Limit] Replenishing tokens, waiting 5s...")
+                    time.sleep(5)
+                    continue
+                raise
 
 
 # ---------------------------------------------------------------------------

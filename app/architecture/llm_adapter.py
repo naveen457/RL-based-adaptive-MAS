@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Literal, Optional, Protocol, Sequence, Tuple
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
-from app.architecture.actions import ArchitectureAction
+from app.architecture.actions import ActionType, ArchitectureAction
 from app.architecture.manager import ArchitectureManager
 from app.architecture.models import MASArchitecture
 from app.agents.planner import PlannerOutput
@@ -160,13 +160,11 @@ class LLMArchitectureAdapter:
         resolved_api_key = settings.api_key if api_key is None else api_key
         if not resolved_api_key:
             raise ValueError(
-                "LLM API key is not configured. Set NVIDIA_API_KEY or "
-                "OPENROUTER_API_KEY in the environment or .env file."
+                "LLM API key is not configured. Set NVIDIA_API_KEY in the environment or .env file."
             )
         if not resolved_model:
             raise ValueError(
-                "LLM model is not configured. Set NVIDIA_MODEL or "
-                "OPENROUTER_MODEL in the environment or .env file."
+                "LLM model is not configured. Set NVIDIA_MODEL in the environment or .env file."
             )
 
         client = ChatOpenAI(
@@ -174,6 +172,7 @@ class LLMArchitectureAdapter:
             openai_api_key=resolved_api_key,
             openai_api_base=resolved_base_url,
             temperature=0.0,
+            max_tokens=settings.max_tokens,
         )
         return cls(client)
 
@@ -209,7 +208,9 @@ class LLMArchitectureAdapter:
         planner_output: PlannerOutput,
         architecture: Optional[MASArchitecture] = None,
     ) -> List[Dict[str, str]]:
-        """Build a typed decision prompt from PlannerOutput and architecture state."""
+        """Build the planner-driven architecture prompt."""
+
+        current = architecture or self.workflow_adapter.current_architecture()
         try:
             from app.agents.registry import default_registry
             registry_agents = [
@@ -225,7 +226,6 @@ class LLMArchitectureAdapter:
         except Exception:
             registry_agents = []
 
-        current = architecture or self.workflow_adapter.current_architecture()
         user_payload = {
             "planner_output": planner_output.model_dump(mode="json"),
             "current_architecture": current.serialize(),
@@ -236,17 +236,28 @@ class LLMArchitectureAdapter:
             {"role": "user", "content": json.dumps(user_payload, sort_keys=True)},
         ]
 
-
     def recommend_from_planner_output(
         self,
         planner_output: PlannerOutput,
         architecture: Optional[MASArchitecture] = None,
     ) -> PlannerArchitectureDecision:
         """Ask the existing LLM client for a decision based on PlannerOutput."""
+        import time
 
-        response = self.client.invoke(
-            self.build_planner_prompt(planner_output, architecture)
-        )
+        prompt = self.build_planner_prompt(planner_output, architecture)
+        response = None
+        for attempt in range(3):
+            try:
+                response = self.client.invoke(prompt)
+                break
+            except Exception as e:
+                err_str = str(e).lower()
+                if ("rate_limit" in err_str or "429" in err_str or "tokens per minute" in err_str) and attempt < 2:
+                    print("  [Rate Limit] Replenishing tokens, waiting 5s...")
+                    time.sleep(5)
+                    continue
+                raise
+
         payload = self._extract_payload(response)
         return self._normalize_planner_decision(payload)
 
@@ -268,6 +279,23 @@ class LLMArchitectureAdapter:
                 rejected.append(
                     RejectedAction(action=dict(raw_action), reason=str(exc))
                 )
+
+        # Deterministic capability synchronization:
+        # Guarantee that if PlannerOutput explicitly mandates tool_executor, researcher, coder, or critic,
+        # the corresponding activation action is present so LLM completions never drop required capabilities.
+        active_ids = set(initial.active_agent_ids)
+        already_activated = {a.agent_id for a in parsed_actions if a.action_type == ActionType.ACTIVATE_AGENT}
+
+        needs_tools = (
+            planner_output.requires_tools
+            or "tool_executor" in (planner_output.selected_agents or [])
+            or bool(planner_output.tools_needed)
+            or bool(set(planner_output.required_capabilities or []) & {"tool_use", "web_search", "external_api", "tools"})
+        )
+        if needs_tools and "tool_executor" not in active_ids and "tool_executor" not in already_activated:
+            parsed_actions.append(
+                ArchitectureAction(action_type=ActionType.ACTIVATE_AGENT, agent_id="tool_executor")
+            )
 
         valid_actions: List[Dict[str, Any]] = []
         if not rejected:

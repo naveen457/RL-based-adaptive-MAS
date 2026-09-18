@@ -63,7 +63,7 @@ explanations, or commentary outside the JSON object.
 
 @dataclass
 class Coder:
-    """Coder agent backed by an OpenRouter LLM.
+    """Coder agent backed by an NVIDIA NIM LLM.
 
     Stateless and reusable, suitable for later use as a LangGraph node.
     Does NOT execute generated code.
@@ -90,13 +90,13 @@ class Coder:
 
         if not resolved_api_key:
             raise ValueError(
-                "OpenRouter API key is not configured. "
-                "Set OPENROUTER_API_KEY in your environment or .env file."
+                "NVIDIA API key is not configured. "
+                "Set NVIDIA_API_KEY in your environment or .env file."
             )
         if not resolved_model:
             raise ValueError(
-                "OPENROUTER_MODEL is not configured. "
-                "Set OPENROUTER_MODEL in your environment or .env file."
+                "NVIDIA_MODEL is not configured. "
+                "Set NVIDIA_MODEL in your environment or .env file."
             )
 
         llm = ChatOpenAI(
@@ -104,6 +104,7 @@ class Coder:
             openai_api_key=resolved_api_key,
             openai_api_base=resolved_base_url,
             temperature=0.0,
+            max_tokens=settings.max_tokens,
         )
 
         structured_llm = llm.with_structured_output(
@@ -123,11 +124,22 @@ class Coder:
         Returns:
             CoderOutput with implementation, explanation, and testing notes.
         """
+        import time
+
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": task},
         ]
-        return self.structured_llm.invoke(messages)
+        for attempt in range(3):
+            try:
+                return self.structured_llm.invoke(messages)
+            except Exception as e:
+                err_str = str(e).lower()
+                if ("rate_limit" in err_str or "429" in err_str or "tokens per minute" in err_str) and attempt < 2:
+                    print("  [Rate Limit] Replenishing tokens, waiting 5s...")
+                    time.sleep(5)
+                    continue
+                raise
 
 
 # ---------------------------------------------------------------------------

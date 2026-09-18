@@ -11,18 +11,29 @@ from app.architecture.llm_adapter import LLMArchitectureAdapter
 from app.architecture.manager import ArchitectureManager
 from app.graph.adaptive_integration import AdaptiveWorkflowAdapter
 from app.graph.dynamic_builder import DynamicGraphBuilder, DynamicGraphMetadata
-from app.graph.state import MASState
+from app.memory.store import (
+    ThreadMessageStore,
+    default_thread_store,
+    format_history_for_prompt,
+    serialize_message,
+)
 from app.runtime.llm_execution import (
     AgentExecutionRecord,
     ExistingLLMAgentExecutor,
     LLMExecutionResult,
 )
+from langchain_core.messages import HumanMessage
 
 
 class PlannerRunner(Protocol):
     model: Any
 
-    def plan(self, task: str) -> PlannerOutput: ...
+    def plan(
+        self,
+        task: str,
+        conversation_history: Optional[str] = None,
+    ) -> PlannerOutput: ...
+
 
 
 class RuntimeExecutionResult(BaseModel):
@@ -99,9 +110,45 @@ class DynamicGraphExecutionResult(BaseModel):
     execution_path_before: list[str] = Field(default_factory=list)
     execution_path_after: list[str] = Field(default_factory=list)
     actual_execution_path: list[str] = Field(default_factory=list)
+    # Active RL decision metadata
+    decision_source: str = "llm_adapter"
+    is_instant_rl: bool = False
+    action_ids: list[int] = Field(default_factory=list)
+    rejected_actions_list: list[Dict[str, Any]] = Field(default_factory=list)
+    thread_id: str = "thread-1"
+    messages: list[Dict[str, Any]] = Field(default_factory=list)
+
+    @property
+    def agents_actually_invoked(self) -> list[str]:
+        return self.agents_invoked
+
+    @property
+    def accepted_actions(self) -> list[Dict[str, Any]]:
+        return self.architecture_actions
+
+    @property
+    def rejected_actions(self) -> list[Dict[str, Any]]:
+        return self.rejected_actions_list
+
+    @property
+    def architecture_changed(self) -> bool:
+        return self.initial_architecture != self.final_architecture
+
+    @property
+    def langgraph_compatible(self) -> bool:
+        return True
 
     def serialize(self) -> Dict[str, Any]:
-        return self.model_dump(mode="json", exclude_none=True)
+        data = self.model_dump(mode="json", exclude_none=True)
+        data["agents_actually_invoked"] = self.agents_actually_invoked
+        data["accepted_actions"] = self.accepted_actions
+        data["rejected_actions"] = self.rejected_actions
+        data["architecture_changed"] = self.architecture_changed
+        data["langgraph_compatible"] = True
+        return data
+
+    def to_dict(self) -> Dict[str, Any]:
+        return self.serialize()
 
 
 class AdaptiveRuntimeOrchestrator:
@@ -120,6 +167,10 @@ class AdaptiveRuntimeOrchestrator:
         initial_manager: Optional[ArchitectureManager] = None,
         workflow_runner: Optional[Callable[[str], MASState]] = None,
         agent_executor: Optional[ExistingLLMAgentExecutor] = None,
+        q_policy: Optional[Any] = None,
+        rl_selector: Optional[Any] = None,
+        thread_store: Optional[ThreadMessageStore] = None,
+        checkpointer: Optional[Any] = None,
     ) -> None:
         self.planner = planner
         manager = initial_manager or ArchitectureManager.create_default_architecture()
@@ -132,30 +183,83 @@ class AdaptiveRuntimeOrchestrator:
             self.workflow_adapter = architecture_adapter.workflow_adapter
         self.workflow_runner = workflow_runner
         self.agent_executor = agent_executor
+        self.q_policy = q_policy
+        if rl_selector is not None:
+            self.rl_selector = rl_selector
+        elif q_policy is not None:
+            from app.rl.active_selector import RLArchitectureSelector
+            self.rl_selector = RLArchitectureSelector(policy=q_policy)
+        else:
+            self.rl_selector = None
+        self.thread_store = thread_store or default_thread_store
+        self.checkpointer = checkpointer or self.thread_store.checkpointer
 
     @classmethod
-    def from_settings(cls) -> "AdaptiveRuntimeOrchestrator":
+    def from_settings(
+        cls,
+        *,
+        q_policy: Optional[Any] = None,
+        rl_selector: Optional[Any] = None,
+        initial_manager: Optional[ArchitectureManager] = None,
+        thread_store: Optional[ThreadMessageStore] = None,
+    ) -> "AdaptiveRuntimeOrchestrator":
         """Construct the runtime using the existing configured Planner/client."""
 
         return cls(
             planner=Planner.from_settings(),
             agent_executor=ExistingLLMAgentExecutor(),
+            q_policy=q_policy,
+            rl_selector=rl_selector,
+            initial_manager=initial_manager,
+            thread_store=thread_store,
         )
 
-    def run(self, user_task: str) -> RuntimeExecutionResult:
+    @property
+    def current_architecture(self):
+        """Return the active architecture."""
+        return self.workflow_adapter.current_architecture()
+
+    @property
+    def current_version(self) -> int:
+        """Return the current architecture version."""
+        return self.workflow_adapter.current_version()
+
+    def reset_to_baseline(self):
+        """Reset the architecture back to static-mas-v1 baseline (v0)."""
+        manager = ArchitectureManager.create_default_architecture()
+        self.workflow_adapter = AdaptiveWorkflowAdapter(manager=manager)
+        self.architecture_adapter.workflow_adapter = self.workflow_adapter
+        return self.workflow_adapter.current_architecture()
+
+    def run(self, user_task: str, thread_id: str = ThreadMessageStore.DEFAULT_THREAD_ID) -> RuntimeExecutionResult:
         """Plan, adapt, execute the existing workflow, and collect metadata."""
 
-        planner_output = self.planner.plan(user_task)
+        existing_msgs = self.thread_store.get_messages(thread_id)
+        conv_history = format_history_for_prompt(existing_msgs) if existing_msgs else None
+
+        try:
+            planner_output = self.planner.plan(user_task, conversation_history=conv_history)
+        except TypeError:
+            planner_output = self.planner.plan(user_task)
+
         initial = self.architecture_adapter.workflow_adapter.current_architecture()
         adaptation = self.architecture_adapter.adapt_from_planner_output(planner_output)
         final = self.architecture_adapter.workflow_adapter.current_architecture()
 
         if self.agent_executor is not None:
-            execution = self.agent_executor.execute(
-                user_task,
-                planner_output,
-                final,
-            )
+            try:
+                execution = self.agent_executor.execute(
+                    user_task,
+                    planner_output,
+                    final,
+                    conversation_history=conv_history,
+                )
+            except TypeError:
+                execution = self.agent_executor.execute(
+                    user_task,
+                    planner_output,
+                    final,
+                )
             execution_trace = execution.execution_trace
             final_response = execution.final_response
         else:
@@ -206,6 +310,7 @@ class AdaptiveRuntimeOrchestrator:
         user_task: str,
         *,
         runtime_adaptation: bool = False,
+        thread_id: str = "thread-1",
     ) -> DynamicGraphExecutionResult:
         """Adapt architecture, compile a graph from it, and execute that graph.
 
@@ -240,14 +345,65 @@ class AdaptiveRuntimeOrchestrator:
             )
 
         emit("planner.started", node="planner", stage="ORIGINAL", status="started")
-        planner_output = self.planner.plan(user_task)
+        existing_msgs = self.thread_store.get_messages(thread_id)
+        conv_history = format_history_for_prompt(existing_msgs) if existing_msgs else None
+        try:
+            planner_output = self.planner.plan(user_task, conversation_history=conv_history)
+        except TypeError:
+            planner_output = self.planner.plan(user_task)
         emit("planner.completed", node="planner", stage="ORIGINAL")
         initial = self.architecture_adapter.workflow_adapter.current_architecture()
         version_before = self.architecture_adapter.workflow_adapter.current_version()
         emit(
             "architecture_adaptation.started", version=version_before, status="started"
         )
-        adaptation = self.architecture_adapter.adapt_from_planner_output(planner_output)
+        decision_source = "llm_adapter"
+        is_instant_rl = False
+        action_ids: list[int] = []
+        rejected_actions_list: list[Dict[str, Any]] = []
+
+        is_trivial_task = (
+            user_task.strip().lower() in {
+                "hi", "hello", "hey", "greetings", "good morning", "good evening", "howdy", "thanks", "thank you"
+            } or (
+                getattr(planner_output, "estimated_complexity", "") == "trivial"
+                and not getattr(planner_output, "requires_research", False)
+                and not getattr(planner_output, "requires_coding", False)
+                and not getattr(planner_output, "requires_verification", False)
+                and not getattr(planner_output, "requires_tools", False)
+                and not getattr(planner_output, "tools_needed", [])
+                and len(user_task.split()) <= 4
+            )
+        )
+
+        if is_trivial_task:
+            decision_source = "fast_path_trivial"
+            is_instant_rl = True
+            arch_decision = {"decision": "no_change", "reasoning": "Trivial input; baseline topology sufficient."}
+            valid_actions = []
+            plan_output_dict = planner_output.model_dump(mode="json")
+        elif self.rl_selector is not None:
+            from app.architecture.actions import ArchitectureAction
+            rl_res = self.rl_selector.select(initial, planner_output, llm_adapter=self.architecture_adapter)
+            decision_source = rl_res.decision_source
+            is_instant_rl = rl_res.is_instant
+            action_ids = rl_res.action_ids
+            rejected_actions_list = rl_res.rejected_actions
+
+            if rl_res.decision_source == "rl_policy":
+                for act_dict in rl_res.valid_actions:
+                    act_obj = ArchitectureAction.model_validate(act_dict)
+                    self.workflow_adapter.try_apply_action(act_obj)
+            arch_decision = rl_res.decision
+            valid_actions = rl_res.valid_actions
+            plan_output_dict = planner_output.model_dump(mode="json")
+        else:
+            adaptation = self.architecture_adapter.adapt_from_planner_output(planner_output)
+            arch_decision = adaptation.architecture_decision
+            valid_actions = adaptation.valid_actions
+            plan_output_dict = adaptation.planner_output
+            rejected_actions_list = [item.serialize() for item in adaptation.rejected_actions]
+
         final = self.architecture_adapter.workflow_adapter.current_architecture()
         version = self.architecture_adapter.workflow_adapter.current_version()
         emit("architecture_adaptation.completed", version=version)
@@ -276,10 +432,17 @@ class AdaptiveRuntimeOrchestrator:
                 planner_output,
                 handlers,
                 architecture_version=version,
-                architecture_actions=adaptation.valid_actions,
+                architecture_actions=valid_actions,
+                checkpointer=self.checkpointer,
             )
             emit("graph.compile.completed", version=version, stage="COMPILED")
-            state = built.compiled_graph.invoke({"original_task": user_task})
+            initial_input = {
+                "original_task": user_task,
+                "thread_id": thread_id,
+                "messages": [HumanMessage(content=user_task)],
+            }
+            invoke_config = {"configurable": {"thread_id": thread_id}}
+            state = built.compiled_graph.invoke(initial_input, config=invoke_config)
             emit("workflow.completed", version=version, stage="ACTUAL")
             final_response = state.get("final_answer") if isinstance(state, dict) else None
             if isinstance(final_response, BaseModel):
@@ -289,23 +452,31 @@ class AdaptiveRuntimeOrchestrator:
                 if event.event.endswith(".started") and event.node is not None:
                     if event.node not in invoked:
                         invoked.append(event.node)
+            raw_messages = state.get("messages", []) if isinstance(state, dict) else []
+            serialized_messages = [serialize_message(m) for m in raw_messages]
             return DynamicGraphExecutionResult(
                 task=user_task,
-                planner_output=adaptation.planner_output,
-                architecture_decision=adaptation.architecture_decision,
+                planner_output=plan_output_dict,
+                architecture_decision=arch_decision,
                 initial_architecture=initial.serialize(),
                 final_architecture=final.serialize(),
                 graph_nodes=built.metadata.graph_nodes,
                 graph_edges=built.metadata.graph_edges,
                 active_agents=built.metadata.active_agents,
                 architecture_version=version,
-                architecture_actions=adaptation.valid_actions,
+                architecture_actions=valid_actions,
                 compiled=built.metadata.compiled,
                 graph_representation=built.metadata.graph_representation,
                 execution_trace=events,
                 agents_invoked=invoked,
                 final_response=final_response,
                 actual_execution_path=invoked,
+                decision_source=decision_source,
+                is_instant_rl=is_instant_rl,
+                action_ids=action_ids,
+                rejected_actions_list=rejected_actions_list,
+                thread_id=thread_id,
+                messages=serialized_messages,
             )
 
         # ------------------------------------------------------------------
@@ -335,7 +506,12 @@ class AdaptiveRuntimeOrchestrator:
         emit("graph.v0.compiled", version=version, stage="COMPILED")
 
         # Invoke Graph v0 via LangGraph
-        state_v0 = built_v0.compiled_graph.invoke({"original_task": user_task})
+        initial_input_v0 = {
+            "original_task": user_task,
+            "thread_id": thread_id,
+            "messages": [HumanMessage(content=user_task)],
+        }
+        state_v0 = built_v0.compiled_graph.invoke(initial_input_v0)
 
         # Capture intermediate context and triggering agent
         research_output = state_v0.get("research_output")
@@ -519,6 +695,8 @@ class AdaptiveRuntimeOrchestrator:
             execution_path_before=unique_path_before,
             execution_path_after=path_after,
             actual_execution_path=invoked,
+            thread_id=thread_id,
+            messages=[serialize_message(m) for m in final_state.get("messages", [])] if isinstance(final_state, dict) else [],
         )
 
     @staticmethod
@@ -583,3 +761,15 @@ def run_adaptive_runtime(user_task: str) -> RuntimeExecutionResult:
     """Run the production planner-to-adaptive-architecture runtime path."""
 
     return AdaptiveRuntimeOrchestrator.from_settings().run(user_task)
+
+
+def run_dynamic_runtime(
+    user_task: str,
+    *,
+    orchestrator: Optional[AdaptiveRuntimeOrchestrator] = None,
+    q_policy: Optional[Any] = None,
+) -> DynamicGraphExecutionResult:
+    """Run the dynamic compiled LangGraph architecture runtime path."""
+
+    orch = orchestrator or AdaptiveRuntimeOrchestrator.from_settings(q_policy=q_policy)
+    return orch.run_dynamic(user_task)

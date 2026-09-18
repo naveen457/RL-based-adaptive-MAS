@@ -659,7 +659,7 @@ def test_deterministic_experiment_contains_no_credentials() -> None:
     payload = result.serialize()
 
     blob = json.dumps(payload).lower()
-    forbidden = ("api_key", "nvidia", "openrouter", "base_url")
+    forbidden = ("api_key", "nvidia", "secret", "base_url")
     for token in forbidden:
         assert token not in blob
 

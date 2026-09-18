@@ -220,3 +220,70 @@ def test_trace_and_graph_consistency() -> None:
     assert set(result.agents_invoked).issubset(set(result.graph_nodes))
     assert ("coder", "critic") in graph_edges
     json.dumps(result.serialize())
+
+
+def test_dynamic_graph_supports_parallel_branching() -> None:
+    """Verify that LangGraph executes parallel branches (planner -> researcher and planner -> coder)."""
+    dual_plan = PlannerOutput(
+        task_understanding="Both research and coding needed in parallel.",
+        required_capabilities=["research", "coding"],
+        steps=["Research", "Code", "Synthesize"],
+        requires_research=True,
+        requires_coding=True,
+    )
+    decision = {
+        "decision": "apply_actions",
+        "reasoning": "activate both specialist branches",
+        "actions": [
+            {"action_type": "activate_agent", "agent_id": "researcher"},
+            {"action_type": "activate_agent", "agent_id": "coder"},
+        ],
+    }
+
+    runtime = _runtime(dual_plan, decision)
+    result = runtime.run_dynamic("Parallel research and coding task.")
+
+    assert result.compiled is True
+    assert "researcher" in result.graph_nodes
+    assert "coder" in result.graph_nodes
+    assert "researcher" in result.agents_invoked
+    assert "coder" in result.agents_invoked
+
+    edges = {(e["source"], e["target"]) for e in result.graph_edges}
+    assert ("planner", "researcher") in edges
+    assert ("planner", "coder") in edges
+
+
+def test_dynamic_graph_supports_feedback_cycle() -> None:
+    """Verify that LangGraph compiles and cleanly executes cyclic feedback loops (finalizer -> planner)."""
+    plan = _greeting_plan()
+    manager = ArchitectureManager.create_default_architecture()
+    # Add feedback edge: finalizer -> planner
+    manager.apply_action(
+        ArchitectureAction(
+            action_type=ActionType.ADD_EDGE,
+            source="finalizer",
+            target="planner",
+        )
+    )
+
+    client = FakeDecisionLLM({"decision": "no_change", "reasoning": "preserve feedback loop", "actions": []})
+    adapter = LLMArchitectureAdapter(
+        client,
+        workflow_adapter=AdaptiveWorkflowAdapter(manager=manager),
+    )
+    runtime = AdaptiveRuntimeOrchestrator(
+        planner=FakePlanner(plan, client),
+        architecture_adapter=adapter,
+        agent_executor=_executor(),
+    )
+
+    result = runtime.run_dynamic("Execute with feedback loop.")
+
+    assert result.compiled is True
+    assert "finalizer" in result.graph_nodes
+    assert "planner" in result.graph_nodes
+    edges = {(e["source"], e["target"]) for e in result.graph_edges}
+    assert ("finalizer", "planner") in edges
+    # Graph completes without hanging or crashing
+    assert result.final_response is not None

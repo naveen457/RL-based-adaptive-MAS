@@ -107,7 +107,7 @@ All mutations (`activate_agent`, `deactivate_agent`, `add_edge`, `remove_edge`, 
 #### 6. Deterministic Offline Proxies & Safe Meta-Training
 To prevent runaway LLM costs during extensive Meta-RL exploration, the framework decouples:
 - **Offline Meta-Training:** Fast, deterministic capability-coverage and connectivity proxies ([TaskPerformanceEvaluator](app/evaluation/task_performance.py)).
-- **Online Deployment:** Live LLM agent execution ([ExistingLLMAgentExecutor](app/runtime/llm_execution.py)) backed by OpenRouter or NVIDIA NIM.
+- **Online Deployment:** Live LLM agent execution ([ExistingLLMAgentExecutor](app/runtime/llm_execution.py)) backed by NVIDIA NIM.
 
 ---
 
@@ -340,10 +340,11 @@ cp .env.example .env
 
 Edit `.env`:
 ```env
-# NVIDIA NIM or OpenRouter API Settings
+# NVIDIA NIM API Settings (https://build.nvidia.com)
 NVIDIA_API_KEY="your-nvidia-api-key"
 NVIDIA_BASE_URL="https://integrate.api.nvidia.com/v1"
-NVIDIA_MODEL="nvidia/nemotron-3.5-lightning-30b-a3b"
+NVIDIA_MODEL="mistralai/mistral-nemotron"
+MAX_TOKENS=4096
 
 # Optional: LangSmith Observability
 LANGCHAIN_TRACING_V2=true

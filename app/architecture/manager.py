@@ -357,6 +357,21 @@ class ArchitectureManager:
                 ArchitectureAction(action_type=action_type, agent_id=agent.agent_id)
             )
 
+        # Include candidate activation actions for any unregistered agents in default_registry
+        known_agent_ids = set(architecture.agent_ids)
+        try:
+            from app.agents.registry import default_registry
+            for spec in default_registry.list_agents():
+                if spec.agent_id not in known_agent_ids:
+                    actions.append(
+                        ArchitectureAction(
+                            action_type=ActionType.ACTIVATE_AGENT,
+                            agent_id=spec.agent_id,
+                        )
+                    )
+        except Exception:
+            pass
+
         for source in agent_ids:
             for target in agent_ids:
                 if source != target and (source, target) not in existing_edges:
