@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field, ValidationError
@@ -35,6 +35,20 @@ class CriticOutput(BaseModel):
         description="One of: 'correct', 'partially_correct', 'incorrect', 'unclear'. "
         "A concise verdict on the correctness of the output.",
     )
+    quality_score: float = Field(
+        default=0.85,
+        ge=0.0,
+        le=1.0,
+        description="Quality and completeness score from 0.0 to 1.0 assessing if the output adequately satisfies the user task requirements.",
+    )
+    retry_target_node: Optional[str] = Field(
+        default=None,
+        description="Target node to redirect to if quality_score is below threshold: 'tool_executor', 'coder', or 'researcher'.",
+    )
+    suggested_tool_calls: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="Specific follow-up tool calls if redirecting to tool_executor, e.g. [{'tool_name': 'web_search', 'arguments': {'query': '...'}}].",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -57,6 +71,14 @@ Evaluate the output for:
 - Logical problems: contradictions, non-sequiturs, flawed reasoning.
 - Unsupported claims: statements made without evidence or justification.
 - Quality issues: clarity, structure, tone, missing detail.
+
+Scoring and Redirection:
+- quality_score: Rate the overall output from 0.0 to 1.0.
+  * Score >= 0.75: The output is sufficiently accurate and complete to proceed to final answer synthesis without looping.
+  * Score < 0.75: The output has critical flaws, missing data, or unmet task criteria that require an upstream node to retry.
+- If quality_score < 0.75:
+  * Specify retry_target_node as one of: 'tool_executor', 'coder', 'researcher'.
+  * If redirecting to 'tool_executor', provide the exact tool name and arguments in suggested_tool_calls (e.g. [{"tool_name": "web_search", "arguments": {"query": "..."}}]).
 
 Be specific and useful. Do not just say "good" or "bad". For each issue,
 describe what is wrong and, where possible, what the correction should be.

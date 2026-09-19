@@ -37,6 +37,10 @@ class Settings(BaseModel):
         "",
     )
 
+    # Critic Quality Threshold & Feedback Looping
+    critic_quality_threshold: float = float(os.getenv("CRITIC_QUALITY_THRESHOLD", "0.75"))
+    critic_max_retries: int = int(os.getenv("CRITIC_MAX_RETRIES", "1"))
+
 
 settings = Settings()
 

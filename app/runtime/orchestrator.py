@@ -243,6 +243,14 @@ class AdaptiveRuntimeOrchestrator:
         except TypeError:
             planner_output = self.planner.plan(user_task)
 
+        if planner_output is None:
+            planner_output = PlannerOutput(
+                task_understanding=user_task,
+                required_capabilities=["general"],
+                steps=[f"Process: {user_task}"],
+                estimated_complexity="medium",
+            )
+
         initial = self.architecture_adapter.workflow_adapter.current_architecture()
         adaptation = self.architecture_adapter.adapt_from_planner_output(planner_output)
         final = self.architecture_adapter.workflow_adapter.current_architecture()
@@ -360,6 +368,14 @@ class AdaptiveRuntimeOrchestrator:
             planner_output = self.planner.plan(user_task, conversation_history=conv_history)
         except TypeError:
             planner_output = self.planner.plan(user_task)
+
+        if planner_output is None:
+            planner_output = PlannerOutput(
+                task_understanding=user_task,
+                required_capabilities=["general"],
+                steps=[f"Process: {user_task}"],
+                estimated_complexity="medium",
+            )
         emit("planner.completed", node="planner", stage="ORIGINAL")
         initial = self.architecture_adapter.workflow_adapter.current_architecture()
         version_before = self.architecture_adapter.workflow_adapter.current_version()

@@ -354,10 +354,16 @@ class ExistingLLMAgentExecutor:
             )
             event("completed", "critic")
             critique_str = getattr(output, "overall_assessment", str(output))
-            return {
+            score_val = getattr(output, "quality_score", 0.85)
+            suggested_calls = getattr(output, "suggested_tool_calls", []) or []
+
+            res_dict: Dict[str, Any] = {
                 "critic_output": output,
-                "messages": [AIMessage(content=f"Review Critique: {critique_str}", name="critic")],
+                "messages": [AIMessage(content=f"Review Critique (Score: {score_val:.2f}): {critique_str}", name="critic")],
             }
+            if suggested_calls:
+                res_dict["tool_calls"] = suggested_calls
+            return res_dict
 
         def tool_executor_node(state: Dict[str, Any]) -> Dict[str, Any]:
             event("started", "tool_executor")
@@ -372,8 +378,21 @@ class ExistingLLMAgentExecutor:
             )
             event("completed", "tool_executor")
             tool_summary = json.dumps(results, default=str)
+
+            prev_output = state.get("tool_output")
+            if prev_output and tool_calls:
+                if isinstance(prev_output, list):
+                    merged_output = list(prev_output) + results
+                elif isinstance(prev_output, dict):
+                    merged_output = [prev_output] + results
+                else:
+                    merged_output = results
+            else:
+                merged_output = results
+
             return {
-                "tool_output": results,
+                "tool_output": merged_output,
+                "tool_calls": [],
                 "messages": [AIMessage(content=f"Tool Execution Results: {tool_summary}", name="tool_executor")],
             }
 

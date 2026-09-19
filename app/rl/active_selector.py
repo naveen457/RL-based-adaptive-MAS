@@ -59,10 +59,16 @@ class RLArchitectureSelector:
         self.min_q_threshold = min_q_threshold
         self.rng = rng or random.Random()
 
-    def build_task_context(self, planner_output: PlannerOutput) -> MetaTaskContext:
+    def build_task_context(self, planner_output: Optional[PlannerOutput]) -> MetaTaskContext:
         """Derive a deterministic MetaTaskContext from PlannerOutput."""
-        req_caps = list(planner_output.required_capabilities or [])
-        tools_needed = list(planner_output.tools_needed or [])
+        if planner_output is None:
+            return MetaTaskContext(
+                task_category="general",
+                required_capabilities=[],
+                difficulty=2,
+            )
+        req_caps = list(getattr(planner_output, "required_capabilities", []) or [])
+        tools_needed = list(getattr(planner_output, "tools_needed", []) or [])
         for t in tools_needed:
             if t not in req_caps:
                 req_caps.append(t)

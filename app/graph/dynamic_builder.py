@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.agents.planner import PlannerOutput
 from app.architecture.models import MASArchitecture
+from app.config.settings import settings
 from app.graph.state import ExtendedMASState, MASState
 
 NodeHandler = Callable[[MASState], Dict[str, Any]]
@@ -101,6 +102,11 @@ class DynamicGraphBuilder:
                 and edge.target == "finalizer"
                 and (planner_output.requires_research or planner_output.requires_coding or "tool_executor" in graph_nodes)
             )
+            and not (
+                edge.source == "tool_executor"
+                and edge.target == "finalizer"
+                and "critic" in graph_nodes
+            )
         ]
         if "critic" not in graph_nodes and "finalizer" in graph_nodes:
             for edge in architecture.communication_edges:
@@ -136,6 +142,18 @@ class DynamicGraphBuilder:
         }
         feedback_sources = {src for src, _ in feedback_edges}
 
+        # Critic threshold feedback loop setup
+        critic_retry_candidates = [
+            n for n in ["tool_executor", "coder", "researcher"] if n in graph_nodes
+        ]
+        has_critic_loop = (
+            "critic" in graph_nodes
+            and "finalizer" in graph_nodes
+            and len(critic_retry_candidates) > 0
+        )
+        threshold = getattr(settings, "critic_quality_threshold", 0.75)
+        max_retries = getattr(settings, "critic_max_retries", 1)
+
         wrapped_handlers = dict(node_handlers)
         for src_node in feedback_sources:
             if src_node in wrapped_handlers:
@@ -150,15 +168,80 @@ class DynamicGraphBuilder:
                     return _wrapped
                 wrapped_handlers[src_node] = _wrap(orig_handler)
 
+        if has_critic_loop and "critic" in wrapped_handlers:
+            orig_critic = wrapped_handlers["critic"]
+            def _wrap_critic_handler(fn):
+                def _wrapped(state: Any) -> Dict[str, Any]:
+                    res = fn(state)
+                    count = state.get("_feedback_iterations", 0) if isinstance(state, dict) else 0
+                    critic_out = res.get("critic_output") if isinstance(res, dict) else None
+                    score = getattr(critic_out, "quality_score", None) if critic_out else None
+                    if score is None and isinstance(critic_out, dict):
+                        score = critic_out.get("quality_score", 0.85)
+                    elif score is None:
+                        score = 0.85
+
+                    if isinstance(res, dict):
+                        if score < threshold:
+                            res["_feedback_iterations"] = count + 1
+                        else:
+                            res["_feedback_iterations"] = count
+                    return res
+                return _wrapped
+            wrapped_handlers["critic"] = _wrap_critic_handler(orig_critic)
+
         graph = StateGraph(ExtendedMASState)
         for node in graph_nodes:
             graph.add_node(node, wrapped_handlers[node])
         graph.set_entry_point(actual_entry)
 
         outgoing = {edge["source"] for edge in graph_edges}
+
+        if has_critic_loop:
+            default_target = "tool_executor" if "tool_executor" in critic_retry_candidates else critic_retry_candidates[0]
+
+            def _critic_router(state: Any) -> str:
+                count = state.get("_feedback_iterations", 0) if isinstance(state, dict) else 0
+                if count > max_retries:
+                    return "finalizer"
+
+                critic_out = state.get("critic_output") if isinstance(state, dict) else None
+                if not critic_out:
+                    return "finalizer"
+
+                score = getattr(critic_out, "quality_score", None)
+                if score is None and isinstance(critic_out, dict):
+                    score = critic_out.get("quality_score", 0.85)
+                elif score is None:
+                    score = 0.85
+
+                if score >= threshold:
+                    return "finalizer"
+
+                target = getattr(critic_out, "retry_target_node", None)
+                if not target and isinstance(critic_out, dict):
+                    target = critic_out.get("retry_target_node")
+
+                if target and target in critic_retry_candidates:
+                    return target
+                return default_target
+
+            destination_map = {tgt: tgt for tgt in critic_retry_candidates}
+            destination_map["finalizer"] = "finalizer"
+            destination_map[END] = END
+
+            graph.add_conditional_edges(
+                "critic",
+                _critic_router,
+                destination_map,
+            )
+            outgoing.add("critic")
+
         for edge in graph_edges:
             src = edge["source"]
             tgt = edge["target"]
+            if has_critic_loop and src == "critic" and tgt == "finalizer":
+                continue
             if (src, tgt) in feedback_edges:
                 # Conditional router: allows 1 feedback loop (when count <= 1), then terminates cleanly at END
                 def _make_feedback_router(target_node: str):

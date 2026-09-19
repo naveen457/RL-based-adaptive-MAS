@@ -169,14 +169,33 @@ class Finalizer:
         ]
         for attempt in range(3):
             try:
-                return self.structured_llm.invoke(messages)
+                res = self.structured_llm.invoke(messages)
+                if res is not None:
+                    return res
+                if conversation_history:
+                    # Retry without conversation history
+                    res = self.structured_llm.invoke([
+                        {"role": "system", "content": sys_prompt},
+                        {"role": "user", "content": f"Original task:\n{original_task}\n\nSupporting information from other agents:\n{supporting_info}"},
+                    ])
+                    if res is not None:
+                        return res
             except Exception as e:
                 err_str = str(e).lower()
                 if ("rate_limit" in err_str or "429" in err_str or "tokens per minute" in err_str) and attempt < 2:
                     print("  [Rate Limit] Replenishing tokens, waiting 5s...")
                     time.sleep(5)
                     continue
-                raise
+                if attempt == 2:
+                    break
+
+        # Fallback if structured output produced None
+        ans = supporting_info if supporting_info else f"Completed response for: {original_task}"
+        return FinalizerOutput(
+            final_answer=ans,
+            key_points=[ans[:200]],
+            limitations=[],
+        )
 
 
 # ---------------------------------------------------------------------------

@@ -77,7 +77,15 @@ def format_history_for_prompt(
         else:
             speaker = f"Agent ({role})"
 
-        lines.append(f"{speaker}: {str(content).strip()}")
+        c_str = str(content).strip()
+        # Compress huge tool dumps so prompts don't blow up token limits
+        if role_lower == "tool_executor" or c_str.startswith("Tool Execution Results:"):
+            if len(c_str) > 250:
+                c_str = c_str[:250] + "... [tool data truncated]"
+        elif len(c_str) > 400:
+            c_str = c_str[:400] + "... [truncated]"
+
+        lines.append(f"{speaker}: {c_str}")
     return "\n".join(lines)
 
 
