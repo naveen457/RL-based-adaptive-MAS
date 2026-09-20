@@ -66,35 +66,28 @@ def main():
     print(f"  Model Endpoint: {settings.base_url} ({settings.model or 'default'}) [{api_status}]")
     print(f"  Session Mode:   {session_mode.upper()} ({'continuous multi-turn evolution' if session_mode == 'continuous' else 'fresh baseline on every task'})")
 
-    # Initialize persistent metrics logger (TensorBoard + JSONL)
+    # Enforce MongoDB Atlas configuration at startup (exit if unable to configure)
+    from app.memory.mongo_client import get_mongo_client
+    get_mongo_client(required=True)
+
+    # Initialize persistent metrics logger (TensorBoard + MongoDB)
     logger = MetricsLogger(log_base_dir="runs")
     print(f"  TensorBoard Logs: {logger.log_dir}")
     print(f"  Dashboard Command: tensorboard --logdir {logger.log_base_dir}")
 
-    # Initialize persistent Q-learning policy outside runs/ (tracked by git, shared across developers)
-    q_table_path = Path("data/q_table.json")
-    if not q_table_path.exists() and Path("q_table.json").exists():
-        q_table_path = Path("q_table.json")
-    elif not q_table_path.exists() and Path("runs/q_table.json").exists():
-        q_table_path = Path("runs/q_table.json")
-
+    # Initialize persistent Q-learning policy in MongoDB Atlas
     q_policy = QLearningPolicy(task_aware=True, epsilon=0.1)
-    if q_table_path.exists():
-        try:
-            q_policy.load_q_table(str(q_table_path))
-            print(f"  [Q-Learning Memory] Loaded existing Q-table ({q_policy.q_table.num_state_action_pairs()} entries) from {q_table_path}")
-        except Exception as e:
-            print(f"  [Q-Learning Memory] Could not load existing Q-table ({e}), starting fresh")
+    loaded_from_mongo = q_policy.load_from_mongodb()
+    if loaded_from_mongo and q_policy.q_table.num_state_action_pairs() > 0:
+        print(f"  [Q-Learning Memory] Loaded existing Q-table ({q_policy.q_table.num_state_action_pairs()} entries) from MongoDB Atlas")
     else:
-        q_table_path.parent.mkdir(parents=True, exist_ok=True)
-        print(f"  [Q-Learning Memory] Initialized fresh Q-learning policy (persists to {q_table_path})")
+        print(f"  [Q-Learning Memory] Initialized fresh Q-learning policy in MongoDB Atlas")
 
     # Initialize orchestrator with active RL policy
     orchestrator = AdaptiveRuntimeOrchestrator.from_settings(q_policy=q_policy)
     initial_thread_msgs = len(orchestrator.thread_store.get_messages(active_thread_id))
     print(f"  Active Thread:  {active_thread_id} ({initial_thread_msgs} messages in history)")
-    if orchestrator.thread_store.storage_dir:
-        print(f"  Thread Storage: {orchestrator.thread_store.storage_dir}")
+    print(f"  Thread Storage: MongoDB Atlas ({settings.mongodb_db_name}.threads)")
 
     print("=" * 80)
 
@@ -117,54 +110,58 @@ def main():
             continue
 
         if task.startswith("/"):
-            parts = task.split(maxsplit=1)
-            cmd = parts[0].lower()
-            arg = parts[1].strip() if len(parts) > 1 else ""
+            try:
+                parts = task.split(maxsplit=1)
+                cmd = parts[0].lower()
+                arg = parts[1].strip() if len(parts) > 1 else ""
 
-            if cmd in {"/thread", "/t"}:
-                if arg:
-                    active_thread_id = arg
+                if cmd in {"/thread", "/t"}:
+                    if arg:
+                        active_thread_id = arg
+                        msgs = orchestrator.thread_store.get_messages(active_thread_id)
+                        print(f"  [Thread Store] Switched to thread '{active_thread_id}' ({len(msgs)} messages queued).")
+                    else:
+                        msgs = orchestrator.thread_store.get_messages(active_thread_id)
+                        print(f"  [Thread Store] Current thread: '{active_thread_id}' ({len(msgs)} messages queued). Usage: /thread <thread_id>")
+                    continue
+                elif cmd == "/threads":
+                    threads = orchestrator.thread_store.list_threads()
+                    print(f"\n  [Thread Store] Available Threads ({len(threads)}):")
+                    for tid in threads:
+                        stats = orchestrator.thread_store.get_thread_stats(tid)
+                        active_marker = " [ACTIVE]" if tid == active_thread_id else ""
+                        print(f"    * {tid}{active_marker}: {stats['message_count']} messages (User: {stats['human_messages']}, AI/Agents: {stats['ai_messages']})")
+                    continue
+                elif cmd in {"/history", "/messages"}:
                     msgs = orchestrator.thread_store.get_messages(active_thread_id)
-                    print(f"  [Thread Store] Switched to thread '{active_thread_id}' ({len(msgs)} messages queued).")
-                else:
-                    msgs = orchestrator.thread_store.get_messages(active_thread_id)
-                    print(f"  [Thread Store] Current thread: '{active_thread_id}' ({len(msgs)} messages queued). Usage: /thread <thread_id>")
-                continue
-            elif cmd == "/threads":
-                threads = orchestrator.thread_store.list_threads()
-                print(f"\n  [Thread Store] Available Threads ({len(threads)}):")
-                for tid in threads:
-                    stats = orchestrator.thread_store.get_thread_stats(tid)
-                    active_marker = " [ACTIVE]" if tid == active_thread_id else ""
-                    print(f"    * {tid}{active_marker}: {stats['message_count']} messages (User: {stats['human_messages']}, AI/Agents: {stats['ai_messages']})")
-                continue
-            elif cmd in {"/history", "/messages"}:
-                msgs = orchestrator.thread_store.get_messages(active_thread_id)
-                print(f"\n  [Thread History: '{active_thread_id}' - {len(msgs)} messages]:")
-                if not msgs:
-                    print("    (No messages recorded in this thread yet)")
-                else:
-                    formatted_hist = orchestrator.thread_store.format_history(active_thread_id, max_messages=50)
-                    for line in formatted_hist.split("\n"):
-                        print(f"    {line}")
-                continue
-            elif cmd == "/clear":
-                orchestrator.thread_store.clear_thread(active_thread_id)
-                print(f"  [Thread Store] Cleared message history for thread '{active_thread_id}'.")
-                continue
-            elif cmd == "/new":
-                all_threads = orchestrator.thread_store.list_threads()
-                active_thread_id = f"thread-{len(all_threads) + 1}"
-                print(f"  [Thread Store] Started new thread session '{active_thread_id}'.")
-                continue
-            elif cmd in {"/help", "/?"}:
-                print("\n  [Thread Store Commands]:")
-                print("    /thread <id>   - Switch to or create a conversation thread (e.g., /thread task-123)")
-                print("    /threads       - List all conversation threads with message statistics")
-                print("    /history       - View full message history for the active thread")
-                print("    /clear         - Clear message history for the active thread")
-                print("    /new           - Create and switch to a new incremental thread")
-                print("    exit           - Exit session\n")
+                    print(f"\n  [Thread History: '{active_thread_id}' - {len(msgs)} messages]:")
+                    if not msgs:
+                        print("    (No messages recorded in this thread yet)")
+                    else:
+                        formatted_hist = orchestrator.thread_store.format_history(active_thread_id, max_messages=50)
+                        for line in formatted_hist.split("\n"):
+                            print(f"    {line}")
+                    continue
+                elif cmd == "/clear":
+                    orchestrator.thread_store.clear_thread(active_thread_id)
+                    print(f"  [Thread Store] Cleared message history for thread '{active_thread_id}'.")
+                    continue
+                elif cmd == "/new":
+                    all_threads = orchestrator.thread_store.list_threads()
+                    active_thread_id = f"thread-{len(all_threads) + 1}"
+                    print(f"  [Thread Store] Started new thread session '{active_thread_id}'.")
+                    continue
+                elif cmd in {"/help", "/?"}:
+                    print("\n  [Thread Store Commands]:")
+                    print("    /thread <id>   - Switch to or create a conversation thread (e.g., /thread task-123)")
+                    print("    /threads       - List all conversation threads with message statistics")
+                    print("    /history       - View full message history for the active thread")
+                    print("    /clear         - Clear message history for the active thread")
+                    print("    /new           - Create and switch to a new incremental thread")
+                    print("    exit           - Exit session\n")
+                    continue
+            except ConnectionError as conn_err:
+                print(f"\n{conn_err}")
                 continue
 
         if session_mode == "fresh":
@@ -175,6 +172,9 @@ def main():
 
         try:
             result = orchestrator.run_dynamic(task, thread_id=active_thread_id)
+        except ConnectionError as conn_err:
+            print(f"\n{conn_err}")
+            continue
         except Exception as exc:
             print(f"Runtime error: {type(exc).__name__}: {exc}")
             continue
@@ -435,9 +435,10 @@ def main():
                 terminated=True,
                 truncated=False,
             )
-            q_table_path.parent.mkdir(parents=True, exist_ok=True)
-            q_policy.save_q_table(str(q_table_path))
-            print(f"  [Q-Learning Memory] Persisted Q-table ({q_policy.q_table.num_state_action_pairs()} entries) -> {q_table_path}")
+            q_policy.save_to_mongodb()
+            print(f"  [Q-Learning Memory] Persisted Q-table ({q_policy.q_table.num_state_action_pairs()} entries) -> MongoDB Atlas")
+        except ConnectionError as conn_err:
+            print(f"\n{conn_err}")
         except Exception as q_err:
             print(f"  [Q-Learning Memory] Note: Q-table update deferred ({q_err})")
 

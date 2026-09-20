@@ -58,20 +58,21 @@ def _mock_executor():
 def test_serialize_message():
     human = HumanMessage(content="Hello world")
     data = serialize_message(human)
-    assert data["type"] == "human"
     assert data["role"] == "user"
     assert data["content"] == "Hello world"
+    assert "type" not in data
+    assert "name" not in data
 
-    ai = AIMessage(content="I am an agent", name="planner")
+    ai = AIMessage(content="I am an agent", name="finalizer")
     data_ai = serialize_message(ai)
-    assert data_ai["type"] == "ai"
     assert data_ai["role"] == "assistant"
     assert data_ai["content"] == "I am an agent"
-    assert data_ai["name"] == "planner"
+    assert "type" not in data_ai
+    assert "name" not in data_ai
 
 
 def test_thread_message_store_initialization():
-    store = ThreadMessageStore()
+    store = ThreadMessageStore(use_mongo=False)
     assert store.DEFAULT_THREAD_ID == "thread-1"
     msgs = store.get_messages("thread-1")
     assert msgs == []
@@ -112,7 +113,7 @@ def test_messages_queue_sequentially_on_thread_1():
         selected_agents=["planner", "finalizer"],
     )
 
-    thread_store = ThreadMessageStore()
+    thread_store = ThreadMessageStore(use_mongo=False)
     orchestrator = AdaptiveRuntimeOrchestrator(
         planner=FakePlanner(plan, client),
         architecture_adapter=adapter,
@@ -123,17 +124,17 @@ def test_messages_queue_sequentially_on_thread_1():
     # Run Task 1 on thread-1
     res1 = orchestrator.run_dynamic("Hello from user", thread_id="thread-1")
     assert res1.thread_id == "thread-1"
-    assert len(res1.messages) >= 3  # HumanMessage + AIMessage(planner) + AIMessage(finalizer)
-    assert res1.messages[0]["type"] == "human"
+    assert len(res1.messages) == 2  # HumanMessage + AIMessage(finalizer)
+    assert res1.messages[0]["role"] == "user"
     assert res1.messages[0]["content"] == "Hello from user"
-    assert any(m.get("name") == "planner" for m in res1.messages)
-    assert any(m.get("name") == "finalizer" for m in res1.messages)
+    assert res1.messages[1]["role"] == "assistant"
+    assert res1.messages[1]["content"] == "Mocked final answer"
 
     # Run Task 2 on the same thread-1
     res2 = orchestrator.run_dynamic("How are you today?", thread_id="thread-1")
     assert res2.thread_id == "thread-1"
-    # Thread memory accumulates messages across turns
-    assert len(res2.messages) > len(res1.messages)
+    # Thread memory accumulates clean dialogue messages across turns
+    assert len(res2.messages) == 4
     contents = [m["content"] for m in res2.messages]
     assert "Hello from user" in contents
     assert "How are you today?" in contents
@@ -186,7 +187,8 @@ def test_format_history_for_prompt():
     formatted = format_history_for_prompt(msgs)
     assert "User: hi my name is naveen" in formatted
     assert "Assistant: Hello Naveen!" in formatted
-    assert "Agent (planner): Plan: do something" in formatted
+    # Internal planner scratchpad should be filtered out from prompt history
+    assert "Plan: do something" not in formatted
 
 
 def test_finalizer_and_planner_receive_conversation_history():
@@ -230,7 +232,9 @@ def test_finalizer_and_planner_receive_conversation_history():
         selected_agents=["planner", "finalizer"],
     )
 
-    thread_store = ThreadMessageStore()
+    test_thread_id = "test-history-thread-clean"
+    thread_store = ThreadMessageStore(use_mongo=False)
+
     orchestrator = AdaptiveRuntimeOrchestrator(
         planner=HistoryTrackingPlanner(plan, client),
         architecture_adapter=adapter,
@@ -239,14 +243,14 @@ def test_finalizer_and_planner_receive_conversation_history():
     )
 
     # Turn 1: user introduces name
-    orchestrator.run_dynamic("hi my name is naveen", thread_id="thread-1")
+    orchestrator.run_dynamic("hi my name is naveen", thread_id=test_thread_id)
     # Planner had no prior history on turn 1
     assert captured_planner_history[0] is None
     # Finalizer had the turn 1 message
     assert "User: hi my name is naveen" in captured_finalizer_history[0]
 
     # Turn 2: user asks for greeting by name
-    orchestrator.run_dynamic("greet me with my name", thread_id="thread-1")
+    orchestrator.run_dynamic("greet me with my name", thread_id=test_thread_id)
     # Planner now has the turn 1 history!
     assert captured_planner_history[1] is not None
     assert "hi my name is naveen" in captured_planner_history[1]
@@ -254,11 +258,14 @@ def test_finalizer_and_planner_receive_conversation_history():
     assert "hi my name is naveen" in captured_finalizer_history[1]
     assert "greet me with my name" in captured_finalizer_history[1]
 
+    # Cleanup
+    thread_store.clear_thread(test_thread_id)
 
-def test_thread_store_add_and_list_threads(tmp_path):
+
+def test_thread_store_add_and_list_threads():
     from app.memory.store import ThreadMessageStore, deserialize_message
 
-    store = ThreadMessageStore(storage_dir=tmp_path / "threads")
+    store = ThreadMessageStore(use_mongo=False)
     store.add_message("thread-alpha", HumanMessage(content="Alpha task"))
     store.add_message("thread-alpha", AIMessage(content="Alpha response", name="finalizer"))
     store.add_message("thread-beta", HumanMessage(content="Beta task"))
@@ -277,16 +284,15 @@ def test_thread_store_add_and_list_threads(tmp_path):
     assert stats_alpha["human_messages"] == 1
     assert stats_alpha["ai_messages"] == 1
 
-    # Persistence verification: reload from same directory
-    reloaded = ThreadMessageStore(storage_dir=tmp_path / "threads")
-    assert "thread-alpha" in reloaded.list_threads()
-    assert len(reloaded.get_messages("thread-alpha")) == 2
+    # Verify clear thread
+    store.clear_thread("thread-alpha")
+    assert "thread-alpha" not in store.list_threads()
 
 
 def test_thread_store_export_and_import(tmp_path):
     from app.memory.store import ThreadMessageStore
 
-    store = ThreadMessageStore()
+    store = ThreadMessageStore(use_mongo=False)
     store.add_message("thread-x", HumanMessage(content="Export me"))
     store.add_message("thread-x", AIMessage(content="Exported answer", name="finalizer"))
 
@@ -294,7 +300,7 @@ def test_thread_store_export_and_import(tmp_path):
     store.export_thread("thread-x", export_file)
     assert export_file.exists()
 
-    new_store = ThreadMessageStore()
+    new_store = ThreadMessageStore(use_mongo=False)
     imported_count = new_store.import_thread("thread-imported", export_file)
     assert imported_count == 2
     msgs = new_store.get_messages("thread-imported")
@@ -305,7 +311,7 @@ def test_thread_store_export_and_import(tmp_path):
 def test_thread_store_clear(tmp_path):
     from app.memory.store import ThreadMessageStore
 
-    store = ThreadMessageStore(storage_dir=tmp_path / "threads")
+    store = ThreadMessageStore(use_mongo=False)
     store.add_message("thread-temp", HumanMessage(content="Temporary"))
     assert len(store.get_messages("thread-temp")) == 1
 

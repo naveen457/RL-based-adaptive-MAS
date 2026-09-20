@@ -10,8 +10,12 @@ class Settings(BaseModel):
     # NVIDIA NIM Configuration
     api_key: str = os.getenv("NVIDIA_API_KEY", "")
     base_url: str = os.getenv("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1")
-    model: str = os.getenv("NVIDIA_MODEL", "mistralai/mistral-nemotron")
+    model: str = os.getenv("NVIDIA_MODEL", "nvidia/nemotron-3.5-lightning-30b-a3b")
     max_tokens: int = int(os.getenv("MAX_TOKENS", "4096"))
+
+    # MongoDB Atlas Configuration
+    mongodb_uri: str = os.getenv("MONGODB_URI", "")
+    mongodb_db_name: str = os.getenv("MONGODB_DB_NAME", "adaptive_mas")
 
     langchain_tracing_v2: bool = (
         os.getenv("LANGCHAIN_TRACING_V2", "false").lower() == "true"

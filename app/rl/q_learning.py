@@ -790,84 +790,96 @@ class QLearningPolicy(BasePolicy):
         """Clear the Q-table."""
         self.q_table.clear()
 
-    def save_q_table(self, filepath: str) -> None:
-        """
-        Save the Q-table to a JSON file.
+    def save_q_table(self, filepath: Optional[str] = None, policy_id: str = "default") -> None:
+        """Save the Q-table directly to MongoDB Atlas."""
+        self.save_to_mongodb(policy_id=policy_id)
 
-        Parameters
-        ----------
-        filepath : str
-            Path to save the Q-table.
-        """
-        import json
+    def save_to_mongodb(self, policy_id: str = "default") -> bool:
+        """Save the Q-table dictionary directly to MongoDB Atlas."""
+        try:
+            import datetime
+            from app.memory.mongo_client import check_mongo_network_error, get_mongo_db
 
-        data = self.q_table.to_dict()
-        with open(filepath, 'w') as f:
-            json.dump(data, f, indent=2)
+            db = get_mongo_db(required=True)
+            if db is None:
+                return False
 
-    def load_q_table(self, filepath: str) -> None:
-        """
-        Load a Q-table from a JSON file.
+            data = self.q_table.to_dict()
+            payload = {
+                "policy_id": policy_id,
+                "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                "default_value": data.get("default_value", 0.0),
+                "entries": data.get("entries", []),
+            }
+            db["q_tables"].update_one(
+                {"policy_id": policy_id},
+                {"$set": payload},
+                upsert=True,
+            )
+            return True
+        except Exception as e:
+            from app.memory.mongo_client import check_mongo_network_error
+            check_mongo_network_error(e)
+            return False
 
-        Parameters
-        ----------
-        filepath : str
-            Path to load the Q-table from.
-        """
-        import json
+    def load_q_table(self, filepath: Optional[str] = None, policy_id: str = "default") -> None:
+        """Load the Q-table directly from MongoDB Atlas."""
+        self.load_from_mongodb(policy_id=policy_id)
 
-        with open(filepath, 'r') as f:
-            data = json.load(f)
+    def load_from_mongodb(self, policy_id: str = "default") -> bool:
+        """Load the Q-table directly from MongoDB Atlas."""
+        try:
+            from app.memory.mongo_client import check_mongo_network_error, get_mongo_db
 
-        self.q_table.clear()
-        self.q_table.default_value = data.get("default_value", 0.0)
-        for entry in data.get("entries", []):
-            # Convert state_key from list back to tuple
-            # State key structure can be:
-            #   Architecture-only: [activity_vector, role_vector, agent_ids, adjacency_matrix]
-            #   Task-aware: [activity_vector, role_vector, agent_ids, adjacency_matrix,
-            #                task_category, required_capabilities, difficulty, context_features]
-            state_key_list = entry["state_key"]
-            
-            # Convert first four components to tuple
-            activity_vector = tuple(state_key_list[0])
-            role_vector = tuple(state_key_list[1])
-            agent_ids = tuple(state_key_list[2])
-            
-            # Handle adjacency matrix if present
-            if len(state_key_list) >= 4 and state_key_list[3]:
-                adjacency_matrix = tuple(tuple(row) for row in state_key_list[3])
-            else:
-                adjacency_matrix = ()
-            
-            # Handle task context components if present (task-aware format)
-            if len(state_key_list) >= 8 and state_key_list[4] is not None:
-                task_category = str(state_key_list[4])
-                required_capabilities = tuple(state_key_list[5]) if state_key_list[5] else ()
-                difficulty = int(state_key_list[6]) if state_key_list[6] else 1
-                # Convert context_features from list of pairs back to tuple
-                if state_key_list[7] and len(state_key_list[7]) > 0:
-                    context_features_items = tuple(tuple(pair) for pair in state_key_list[7])
+            db = get_mongo_db(required=True)
+            if db is None:
+                return False
+
+            doc = db["q_tables"].find_one({"policy_id": policy_id})
+            if not doc or "entries" not in doc:
+                return False
+
+            self.q_table.clear()
+            self.q_table.default_value = doc.get("default_value", 0.0)
+            for entry in doc.get("entries", []):
+                state_key_list = entry["state_key"]
+                activity_vector = tuple(state_key_list[0])
+                role_vector = tuple(state_key_list[1])
+                agent_ids = tuple(state_key_list[2])
+                if len(state_key_list) >= 4 and state_key_list[3]:
+                    adjacency_matrix = tuple(tuple(row) for row in state_key_list[3])
                 else:
-                    context_features_items = ()
-                
-                state_key = (
-                    activity_vector,
-                    role_vector,
-                    agent_ids,
-                    adjacency_matrix,
-                    task_category,
-                    required_capabilities,
-                    difficulty,
-                    context_features_items,
-                )
-            else:
-                # Architecture-only format
-                state_key = (activity_vector, role_vector, agent_ids, adjacency_matrix)
-            
-            action_id = entry["action_id"]
-            q_value = entry["q_value"]
-            self.q_table.set(state_key, action_id, q_value)
+                    adjacency_matrix = ()
+
+                if len(state_key_list) >= 8 and state_key_list[4] is not None:
+                    task_category = str(state_key_list[4])
+                    required_capabilities = tuple(state_key_list[5]) if state_key_list[5] else ()
+                    difficulty = int(state_key_list[6]) if state_key_list[6] else 1
+                    if state_key_list[7] and len(state_key_list[7]) > 0:
+                        context_features_items = tuple(tuple(pair) for pair in state_key_list[7])
+                    else:
+                        context_features_items = ()
+                    state_key = (
+                        activity_vector,
+                        role_vector,
+                        agent_ids,
+                        adjacency_matrix,
+                        task_category,
+                        required_capabilities,
+                        difficulty,
+                        context_features_items,
+                    )
+                else:
+                    state_key = (activity_vector, role_vector, agent_ids, adjacency_matrix)
+
+                action_id = entry["action_id"]
+                q_value = entry["q_value"]
+                self.q_table.set(state_key, action_id, q_value)
+            return True
+        except Exception as e:
+            from app.memory.mongo_client import check_mongo_network_error
+            check_mongo_network_error(e)
+            return False
 
 
 @dataclass

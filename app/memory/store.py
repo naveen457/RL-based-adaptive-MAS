@@ -6,9 +6,12 @@ Provides persistence, inspection, and serialization for conversation threads
 
 from __future__ import annotations
 
+import datetime
 import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Union
+
+from app.memory.mongo_client import check_mongo_network_error, get_mongo_db
 
 from langchain_core.messages import (
     AIMessage,
@@ -23,71 +26,66 @@ from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import MemorySaver
 
 
+def is_dialogue_message(msg: BaseMessage | Dict[str, Any]) -> bool:
+    """Return True if message is pure conversational dialogue, False for internal scratchpads."""
+    if isinstance(msg, dict):
+        name = str(msg.get("name", "")).lower()
+        content = str(msg.get("content", "")).strip()
+    else:
+        name = str(getattr(msg, "name", None) or "").lower()
+        content = str(getattr(msg, "content", "")).strip()
+
+    if name in {"planner", "researcher", "coder", "critic", "tool_executor"}:
+        return False
+    if content.startswith("Plan:") or content.startswith("Tool Execution Results:") or content.startswith("Review Critique:"):
+        return False
+    return True
+
+
 def serialize_message(message: BaseMessage | Dict[str, Any]) -> Dict[str, Any]:
-    """Serialize a LangChain BaseMessage into a JSON-serializable dictionary."""
+    """Serialize a message into clean {'role': 'user'|'assistant', 'content': '...'} dictionary."""
     if isinstance(message, dict):
-        return message
+        raw_role = message.get("role") or message.get("type", "user")
+        role_lower = str(raw_role).lower()
+        role = "user" if role_lower in ("human", "user") else "assistant"
+        return {
+            "role": role,
+            "content": str(message.get("content", "")),
+        }
 
     msg_type = getattr(message, "type", message.__class__.__name__.lower())
-    role_map = {
-        "human": "user",
-        "ai": "assistant",
-        "system": "system",
-        "tool": "tool",
-    }
-    role = role_map.get(msg_type, msg_type)
-
-    data: Dict[str, Any] = {
-        "type": msg_type,
+    role = "user" if msg_type in ("human", "user") else "assistant"
+    return {
         "role": role,
-        "content": message.content,
+        "content": str(getattr(message, "content", "")),
     }
-    if hasattr(message, "name") and message.name:
-        data["name"] = message.name
-    if isinstance(message, ToolMessage):
-        data["tool_call_id"] = getattr(message, "tool_call_id", "")
-    return data
 
 
 def format_history_for_prompt(
     messages: Sequence[BaseMessage | Dict[str, Any]],
     max_messages: int = 12,
 ) -> str:
-    """Format recent messages into a clean, concise conversational history string."""
+    """Format recent dialogue into a clean, concise conversational history string."""
     if not messages:
         return ""
-    recent = messages[-max_messages:]
+    clean_msgs = [m for m in messages if is_dialogue_message(m)]
+    recent = clean_msgs[-max_messages:]
     lines = []
     for msg in recent:
         if isinstance(msg, dict):
-            role = msg.get("name") or msg.get("role") or msg.get("type", "message")
+            role = msg.get("role") or msg.get("type", "user")
             content = msg.get("content", "")
         else:
-            role = getattr(msg, "name", None) or getattr(msg, "type", "message")
+            role = getattr(msg, "type", "user")
             content = getattr(msg, "content", "")
-        
+
         if not content:
             continue
 
         role_lower = str(role).lower()
-        if role_lower in {"human", "user"}:
-            speaker = "User"
-        elif role_lower in {"finalizer", "assistant"} or (role_lower == "ai" and not getattr(msg, "name", None)):
-            speaker = "Assistant"
-        else:
-            speaker = f"Agent ({role})"
-
-        c_str = str(content).strip()
-        # Compress huge tool dumps so prompts don't blow up token limits
-        if role_lower == "tool_executor" or c_str.startswith("Tool Execution Results:"):
-            if len(c_str) > 250:
-                c_str = c_str[:250] + "... [tool data truncated]"
-        elif len(c_str) > 400:
-            c_str = c_str[:400] + "... [truncated]"
-
-        lines.append(f"{speaker}: {c_str}")
+        speaker = "User" if role_lower in {"human", "user"} else "Assistant"
+        lines.append(f"{speaker}: {str(content).strip()}")
     return "\n".join(lines)
-
 
 
 def deserialize_message(data: BaseMessage | Dict[str, Any]) -> BaseMessage:
@@ -95,22 +93,12 @@ def deserialize_message(data: BaseMessage | Dict[str, Any]) -> BaseMessage:
     if isinstance(data, BaseMessage):
         return data
 
-    msg_type = str(data.get("type", "")).lower()
-    role = str(data.get("role", "")).lower()
-    content = data.get("content", "")
-    name = data.get("name")
+    role = str(data.get("role", "")).lower() or str(data.get("type", "")).lower()
+    content = str(data.get("content", ""))
 
-    if msg_type in {"human", "user"} or role in {"human", "user"}:
-        return HumanMessage(content=content, name=name) if name else HumanMessage(content=content)
-    elif msg_type in {"ai", "assistant"} or role in {"ai", "assistant"}:
-        return AIMessage(content=content, name=name) if name else AIMessage(content=content)
-    elif msg_type in {"system"} or role in {"system"}:
-        return SystemMessage(content=content, name=name) if name else SystemMessage(content=content)
-    elif msg_type in {"tool"} or role in {"tool"}:
-        tool_call_id = data.get("tool_call_id", "call_default")
-        return ToolMessage(content=content, tool_call_id=tool_call_id, name=name)
-    else:
-        return HumanMessage(content=content, name=name) if name else HumanMessage(content=content)
+    if role in {"human", "user"}:
+        return HumanMessage(content=content)
+    return AIMessage(content=content)
 
 
 def get_allowed_msgpack_modules(
@@ -167,8 +155,9 @@ class ThreadMessageStore:
     def __init__(
         self,
         checkpointer: Optional[BaseCheckpointSaver] = None,
-        storage_dir: Optional[str | Path] = None,
         allowed_msgpack_modules: Optional[Sequence[tuple[str, str]]] = None,
+        use_mongo: bool = True,
+        storage_dir: Optional[Any] = None,
     ) -> None:
         if checkpointer is None:
             try:
@@ -182,61 +171,54 @@ class ThreadMessageStore:
         else:
             self.checkpointer = checkpointer
 
-        self.storage_dir: Optional[Path] = Path(storage_dir) if storage_dir else None
-        if self.storage_dir:
-            self.storage_dir.mkdir(parents=True, exist_ok=True)
+        self.storage_dir = None
+        self.db = get_mongo_db(required=use_mongo) if use_mongo else None
+        self.threads_collection = self.db["threads"] if self.db is not None else None
 
         # In-memory thread cache: thread_id -> List[BaseMessage]
         self._thread_cache: Dict[str, List[BaseMessage]] = {}
 
-        # Preload any existing persisted threads if storage_dir is given
-        if self.storage_dir and self.storage_dir.exists():
-            for json_file in self.storage_dir.glob("*.json"):
-                thread_name = json_file.stem
-                self._load_from_disk(thread_name)
-
-    def _disk_path(self, thread_id: str) -> Optional[Path]:
-        """Return file path for a given thread."""
-        if not self.storage_dir:
-            return None
-        safe_id = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in thread_id)
-        return self.storage_dir / f"{safe_id}.json"
-
-    def _save_to_disk(self, thread_id: str) -> None:
-        """Persist serialized messages for thread_id to disk."""
-        target_path = self._disk_path(thread_id)
-        if not target_path:
-            return
-        msgs = self._thread_cache.get(thread_id, [])
+    def _save_thread(self, thread_id: str) -> None:
+        """Persist serialized dialogue messages for thread_id directly to MongoDB Atlas."""
+        msgs = [m for m in self._thread_cache.get(thread_id, []) if is_dialogue_message(m)]
+        self._thread_cache[thread_id] = msgs
         serialized = [serialize_message(m) for m in msgs]
         payload = {
             "thread_id": thread_id,
             "message_count": len(serialized),
             "messages": serialized,
+            "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         }
-        try:
-            target_path.parent.mkdir(parents=True, exist_ok=True)
-            import json
-            with open(target_path, "w", encoding="utf-8") as f:
-                json.dump(payload, f, indent=2, ensure_ascii=False)
-        except Exception:
-            pass
 
-    def _load_from_disk(self, thread_id: str) -> List[BaseMessage]:
-        """Load messages for thread_id from disk into cache."""
-        target_path = self._disk_path(thread_id)
-        if not target_path or not target_path.exists():
-            return []
-        try:
-            import json
-            with open(target_path, "r", encoding="utf-8") as f:
-                payload = json.load(f)
-            raw_msgs = payload.get("messages", [])
-            messages = [deserialize_message(m) for m in raw_msgs]
+        if self.threads_collection is not None:
+            try:
+                self.threads_collection.update_one(
+                    {"thread_id": thread_id},
+                    {"$set": payload},
+                    upsert=True,
+                )
+            except Exception as e:
+                check_mongo_network_error(e)
+
+    _save_to_disk = _save_thread
+
+    def _load_thread(self, thread_id: str) -> List[BaseMessage]:
+        """Load messages for thread_id directly from MongoDB Atlas."""
+        raw_msgs = []
+        if self.threads_collection is not None:
+            try:
+                doc = self.threads_collection.find_one({"thread_id": thread_id})
+                if doc and "messages" in doc:
+                    raw_msgs = doc["messages"]
+            except Exception as e:
+                check_mongo_network_error(e)
+
+        messages = [deserialize_message(m) for m in raw_msgs if is_dialogue_message(m)]
+        if messages:
             self._thread_cache[thread_id] = messages
-            return messages
-        except Exception:
-            return []
+        return messages
+
+    _load_from_disk = _load_thread
 
     def get_messages(self, thread_id: str = DEFAULT_THREAD_ID) -> List[BaseMessage]:
         """Retrieve all queued messages for a given thread_id."""
@@ -244,18 +226,16 @@ class ThreadMessageStore:
         checkpoint = self.checkpointer.get(config)
         if checkpoint:
             channel_values = checkpoint.get("channel_values", {})
-            cp_msgs = list(channel_values.get("messages", []))
+            cp_msgs = [m for m in channel_values.get("messages", []) if is_dialogue_message(m)]
             if cp_msgs:
                 self._thread_cache[thread_id] = cp_msgs
-                if self.storage_dir:
-                    self._save_to_disk(thread_id)
+                self._save_thread(thread_id)
                 return cp_msgs
 
         if thread_id in self._thread_cache:
             return list(self._thread_cache[thread_id])
 
-        # Try disk fallback
-        loaded = self._load_from_disk(thread_id)
+        loaded = self._load_thread(thread_id)
         if loaded:
             return loaded
 
@@ -281,27 +261,43 @@ class ThreadMessageStore:
         deserialized = [deserialize_message(m) for m in messages]
         updated = list(current) + deserialized
         self._thread_cache[thread_id] = updated
-        if self.storage_dir:
-            self._save_to_disk(thread_id)
+        self._save_thread(thread_id)
 
     def sync_thread(
         self,
         thread_id: str,
         messages: Sequence[BaseMessage | Dict[str, Any]],
     ) -> None:
-        """Synchronize current thread state with the latest message list."""
+        """Synchronize current thread state with the latest message list while preserving prior history."""
+        if not messages:
+            return
         deserialized = [deserialize_message(m) for m in messages]
-        self._thread_cache[thread_id] = deserialized
-        if self.storage_dir:
-            self._save_to_disk(thread_id)
+        current = self.get_messages(thread_id)
+
+        if not current:
+            self._thread_cache[thread_id] = deserialized
+        else:
+            # Check if deserialized is a full replacement containing the original history
+            first_curr_content = getattr(current[0], "content", None)
+            first_new_content = getattr(deserialized[0], "content", None)
+            if first_curr_content == first_new_content and len(deserialized) >= len(current):
+                self._thread_cache[thread_id] = deserialized
+            else:
+                # If deserialized only contains the newest turn messages, append safely
+                self._thread_cache[thread_id] = list(current) + deserialized
+
+        self._save_thread(thread_id)
 
     def list_threads(self) -> List[str]:
-        """List all thread IDs known in checkpointer, cache, or disk storage."""
+        """List all thread IDs known in cache or MongoDB Atlas."""
         threads = set(self._thread_cache.keys())
         if hasattr(self.checkpointer, "storage") and isinstance(self.checkpointer.storage, dict):
             threads.update(self.checkpointer.storage.keys())
-        if self.storage_dir and self.storage_dir.exists():
-            threads.update(p.stem for p in self.storage_dir.glob("*.json"))
+        if self.threads_collection is not None:
+            try:
+                threads.update(self.threads_collection.distinct("thread_id"))
+            except Exception as e:
+                check_mongo_network_error(e)
         if not threads:
             return [self.DEFAULT_THREAD_ID]
         return sorted(threads)
@@ -328,17 +324,16 @@ class ThreadMessageStore:
         return format_history_for_prompt(self.get_messages(thread_id), max_messages=max_messages)
 
     def clear_thread(self, thread_id: str = DEFAULT_THREAD_ID) -> None:
-        """Reset state and delete messages for a given thread."""
+        """Reset state and delete messages for a given thread directly in MongoDB Atlas."""
         config = {"configurable": {"thread_id": thread_id}}
         if hasattr(self.checkpointer, "storage") and isinstance(self.checkpointer.storage, dict):
             self.checkpointer.storage.pop(thread_id, None)
         self._thread_cache.pop(thread_id, None)
-        disk_path = self._disk_path(thread_id)
-        if disk_path and disk_path.exists():
+        if self.threads_collection is not None:
             try:
-                disk_path.unlink()
-            except Exception:
-                pass
+                self.threads_collection.delete_one({"thread_id": thread_id})
+            except Exception as e:
+                check_mongo_network_error(e)
 
     def clear_all(self) -> None:
         """Clear all threads."""
@@ -372,7 +367,7 @@ class ThreadMessageStore:
         return len(msgs)
 
 
-# Default singleton instance (with local persistence directory data/threads)
-default_thread_store = ThreadMessageStore(storage_dir="data/threads")
+# Default singleton instance (backed directly by MongoDB Atlas)
+default_thread_store = ThreadMessageStore()
 
 

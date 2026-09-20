@@ -305,10 +305,8 @@ class ExistingLLMAgentExecutor:
         def planner_node(state: Dict[str, Any]) -> Dict[str, Any]:
             event("started", "planner")
             event("completed", "planner")
-            plan_summary = f"Plan: {planner_output.task_understanding}\nSteps: " + "; ".join(planner_output.steps)
             return {
                 "planner_output": planner_output,
-                "messages": [AIMessage(content=plan_summary, name="planner")],
             }
 
         def researcher_node(state: Dict[str, Any]) -> Dict[str, Any]:
@@ -323,20 +321,16 @@ class ExistingLLMAgentExecutor:
             else:
                 output = res_agent.research(task)
             event("completed", "researcher")
-            findings_str = "; ".join(getattr(output, "findings", [])) or str(output)
             return {
                 "research_output": output,
-                "messages": [AIMessage(content=f"Research Findings: {findings_str}", name="researcher")],
             }
 
         def coder_node(state: Dict[str, Any]) -> Dict[str, Any]:
             event("started", "coder")
             output = self.coder_factory().code(task)
             event("completed", "coder")
-            code_content = getattr(output, "code", str(output))
             return {
                 "coder_output": output,
-                "messages": [AIMessage(content=f"Generated Code:\n{code_content}", name="coder")],
             }
 
         def critic_node(state: Dict[str, Any]) -> Dict[str, Any]:
@@ -353,13 +347,10 @@ class ExistingLLMAgentExecutor:
                 output_to_review=self._supporting_text(outputs),
             )
             event("completed", "critic")
-            critique_str = getattr(output, "overall_assessment", str(output))
-            score_val = getattr(output, "quality_score", 0.85)
             suggested_calls = getattr(output, "suggested_tool_calls", []) or []
 
             res_dict: Dict[str, Any] = {
                 "critic_output": output,
-                "messages": [AIMessage(content=f"Review Critique (Score: {score_val:.2f}): {critique_str}", name="critic")],
             }
             if suggested_calls:
                 res_dict["tool_calls"] = suggested_calls
@@ -377,7 +368,6 @@ class ExistingLLMAgentExecutor:
                 explicit_tool_calls=tool_calls,
             )
             event("completed", "tool_executor")
-            tool_summary = json.dumps(results, default=str)
 
             prev_output = state.get("tool_output")
             if prev_output and tool_calls:
@@ -393,7 +383,6 @@ class ExistingLLMAgentExecutor:
             return {
                 "tool_output": merged_output,
                 "tool_calls": [],
-                "messages": [AIMessage(content=f"Tool Execution Results: {tool_summary}", name="tool_executor")],
             }
 
         def finalizer_node(state: Dict[str, Any]) -> Dict[str, Any]:
@@ -427,7 +416,7 @@ class ExistingLLMAgentExecutor:
             final_text = getattr(output, "final_answer", str(output))
             return {
                 "final_answer": output,
-                "messages": [AIMessage(content=final_text, name="finalizer")],
+                "messages": [AIMessage(content=final_text)],
             }
 
         return {

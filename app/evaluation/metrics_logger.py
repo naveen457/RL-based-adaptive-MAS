@@ -39,6 +39,10 @@ class MetricsLogger:
 
         self.evaluator = TheoreticalArchitectureEvaluator()
 
+        from app.memory.mongo_client import get_mongo_db
+        self.db = get_mongo_db(required=True)
+        self.runs_collection = self.db["runs"] if self.db is not None else None
+
     def _init_tensorboard(self) -> None:
         """Initialize TensorBoard SummaryWriter safely."""
         try:
@@ -159,6 +163,14 @@ class MetricsLogger:
         # Write to global history log
         with open(self.global_jsonl_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(log_record) + "\n")
+
+        # Write to MongoDB Atlas
+        if self.runs_collection is not None:
+            try:
+                self.runs_collection.insert_one(dict(log_record))
+            except Exception as e:
+                from app.memory.mongo_client import check_mongo_network_error
+                check_mongo_network_error(e)
 
         return log_record
 

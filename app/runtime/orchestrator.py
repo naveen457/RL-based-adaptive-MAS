@@ -271,6 +271,14 @@ class AdaptiveRuntimeOrchestrator:
                 )
             execution_trace = execution.execution_trace
             final_response = execution.final_response
+            if final_response:
+                self.thread_store.add_message(thread_id, HumanMessage(content=user_task))
+                resp_text = (
+                    final_response.get("final_answer", str(final_response))
+                    if isinstance(final_response, dict)
+                    else str(final_response)
+                )
+                self.thread_store.add_message(thread_id, AIMessage(content=str(resp_text), name="finalizer"))
         else:
             if self.workflow_runner is not None:
                 state = self.workflow_runner(user_task)
@@ -461,10 +469,23 @@ class AdaptiveRuntimeOrchestrator:
                 checkpointer=self.checkpointer,
             )
             emit("graph.compile.completed", version=version, stage="COMPILED")
+            # Check if checkpointer already has an active checkpoint for this thread
+            has_checkpoint = False
+            if self.checkpointer:
+                try:
+                    has_checkpoint = bool(self.checkpointer.get({"configurable": {"thread_id": thread_id}}))
+                except Exception:
+                    has_checkpoint = False
+
+            input_messages = []
+            if not has_checkpoint and existing_msgs:
+                input_messages.extend(existing_msgs)
+            input_messages.append(HumanMessage(content=user_task))
+
             initial_input = {
                 "original_task": user_task,
                 "thread_id": thread_id,
-                "messages": [HumanMessage(content=user_task)],
+                "messages": input_messages,
             }
             invoke_config = {"configurable": {"thread_id": thread_id}}
             state = built.compiled_graph.invoke(initial_input, config=invoke_config)
@@ -541,11 +562,13 @@ class AdaptiveRuntimeOrchestrator:
         )
         emit("graph.v0.compiled", version=version, stage="COMPILED")
 
-        # Invoke Graph v0 via LangGraph
+        # Invoke Graph v0 via LangGraph (including previous conversation history)
+        input_messages_v0 = list(existing_msgs) if existing_msgs else []
+        input_messages_v0.append(HumanMessage(content=user_task))
         initial_input_v0 = {
             "original_task": user_task,
             "thread_id": thread_id,
-            "messages": [HumanMessage(content=user_task)],
+            "messages": input_messages_v0,
         }
         state_v0 = built_v0.compiled_graph.invoke(initial_input_v0)
 
