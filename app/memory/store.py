@@ -172,7 +172,7 @@ class ThreadMessageStore:
             self.checkpointer = checkpointer
 
         self.storage_dir = None
-        self.db = get_mongo_db(required=use_mongo) if use_mongo else None
+        self.db = get_mongo_db(required=False) if use_mongo else None
         self.threads_collection = self.db["threads"] if self.db is not None else None
 
         # In-memory thread cache: thread_id -> List[BaseMessage]

@@ -1,5 +1,12 @@
 import argparse
+import sys
 from pathlib import Path
+
+# Ensure workspace root is on sys.path for direct python app/main.py invocation
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
 from app.config.settings import settings
 from app.runtime.orchestrator import AdaptiveRuntimeOrchestrator, run_dynamic_runtime
 from app.evaluation.metrics_logger import MetricsLogger
@@ -62,32 +69,45 @@ def main():
     print("  ADAPTIVE MULTI-AGENT SYSTEM (RL-AMAS) - RUNTIME")
     print("=" * 80)
 
-    api_status = "Loaded" if settings.api_key else "NOT FOUND"
+    has_valid_api_key = bool(settings.api_key and "your_nvidia_api_key" not in settings.api_key)
+    api_status = "Loaded" if has_valid_api_key else "NOT CONFIGURED"
     print(f"  Model Endpoint: {settings.base_url} ({settings.model or 'default'}) [{api_status}]")
     print(f"  Session Mode:   {session_mode.upper()} ({'continuous multi-turn evolution' if session_mode == 'continuous' else 'fresh baseline on every task'})")
 
-    # Enforce MongoDB Atlas configuration at startup (exit if unable to configure)
+    if not has_valid_api_key:
+        print("\n  ⚠️  Notice: NVIDIA_API_KEY is not configured in .env. Live LLM agent calls require a valid key.")
+
+    # Configure MongoDB Atlas (with graceful local fallback if offline or not configured)
     from app.memory.mongo_client import get_mongo_client
-    get_mongo_client(required=True)
+    mongo_client = get_mongo_client(required=False)
 
     # Initialize persistent metrics logger (TensorBoard + MongoDB)
     logger = MetricsLogger(log_base_dir="runs")
     print(f"  TensorBoard Logs: {logger.log_dir}")
     print(f"  Dashboard Command: tensorboard --logdir {logger.log_base_dir}")
 
-    # Initialize persistent Q-learning policy in MongoDB Atlas
+    # Initialize persistent Q-learning policy
     q_policy = QLearningPolicy(task_aware=True, epsilon=0.1)
-    loaded_from_mongo = q_policy.load_from_mongodb()
-    if loaded_from_mongo and q_policy.q_table.num_state_action_pairs() > 0:
-        print(f"  [Q-Learning Memory] Loaded existing Q-table ({q_policy.q_table.num_state_action_pairs()} entries) from MongoDB Atlas")
+    if mongo_client is not None:
+        loaded_from_mongo = q_policy.load_from_mongodb()
+        if loaded_from_mongo and q_policy.q_table.num_state_action_pairs() > 0:
+            print(f"  [Q-Learning Memory] Loaded existing Q-table ({q_policy.q_table.num_state_action_pairs()} entries) from MongoDB Atlas")
+        else:
+            print(f"  [Q-Learning Memory] Initialized fresh Q-learning policy in MongoDB Atlas")
     else:
-        print(f"  [Q-Learning Memory] Initialized fresh Q-learning policy in MongoDB Atlas")
+        q_table_path = Path("data/q_table.json")
+        if q_table_path.exists():
+            q_policy.load_q_table(str(q_table_path))
+            print(f"  [Q-Learning Memory] Loaded existing Q-table ({q_policy.q_table.num_state_action_pairs()} entries) from {q_table_path}")
+        else:
+            print(f"  [Q-Learning Memory] Initialized in-memory Q-learning policy (MongoDB not connected)")
 
     # Initialize orchestrator with active RL policy
     orchestrator = AdaptiveRuntimeOrchestrator.from_settings(q_policy=q_policy)
     initial_thread_msgs = len(orchestrator.thread_store.get_messages(active_thread_id))
+    storage_desc = f"MongoDB Atlas ({settings.mongodb_db_name}.threads)" if mongo_client is not None else "Local In-Memory Session"
     print(f"  Active Thread:  {active_thread_id} ({initial_thread_msgs} messages in history)")
-    print(f"  Thread Storage: MongoDB Atlas ({settings.mongodb_db_name}.threads)")
+    print(f"  Thread Storage: {storage_desc}")
 
     print("=" * 80)
 

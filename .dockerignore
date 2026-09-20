@@ -1,0 +1,28 @@
+.git
+.gitignore
+.venv
+__pycache__
+*/__pycache__
+*/**/__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+# Local caches & tests
+.pytest_cache
+tests/
+.coverage
+htmlcov/
+
+# Local secrets & artifacts
+.env
+review-1.pptx
+runs/
+*.log
+
+# Docker & IDE files
+.dockerignore
+Dockerfile
+docker-compose*.yml
+.vscode/
+.idea/

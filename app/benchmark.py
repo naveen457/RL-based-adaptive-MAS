@@ -668,6 +668,10 @@ class MultiTaskBenchmarkSuite:
             "q_table_entries": self.q_policy.q_table.num_state_action_pairs(),
         }
 
+        # Persist learned Q-table memory to disk
+        self.q_table_path.parent.mkdir(parents=True, exist_ok=True)
+        self.q_policy.save_q_table(str(self.q_table_path))
+
         # Write summary JSON
         summary_file = self.log_base_dir / "benchmark_summary.json"
         summary_file.parent.mkdir(parents=True, exist_ok=True)

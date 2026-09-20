@@ -269,7 +269,15 @@ class AdaptiveRuntimeOrchestrator:
                     planner_output,
                     final,
                 )
-            execution_trace = execution.execution_trace
+            planner_record = AgentExecutionRecord(
+                agent_id="planner",
+                invoked=True,
+                status="completed",
+                output=planner_output.model_dump(mode="json")
+                if hasattr(planner_output, "model_dump")
+                else planner_output,
+            )
+            execution_trace = [planner_record] + execution.execution_trace
             final_response = execution.final_response
             if final_response:
                 self.thread_store.add_message(thread_id, HumanMessage(content=user_task))
@@ -777,6 +785,10 @@ class AdaptiveRuntimeOrchestrator:
         state_dict = state if isinstance(state, dict) else {}
         output_keys: dict[str, str] = {
             "planner": "planner_output",
+            "researcher": "research_output",
+            "coder": "coder_output",
+            "tool_executor": "tool_output",
+            "critic": "critic_output",
             "finalizer": "final_answer",
         }
 
@@ -784,20 +796,34 @@ class AdaptiveRuntimeOrchestrator:
         for key in state_dict.keys():
             if key.endswith("_output"):
                 agent_id = key[:-7]
-                output_keys[agent_id] = key
+                if agent_id == "research":
+                    agent_id = "researcher"
+                if agent_id not in output_keys:
+                    output_keys[agent_id] = key
 
         # Dynamic loop: query registry for any additional custom agent specs
         try:
             from app.agents.registry import default_registry
             for spec in default_registry.list_agents():
                 candidate_key = f"{spec.agent_id}_output"
-                if candidate_key in state_dict and spec.agent_id not in output_keys:
+                if spec.agent_id not in output_keys:
                     output_keys[spec.agent_id] = candidate_key
         except Exception:
             pass
 
+        def agent_sort_key(item: tuple[str, str]) -> int:
+            order = {
+                "planner": 0,
+                "researcher": 1,
+                "coder": 2,
+                "tool_executor": 3,
+                "critic": 4,
+                "finalizer": 5,
+            }
+            return order.get(item[0], 10)
+
         records: list[AgentExecutionRecord] = []
-        for agent_id, output_key in sorted(output_keys.items()):
+        for agent_id, output_key in sorted(output_keys.items(), key=agent_sort_key):
             output = state_dict.get(output_key)
             invoked = output is not None
             if invoked and isinstance(output, BaseModel):
