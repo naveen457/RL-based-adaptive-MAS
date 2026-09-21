@@ -6,23 +6,22 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends\
-    build-essential \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-    RUN groupadd -r appuser && useradd -r -g appuser -m appuser
+RUN groupadd -r appuser && useradd -r -g appuser -m appuser
 
 COPY requirements.txt pyproject.toml ./
 
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt && \ 
+    pip install --no-cache-dir -r requirements.txt && \
     pip install --no-cache-dir -e .
 
-COPY app/ ./app/
-COPY data/ ./data/
+COPY --chown=appuser:appuser app/ ./app/
+COPY --chown=appuser:appuser data/ ./data/
 
-RUN mkdir -p /app/runs && chown -R appuser:appuser /app
+RUN mkdir -p /app/runs && chown -R appuser:appuser /app/runs
 
 USER appuser
 ENTRYPOINT ["python"]
