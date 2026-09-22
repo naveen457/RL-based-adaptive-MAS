@@ -1,6 +1,11 @@
 from app.agents.coder import Coder, CoderOutput, create_code_solution
 from app.agents.critic import Critic, CriticOutput, create_critic_review
-from app.agents.finalizer import Finalizer, FinalizerOutput, create_final_answer
+from app.agents.finalizer import (
+    Finalizer,
+    FinalizerOutput,
+    create_final_answer,
+    format_final_response,
+)
 from app.agents.planner import Planner, PlannerOutput, create_plan
 from app.agents.researcher import Researcher, ResearcherOutput, create_research_report
 from app.agents.registry import AgentRegistry, AgentSpec, ToolSpec, default_registry
@@ -22,6 +27,7 @@ __all__ = [
     "Finalizer",
     "FinalizerOutput",
     "create_final_answer",
+    "format_final_response",
     "AgentRegistry",
     "AgentSpec",
     "ToolSpec",

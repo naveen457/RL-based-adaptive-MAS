@@ -115,11 +115,12 @@ class Coder:
 
         return cls(model=llm, structured_llm=structured_llm)
 
-    def code(self, task: str) -> CoderOutput:
+    def code(self, task: str, feedback: Optional[str] = None) -> CoderOutput:
         """Write code to solve *task* and return a structured result.
 
         Args:
             task: The programming task description.
+            feedback: Optional critique/feedback from upstream review.
 
         Returns:
             CoderOutput with implementation, explanation, and testing notes.
@@ -130,6 +131,11 @@ class Coder:
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": task},
         ]
+        if feedback:
+            messages.append({
+                "role": "user",
+                "content": f"Previous review/critique identified issues:\n{feedback}\nPlease fix all issues and provide an updated, complete code solution.",
+            })
         for attempt in range(3):
             try:
                 return self.structured_llm.invoke(messages)

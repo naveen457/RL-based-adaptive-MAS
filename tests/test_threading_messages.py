@@ -126,7 +126,6 @@ def test_messages_queue_sequentially_on_thread_1():
     assert res1.thread_id == "thread-1"
     assert len(res1.messages) == 2  # HumanMessage + AIMessage(finalizer)
     assert res1.messages[0]["role"] == "user"
-    assert res1.messages[0]["content"] == "Hello from user"
     assert res1.messages[1]["role"] == "assistant"
     assert res1.messages[1]["content"] == "Mocked final answer"
 

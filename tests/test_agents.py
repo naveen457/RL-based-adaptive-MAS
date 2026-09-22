@@ -4,7 +4,12 @@ from langchain_openai import ChatOpenAI
 
 from app.agents.critic import Critic, CriticOutput, create_critic_review
 from app.agents.coder import Coder, CoderOutput, create_code_solution
-from app.agents.finalizer import Finalizer, FinalizerOutput, create_final_answer
+from app.agents.finalizer import (
+    Finalizer,
+    FinalizerOutput,
+    create_final_answer,
+    format_final_response,
+)
 from app.agents.planner import Planner, PlannerOutput
 from app.agents.researcher import Researcher, ResearcherOutput, create_research_report
 from app.config.settings import settings
@@ -441,3 +446,36 @@ def test_finalizer_real_call() -> None:
     # The final answer should mention lists and their usefulness.
     combined = (result.final_answer + " " + " ".join(result.key_points)).lower()
     assert "list" in combined
+
+
+def test_format_final_response() -> None:
+    # 1. Dict with final_answer returns clean final_answer
+    data = {
+        "final_answer": "Here is a concise Python function to check palindrome: return s == s[::-1]",
+        "key_points": ["point 1"],
+        "limitations": ["limitation 1"],
+    }
+    assert format_final_response(data) == "Here is a concise Python function to check palindrome: return s == s[::-1]"
+
+    # 2. Pydantic FinalizerOutput model returns clean final_answer
+    model_obj = FinalizerOutput(
+        final_answer="Overview of VIT-AP: Fee is 2 LPA, placement is 80%.",
+        key_points=["Fee: 2 LPA", "Placement: 80%"],
+        limitations=["Subject to yearly revisions"],
+    )
+    assert format_final_response(model_obj) == "Overview of VIT-AP: Fee is 2 LPA, placement is 80%."
+
+    # 3. Plain string and None
+    assert format_final_response("plain string") == "plain string"
+    assert format_final_response(None) == ""
+
+    # 4. Simple conversational question like "what is my name"
+    simple_conv = {
+        "final_answer": "Your name is Naveen.",
+        "key_points": ["Your name is Naveen."],
+        "limitations": ["I only know your name from this session context."],
+    }
+    assert format_final_response(simple_conv) == "Your name is Naveen."
+
+
+

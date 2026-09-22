@@ -43,6 +43,7 @@ class ToolExecutionOutput(BaseModel):
 # ---------------------------------------------------------------------------
 
 from app.tools import (
+    arxiv_search,
     basic_calculator,
     duckduckgo_html_search,
     get_current_date,
@@ -60,8 +61,8 @@ class ToolExecutor:
     """Dedicated node responsible for executing external tools.
     
     Acts as the single execution gateway for tool calls (web search, calculator,
-    code execution, etc.), keeping cognitive reasoning agents decoupled from
-    direct tool execution mechanics.
+    arXiv paper search, code execution, etc.), keeping cognitive reasoning agents
+    decoupled from direct tool execution mechanics.
     """
 
     def __init__(self, tools: Optional[Dict[str, Callable[..., Any]]] = None) -> None:
@@ -69,6 +70,7 @@ class ToolExecutor:
             "web_search": web_search,
             "calculator": basic_calculator,
             "get_current_date": get_current_date,
+            "arxiv_search": arxiv_search,
         }
         if tools:
             self._tools.update(tools)

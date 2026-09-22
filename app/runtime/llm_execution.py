@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 
 from app.agents.coder import Coder
 from app.agents.critic import Critic
-from app.agents.finalizer import Finalizer
+from app.agents.finalizer import Finalizer, format_final_response
 from app.agents.planner import PlannerOutput
 from app.agents.researcher import Researcher
 from app.agents.tool_executor import ToolExecutor
@@ -103,16 +103,30 @@ class ExistingLLMAgentExecutor:
             if "web_search" not in tools:
                 tools.append("web_search")
 
+        # Scientific / arXiv paper grounding: if query mentions arxiv, papers, preprints, research literature
+        arxiv_signals = ["arxiv", "paper", "papers", "preprint", "preprints", "scientific literature", "research paper", "research papers", "academic study", "publications"]
+        if any(w in q_lower for w in arxiv_signals):
+            if "arxiv_search" not in tools:
+                tools.append("arxiv_search")
+
+        # If arXiv paper search is specifically triggered, prune generic web_search and temporal clock
+        if "arxiv_search" in tools:
+            if not any(w in q_lower for w in ["google", "news", "website", "live updates"]):
+                tools = [t for t in tools if t != "web_search"]
+            if not any(w in q_lower for w in ["today", "date", "year", "time", "clock"]):
+                tools = [t for t in tools if t not in {"get_current_date", "date", "time"}]
+
         # Computational grounding: if query contains math/calculation intent
         if any(w in q_lower for w in ["calculate", "math", "sum", "average", "multiply", "divide", "%", "compute", "difference"]):
             if "calculator" not in tools:
                 tools.append("calculator")
 
-        # Priority sort: temporal tools (1) -> search tools (2) -> calculator (3)
+        # Priority sort: temporal tools (1) -> search/paper tools (2) -> calculator (3)
         priority_map = {
             "get_current_date": 1,
             "date": 1,
             "time": 1,
+            "arxiv_search": 2,
             "web_search": 2,
             "retriever": 2,
             "calculator": 3,
@@ -179,6 +193,13 @@ class ExistingLLMAgentExecutor:
                 serialized_results.append(ser)
                 if res.status == "success":
                     accumulated_tool_context["search_findings"] = res.result
+            elif t_name == "arxiv_search":
+                res = executor.execute("arxiv_search", {"query": task, "max_results": 5})
+                ser = res.serialize()
+                tool_outputs["arxiv_search"] = ser
+                serialized_results.append(ser)
+                if res.status == "success":
+                    accumulated_tool_context["arxiv_papers"] = res.result
             elif t_name in executor.registered_tools:
                 res = executor.execute(t_name, {"query": task, "context": accumulated_tool_context})
                 ser = res.serialize()
@@ -211,12 +232,23 @@ class ExistingLLMAgentExecutor:
         selected_agents = list(getattr(planner_output, "selected_agents", []) or [])
         req_caps = set(planner_output.required_capabilities or [])
 
+        # Research paper / arXiv routing
+        requires_research = getattr(planner_output, "requires_research", False)
+        if requires_research or bool(req_caps & {"research", "papers", "academic"}):
+            q_lower = task.lower()
+            if any(w in q_lower for w in ["arxiv", "paper", "papers", "preprint", "preprints", "literature", "study"]):
+                if "arxiv_search" not in tools_needed:
+                    tools_needed.append("arxiv_search")
+            elif "arxiv_search" not in tools_needed and "web_search" not in tools_needed:
+                tools_needed.append("arxiv_search")
+
         has_tool_need = (
             "tool_executor" in active_agents
             or "tool_executor" in selected_agents
             or requires_tools
+            or requires_research
             or bool(tools_needed)
-            or bool(req_caps & {"tool_use", "web_search", "external_api", "tools"})
+            or bool(req_caps & {"tool_use", "web_search", "research", "external_api", "tools"})
         )
 
         tool_outputs = {}
@@ -228,21 +260,8 @@ class ExistingLLMAgentExecutor:
         elif "tool_executor" in active_agents:
             trace.append(self._not_invoked("tool_executor"))
 
-
-        # 2. Researcher execution (receives tool output context if available)
-        research_output = None
-        if planner_output.requires_research and "researcher" in active_agents:
-            tool_ctx = json.dumps(tool_outputs) if tool_outputs else None
-            researcher_inst = self.researcher_factory()
-            try:
-                research_output = researcher_inst.research(task, supporting_context=tool_ctx)
-            except TypeError:
-                research_output = researcher_inst.research(task)
-
-            supporting_outputs["researcher"] = research_output
-            trace.append(self._completed("researcher", research_output))
-        else:
-            trace.append(self._not_invoked("researcher"))
+        # 2. Researcher node removed; mark not_invoked
+        trace.append(self._not_invoked("researcher"))
 
         # 3. Coder execution
         coder_output = None
@@ -281,6 +300,23 @@ class ExistingLLMAgentExecutor:
                     original_task=task,
                     supporting_info=finalizer_context,
                 )
+            # Safeguard: if coder produced code and final_answer omitted it, attach the full code
+            coder_res = supporting_outputs.get("coder")
+            if coder_res and final_response:
+                code_text = None
+                if hasattr(coder_res, "code") and coder_res.code:
+                    code_text = coder_res.code
+                elif isinstance(coder_res, dict) and coder_res.get("code"):
+                    code_text = coder_res.get("code")
+
+                ans_text = getattr(final_response, "final_answer", None)
+                if ans_text is not None and code_text:
+                    if "```" not in str(ans_text) and code_text.strip() not in str(ans_text):
+                        if hasattr(final_response, "final_answer"):
+                            final_response.final_answer = f"{ans_text}\n\n```python\n{code_text}\n```"
+                        elif isinstance(final_response, dict) and "final_answer" in final_response:
+                            final_response["final_answer"] = f"{ans_text}\n\n```python\n{code_text}\n```"
+
             trace.append(self._completed("finalizer", final_response))
         else:
             trace.append(self._not_invoked("finalizer"))
@@ -327,7 +363,23 @@ class ExistingLLMAgentExecutor:
 
         def coder_node(state: Dict[str, Any]) -> Dict[str, Any]:
             event("started", "coder")
-            output = self.coder_factory().code(task)
+            critic_out = state.get("critic_output")
+            feedback = None
+            if critic_out:
+                issues = getattr(critic_out, "issues", []) or []
+                corrections = getattr(critic_out, "corrections", []) or []
+                assessment = getattr(critic_out, "overall_assessment", "")
+                parts = [f"Critic Assessment: {assessment}"] if assessment else []
+                if issues:
+                    parts.append("Issues to fix: " + "; ".join(issues))
+                if corrections:
+                    parts.append("Suggested corrections: " + "; ".join(corrections))
+                feedback = "\n".join(parts)
+            coder_agent = self.coder_factory()
+            try:
+                output = coder_agent.code(task, feedback=feedback) if feedback else coder_agent.code(task)
+            except TypeError:
+                output = coder_agent.code(task)
             event("completed", "coder")
             return {
                 "coder_output": output,
@@ -413,7 +465,25 @@ class ExistingLLMAgentExecutor:
                     supporting_info=self._supporting_text(outputs),
                 )
             event("completed", "finalizer")
-            final_text = getattr(output, "final_answer", str(output))
+
+            # Safeguard: if coder produced code and final_answer omitted it, attach the full code
+            coder_res = outputs.get("coder")
+            if coder_res:
+                code_text = None
+                if hasattr(coder_res, "code") and coder_res.code:
+                    code_text = coder_res.code
+                elif isinstance(coder_res, dict) and coder_res.get("code"):
+                    code_text = coder_res.get("code")
+
+                ans_text = getattr(output, "final_answer", None) if output else None
+                if ans_text is not None and code_text:
+                    if "```" not in str(ans_text) and code_text.strip() not in str(ans_text):
+                        if hasattr(output, "final_answer"):
+                            output.final_answer = f"{ans_text}\n\n```python\n{code_text}\n```"
+                        elif isinstance(output, dict) and "final_answer" in output:
+                            output["final_answer"] = f"{ans_text}\n\n```python\n{code_text}\n```"
+
+            final_text = format_final_response(output)
             return {
                 "final_answer": output,
                 "messages": [AIMessage(content=final_text)],

@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Set
 
 from langgraph.graph import END, START, StateGraph
 from app.architecture.models import MASArchitecture
-from app.graph.state import MASState
+from app.graph.state import ExtendedMASState, MASState
 
 
 def _extract_arch_data(
@@ -159,14 +159,21 @@ def render_mermaid_graph(architecture: MASArchitecture | Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def render_invoked_flow_ascii(invoked_agents: List[str]) -> str:
+def render_invoked_flow_ascii(
+    invoked_agents: List[str],
+    tools_executed: Optional[List[str]] = None,
+) -> str:
     """Render the exact LangGraph ASCII graph for the agents that actually executed."""
     if not invoked_agents:
         return ""
     try:
-        sg = StateGraph(MASState)
+        sg = StateGraph(ExtendedMASState)
         for a in invoked_agents:
             sg.add_node(a, lambda s: s)
+
+        clean_tools = [t for t in (tools_executed or []) if t]
+        for t in clean_tools:
+            sg.add_node(t, lambda s: s)
 
         if "planner" in invoked_agents:
             sg.add_edge(START, "planner")
@@ -181,32 +188,262 @@ def render_invoked_flow_ascii(invoked_agents: List[str]) -> str:
                     sg.add_edge("planner", "critic")
                 for w in workers:
                     sg.add_edge("planner", w)
-                    if has_critic:
-                        sg.add_edge(w, "critic")
-                    elif "finalizer" in invoked_agents:
-                        sg.add_edge(w, "finalizer")
-                if has_critic and "finalizer" in invoked_agents:
+                    next_node = "critic" if has_critic else ("finalizer" if "finalizer" in invoked_agents else None)
+                    if w == "tool_executor" and clean_tools:
+                        prev = "tool_executor"
+                        for t in clean_tools:
+                            sg.add_edge(prev, t)
+                            prev = t
+                        if next_node:
+                            sg.add_edge(prev, next_node)
+                    else:
+                        if next_node:
+                            sg.add_edge(w, next_node)
+                if has_critic and workers:
+                    def _mock_ascii_router(s):
+                        return "finalizer" if "finalizer" in invoked_agents else END
+                    destinations = {w: w for w in workers}
+                    if "finalizer" in invoked_agents:
+                        destinations["finalizer"] = "finalizer"
+                    destinations[END] = END
+                    sg.add_conditional_edges("critic", _mock_ascii_router, destinations)
+                elif has_critic and "finalizer" in invoked_agents:
                     sg.add_edge("critic", "finalizer")
         elif invoked_agents:
             first_node = invoked_agents[0]
             sg.add_edge(START, first_node)
             for i in range(len(invoked_agents) - 1):
-                sg.add_edge(invoked_agents[i], invoked_agents[i + 1])
+                curr = invoked_agents[i]
+                nxt = invoked_agents[i + 1]
+                if curr == "tool_executor" and clean_tools:
+                    prev = "tool_executor"
+                    for t in clean_tools:
+                        sg.add_edge(prev, t)
+                        prev = t
+                    sg.add_edge(prev, nxt)
+                else:
+                    sg.add_edge(curr, nxt)
 
         if "finalizer" in invoked_agents:
             sg.add_edge("finalizer", END)
         elif invoked_agents and "planner" not in invoked_agents:
-            sg.add_edge(invoked_agents[-1], END)
+            last_node = clean_tools[-1] if (clean_tools and invoked_agents[-1] == "tool_executor") else invoked_agents[-1]
+            sg.add_edge(last_node, END)
 
         compiled = sg.compile()
-        return compiled.get_graph().draw_ascii()
+        raw_ascii = compiled.get_graph().draw_ascii()
+        if "critic" in invoked_agents:
+            worker_candidates = [a for a in invoked_agents if a not in ("planner", "critic", "finalizer")]
+            if worker_candidates:
+                return _format_ascii_with_feedback_loop(raw_ascii, worker_candidates[0], "critic")
+        return raw_ascii
     except Exception:
         # Fallback to simple arrow flow
         lines = ["[START]"]
         for a in invoked_agents:
             lines.append(f"  |--> [{a}]")
+            if a == "tool_executor" and tools_executed:
+                for t in tools_executed:
+                    lines.append(f"       |--> [{t}]")
         lines.append("  |--> [END]")
         return "\n".join(lines)
+ 
+ 
+def _format_ascii_with_feedback_loop(raw_ascii: str, worker_name: str, critic_name: str = "critic") -> str:
+    """Decorate LangGraph ASCII output with visual feedback loop arrows from critic back to worker."""
+    if not raw_ascii:
+        return raw_ascii
+    lines = raw_ascii.splitlines()
+    worker_idx = None
+    critic_idx = None
+    for i, line in enumerate(lines):
+        if f"| {worker_name} |" in line or f"|{worker_name}|" in line:
+            worker_idx = i
+        elif f"| {critic_name} |" in line or f"|{critic_name}|" in line:
+            critic_idx = i
+
+    if worker_idx is None or critic_idx is None or worker_idx >= critic_idx:
+        return raw_ascii
+
+    loop_start_line = max(0, worker_idx - 1)
+    loop_end_line = critic_idx
+
+    new_lines = []
+    for i, line in enumerate(lines):
+        if i == loop_start_line:
+            new_lines.append(f"+-->  {line.lstrip()}")
+        elif loop_start_line < i < loop_end_line:
+            new_lines.append(f"|     {line.lstrip()}")
+        elif i == loop_end_line:
+            new_lines.append(f"+---  {line.lstrip()}  <--(Feedback Cycle: retry on review)")
+        else:
+            new_lines.append(f"      {line.lstrip()}")
+
+    return "\n".join(new_lines)
+
+
+def render_mermaid_png(
+    architecture: MASArchitecture | Dict[str, Any],
+    output_file_path: Optional[str] = None,
+) -> bytes:
+    """Render the active architecture as a visual LangGraph Mermaid PNG image."""
+    _, _, active_agents, edges, _ = _extract_arch_data(architecture)
+    active_edges = [(s, t) for s, t in edges if s in active_agents and t in active_agents]
+
+    sg = StateGraph(ExtendedMASState)
+    for agent_id in active_agents:
+        sg.add_node(agent_id, lambda s: s)
+
+    if "planner" in active_agents:
+        sg.add_edge(START, "planner")
+    elif active_agents:
+        first_node = sorted(list(active_agents))[0]
+        sg.add_edge(START, first_node)
+
+    for src, dst in active_edges:
+        sg.add_edge(src, dst)
+
+    if "finalizer" in active_agents:
+        sg.add_edge("finalizer", END)
+    elif active_agents:
+        sources = {s for s, _ in active_edges}
+        terminals = active_agents - sources
+        for term in terminals:
+            sg.add_edge(term, END)
+
+    compiled = sg.compile()
+    return compiled.get_graph().draw_mermaid_png(output_file_path=output_file_path)
+
+
+def render_invoked_flow_png(
+    invoked_agents: List[str],
+    output_file_path: Optional[str] = None,
+    tools_executed: Optional[List[str]] = None,
+) -> bytes:
+    """Render the exact interacting agents and executed tools as a visual LangGraph Mermaid PNG image."""
+    if not invoked_agents:
+        return b""
+
+    sg = StateGraph(ExtendedMASState)
+    for a in invoked_agents:
+        sg.add_node(a, lambda s: s)
+
+    clean_tools = [t for t in (tools_executed or []) if t]
+    for t in clean_tools:
+        sg.add_node(t, lambda s: s)
+
+    if "planner" in invoked_agents:
+        sg.add_edge(START, "planner")
+        intermediaries = [a for a in invoked_agents if a not in ("planner", "finalizer")]
+        if not intermediaries and "finalizer" in invoked_agents:
+            sg.add_edge("planner", "finalizer")
+        else:
+            has_critic = "critic" in intermediaries
+            workers = [a for a in intermediaries if a != "critic"]
+            if not workers and has_critic:
+                sg.add_edge("planner", "critic")
+            for w in workers:
+                sg.add_edge("planner", w)
+                next_node = "critic" if has_critic else ("finalizer" if "finalizer" in invoked_agents else None)
+                if w == "tool_executor" and clean_tools:
+                    prev = "tool_executor"
+                    for t in clean_tools:
+                        sg.add_edge(prev, t)
+                        prev = t
+                    if next_node:
+                        sg.add_edge(prev, next_node)
+                else:
+                    if next_node:
+                        sg.add_edge(w, next_node)
+            if has_critic and workers:
+                def _mock_png_router(s):
+                    return "finalizer" if "finalizer" in invoked_agents else END
+                destinations = {w: w for w in workers}
+                if "finalizer" in invoked_agents:
+                    destinations["finalizer"] = "finalizer"
+                destinations[END] = END
+                sg.add_conditional_edges("critic", _mock_png_router, destinations)
+            elif has_critic and "finalizer" in invoked_agents:
+                sg.add_edge("critic", "finalizer")
+    elif invoked_agents:
+        first_node = invoked_agents[0]
+        sg.add_edge(START, first_node)
+        for i in range(len(invoked_agents) - 1):
+            curr = invoked_agents[i]
+            nxt = invoked_agents[i + 1]
+            if curr == "tool_executor" and clean_tools:
+                prev = "tool_executor"
+                for t in clean_tools:
+                    sg.add_edge(prev, t)
+                    prev = t
+                sg.add_edge(prev, nxt)
+            else:
+                sg.add_edge(curr, nxt)
+
+    if "finalizer" in invoked_agents:
+        sg.add_edge("finalizer", END)
+    elif invoked_agents and "planner" not in invoked_agents:
+        last_node = clean_tools[-1] if (clean_tools and invoked_agents[-1] == "tool_executor") else invoked_agents[-1]
+        sg.add_edge(last_node, END)
+
+    compiled = sg.compile()
+    return compiled.get_graph().draw_mermaid_png(output_file_path=output_file_path)
+
+
+def save_graph_image(
+    graph_or_arch: Any,
+    output_path: str = "runs/graph.png",
+    tools_executed: Optional[List[str]] = None,
+) -> Optional[str]:
+    """Save a visual PNG diagram of the compiled graph, architecture, or agent list.
+
+    Returns the absolute path to the saved image, or None if failed.
+    """
+    from pathlib import Path
+
+    try:
+        p = Path(output_path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        out_str = str(p.resolve())
+
+        if hasattr(graph_or_arch, "get_graph"):
+            graph_or_arch.get_graph().draw_mermaid_png(output_file_path=out_str)
+            return out_str
+        elif hasattr(graph_or_arch, "draw_mermaid_png"):
+            graph_or_arch.draw_mermaid_png(output_file_path=out_str)
+            return out_str
+        elif isinstance(graph_or_arch, (list, tuple)):
+            render_invoked_flow_png(list(graph_or_arch), output_file_path=out_str, tools_executed=tools_executed)
+            return out_str
+        else:
+            render_mermaid_png(graph_or_arch, output_file_path=out_str)
+            return out_str
+    except Exception:
+        return None
+
+
+def display_graph(
+    graph_or_arch: Any,
+    tools_executed: Optional[List[str]] = None,
+) -> Any:
+    """Display the graph image inline in Jupyter/IPython, or save to runs/graph.png."""
+    try:
+        from IPython.display import Image, display  # type: ignore
+
+        if hasattr(graph_or_arch, "get_graph"):
+            png_data = graph_or_arch.get_graph().draw_mermaid_png()
+        elif hasattr(graph_or_arch, "draw_mermaid_png"):
+            png_data = graph_or_arch.draw_mermaid_png()
+        elif isinstance(graph_or_arch, (list, tuple)):
+            png_data = render_invoked_flow_png(list(graph_or_arch), tools_executed=tools_executed)
+        else:
+            png_data = render_mermaid_png(graph_or_arch)
+        return display(Image(png_data))
+    except Exception:
+        path = save_graph_image(graph_or_arch, "runs/graph.png", tools_executed=tools_executed)
+        if path:
+            print(f"Graph image saved to: {path}")
+        return path
 
 
 def format_architecture_display(
@@ -216,8 +453,9 @@ def format_architecture_display(
     actions_taken: Optional[List[Dict[str, Any]]] = None,
     cost_profile: Optional[Dict[str, Any]] = None,
     invoked_agents: Optional[List[str]] = None,
+    tools_executed: Optional[List[str]] = None,
 ) -> str:
-    """Format an end-to-end visual block showing the actual interacting agents."""
+    """Format an end-to-end visual block showing the actual interacting agents and executed tools."""
     arch_id, all_agents, active_agents, edges, role_map = _extract_arch_data(architecture)
     
     # Actual interacting agents
@@ -234,12 +472,15 @@ def format_architecture_display(
 
     invoked_formatted = []
     for a in actual_invoked:
-        spec = default_registry.get(a) if default_registry else None
-        if spec and spec.tools:
-            tool_names = ", ".join(t.tool_name for t in spec.tools)
-            invoked_formatted.append(f"{a} [tool: {tool_names}]")
+        if a == "tool_executor" and tools_executed:
+            invoked_formatted.append(f"{a} [executed: {', '.join(tools_executed)}]")
         else:
-            invoked_formatted.append(a)
+            spec = default_registry.get(a) if default_registry else None
+            if spec and spec.tools:
+                tool_names = ", ".join(t.tool_name for t in spec.tools)
+                invoked_formatted.append(f"{a} [tool: {tool_names}]")
+            else:
+                invoked_formatted.append(a)
 
     bypassed_formatted = []
     for a in sorted(bypassed_agents):
@@ -272,9 +513,34 @@ def format_architecture_display(
         cls_name = cost_profile.get("classification", "optimal").upper()
         out.append(f"  * Profile: {tokens:,} est. tokens | ${cost:.5f} est. cost | Status: {cls_name}")
 
+    workers_invoked = [a for a in actual_invoked if a not in ("planner", "critic", "finalizer")]
+    if "critic" in actual_invoked and workers_invoked:
+        out.append(f"  * Feedback Cycles Active: critic <--(retry on low score)--> {', '.join(workers_invoked)}")
+
+    # Automatically generate and save visual graph image with executed tools
+    saved_img_path = None
+    try:
+        target_graph_input = actual_invoked if invoked_agents else architecture
+        saved_img_path = save_graph_image(
+            target_graph_input,
+            output_path="runs/latest_graph.png",
+            tools_executed=tools_executed,
+        )
+        if saved_img_path:
+            save_graph_image(
+                target_graph_input,
+                output_path="runs/graph.png",
+                tools_executed=tools_executed,
+            )
+    except Exception:
+        pass
+
+    if saved_img_path:
+        out.append(f"  * Visual Graph Image:    {saved_img_path}")
+
     out.append("\n  Actual Interaction Flow Graph:")
     if invoked_agents:
-        ascii_graph = render_invoked_flow_ascii(actual_invoked)
+        ascii_graph = render_invoked_flow_ascii(actual_invoked, tools_executed=tools_executed)
     else:
         ascii_graph = render_langgraph_ascii(architecture)
     for line in ascii_graph.splitlines():

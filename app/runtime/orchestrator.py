@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, Optional, Protocol
 from pydantic import BaseModel, Field
 
 from app.agents.planner import Planner, PlannerOutput
+from app.agents.finalizer import format_final_response
 from app.architecture.llm_adapter import LLMArchitectureAdapter
 from app.architecture.manager import ArchitectureManager
 from app.graph.adaptive_integration import AdaptiveWorkflowAdapter
@@ -281,11 +282,7 @@ class AdaptiveRuntimeOrchestrator:
             final_response = execution.final_response
             if final_response:
                 self.thread_store.add_message(thread_id, HumanMessage(content=user_task))
-                resp_text = (
-                    final_response.get("final_answer", str(final_response))
-                    if isinstance(final_response, dict)
-                    else str(final_response)
-                )
+                resp_text = format_final_response(final_response)
                 self.thread_store.add_message(thread_id, AIMessage(content=str(resp_text), name="finalizer"))
         else:
             if self.workflow_runner is not None:
@@ -303,11 +300,7 @@ class AdaptiveRuntimeOrchestrator:
                 final_response = final_response.model_dump(mode="json")
             if final_response:
                 self.thread_store.add_message(thread_id, HumanMessage(content=user_task))
-                resp_text = (
-                    final_response.get("final_answer", str(final_response))
-                    if isinstance(final_response, dict)
-                    else str(final_response)
-                )
+                resp_text = format_final_response(final_response)
                 self.thread_store.add_message(thread_id, AIMessage(content=str(resp_text), name="finalizer"))
             execution_trace = self._observe_execution(state)
         invoked_agents = [
@@ -607,6 +600,7 @@ class AdaptiveRuntimeOrchestrator:
         for n in path_before:
             if n not in unique_path_before:
                 unique_path_before.append(n)
+        executed_in_v0.update(unique_path_before)
 
         emit("architecture.reassessment.started", version=version, stage="REASSESSMENT", status="started")
         reassessment = None

@@ -17,15 +17,15 @@ class FinalizerOutput(BaseModel):
     """Structured final answer synthesizing information from other agents."""
 
     final_answer: str = Field(
-        description="The final synthesized answer to the original task.",
+        description="The complete, comprehensive, and clean final response to the user's task or question.",
     )
     key_points: List[str] = Field(
         default_factory=list,
-        description="The key points or takeaways from the final answer.",
+        description="Deprecated/unused. Kept for backwards compatibility.",
     )
     limitations: List[str] = Field(
         default_factory=list,
-        description="Limitations, caveats, or things the final answer does not cover.",
+        description="Deprecated/unused. Kept for backwards compatibility.",
     )
 
 
@@ -54,7 +54,7 @@ def get_finalizer_system_prompt(registry: Optional[Any] = None) -> str:
     return f"""\
 You are the Finalizer agent in an adaptive multi-agent system.
 
-Your job is to synthesize all available context into a clear, comprehensive, and accurate final answer to the original task.
+Your job is to synthesize all available context into a single, clean, comprehensive, and natural final answer to the original task.
 
 {registry_summary}
 
@@ -64,16 +64,16 @@ You are provided with:
 - Conversation context & thread history from prior dialogue turns (if available).
 
 Guidelines:
-1. Answer the user's task directly, accurately, and thoroughly.
-2. Ground your response in the provided tool and agent outputs. If tool results (such as live date/time, search results, or calculations) are present in the supporting information, integrate those factual results into your answer.
-3. Maintain conversational continuity across multi-turn interactions. If prior conversation history includes the user's name, previous preferences, questions, or context, directly incorporate and acknowledge it to personalize your answer.
-4. If the user asks about available tools, system capabilities, or what this system can do:
-   - Accurately describe the multi-agent system and its currently registered tools ({tools_str}) and specialist agents ({agents_str}) dynamically present in the registry.
-   - Note: Structured schema formatters (such as FinalizerOutput or ResearcherOutput) are internal response data models, not tools.
-5. If no external tools were invoked, answer using your comprehensive knowledge without inventing false citations or claiming external tools were used.
-6. Provide clear, well-structured explanations with actionable key points.
+1. Answer the user's task directly, accurately, and thoroughly in 'final_answer'.
+2. The final response must be clean and natural.
 
-Output a single JSON object matching the schema. Do not include any extra text, explanations, or commentary outside the JSON object.
+3. Ground your response in the provided tool and agent outputs. If tool results (such as live date/time, search results, or calculations) are present in the supporting information, integrate those factual results naturally into your answer.
+4. Maintain conversational continuity across multi-turn interactions. If prior conversation history includes the previous preferences, questions, or context, directly incorporate and acknowledge it naturally.
+5. If the user asks about available tools, system capabilities, or what this system can do:
+   - Accurately describe the multi-agent system and its currently registered tools ({tools_str}) and specialist agents ({agents_str}) dynamically present in the registry.
+6. CRITICAL - CODE PRESERVATION: If the task is a coding, programming, implementation, or technical problem, or if upstream outputs contain code, your 'final_answer' MUST include the complete, full runnable code implementation enclosed in standard markdown code blocks (e.g. ```python ... ```), along with the necessary explanation and test examples. NEVER omit, summarize, or describe the code in words without outputting the actual code itself.
+
+Output a single JSON object with the complete, clean response in 'final_answer'. Leave key_points and limitations empty. Do not include any extra text outside the JSON object.
 """
 
 SYSTEM_PROMPT = get_finalizer_system_prompt()
@@ -209,3 +209,20 @@ def create_final_answer(
     """One-shot helper that constructs a Finalizer and produces a final answer."""
     finalizer = Finalizer.from_settings()
     return finalizer.finalize(original_task=original_task, supporting_info=supporting_info)
+
+
+def format_final_response(resp: Any) -> str:
+    """Format final response into a clean, direct string without artificial sections."""
+    if resp is None:
+        return ""
+    if isinstance(resp, BaseModel):
+        resp = resp.model_dump(mode="json")
+    if not isinstance(resp, dict):
+        text = str(resp).strip()
+    else:
+        ans = resp.get("final_answer")
+        text = str(ans).strip() if (ans is not None and str(ans).strip()) else str(resp).strip()
+
+    return text.replace("\u2011", "-").replace("\u2013", "-").replace("\u2014", "--")
+
+

@@ -46,15 +46,6 @@ _DEFAULT_AGENTS: List[AgentDefinition] = [
         capabilities=["planning", "task_analysis", "routing"],
     ),
     AgentDefinition(
-        agent_id="researcher",
-        role="research",
-        description=(
-            "Researches the given task or question and returns a structured "
-            "report with findings, evidence, and uncertainties."
-        ),
-        capabilities=["research", "information_synthesis"],
-    ),
-    AgentDefinition(
         agent_id="coder",
         role="implementation",
         description=(
@@ -86,16 +77,13 @@ _DEFAULT_AGENTS: List[AgentDefinition] = [
 
 _DEFAULT_EDGES: List[CommunicationEdge] = [
     # Planner dispatches to downstream specialist agents.
-    CommunicationEdge(source="planner", target="researcher"),
     CommunicationEdge(source="planner", target="coder"),
     # Specialist agents feed into the critic for verification.
-    CommunicationEdge(source="researcher", target="critic"),
     CommunicationEdge(source="coder", target="critic"),
     # Critic feeds into the finalizer for synthesis.
     CommunicationEdge(source="critic", target="finalizer"),
     # Planner can also feed directly into the finalizer pipeline when no
-    # research or coding is required (architectural representation of the
-    # planner -> join -> critic/finalizer path when no specialists run).
+    # coding is required.
     CommunicationEdge(source="planner", target="finalizer"),
 ]
 
@@ -432,6 +420,17 @@ class ArchitectureManager:
                 return len(architecture.agents) - 1
         except Exception:
             pass
+
+        if agent_id == "researcher":
+            new_agent = AgentDefinition(
+                agent_id="researcher",
+                role="research",
+                description="Legacy research agent node.",
+                capabilities=["research", "information_synthesis"],
+                active=True,
+            )
+            architecture.agents.append(new_agent)
+            return len(architecture.agents) - 1
 
         raise ValueError(f"Unknown agent '{agent_id}'")
 

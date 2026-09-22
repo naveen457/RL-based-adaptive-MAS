@@ -12,6 +12,7 @@ from app.tools.web_search import (
 )
 from app.tools.calculator import basic_calculator
 from app.tools.date_time import get_current_date
+from app.tools.arxiv_search import arxiv_search
 
 __all__ = [
     "web_search",
@@ -20,5 +21,6 @@ __all__ = [
     "duckduckgo_html_search",
     "basic_calculator",
     "get_current_date",
+    "arxiv_search",
 ]
 

@@ -27,7 +27,6 @@ def test_tool_executor_evaluates_as_optimal_not_malformed():
     """Topology with planner -> tool_executor -> finalizer must be classified as OPTIMAL, not MALFORMED."""
     mgr = ArchitectureManager.create_default_architecture()
     mgr.apply_action(ArchitectureAction(action_type=ActionType.ACTIVATE_AGENT, agent_id="tool_executor"))
-    mgr.apply_action(ArchitectureAction(action_type=ActionType.DEACTIVATE_AGENT, agent_id="researcher"))
     mgr.apply_action(ArchitectureAction(action_type=ActionType.DEACTIVATE_AGENT, agent_id="coder"))
     updated = mgr.apply_action(ArchitectureAction(action_type=ActionType.DEACTIVATE_AGENT, agent_id="critic"))
 
@@ -212,5 +211,41 @@ def test_multi_tool_loop_with_calculation():
 
     # All 3 synergistic tools must execute in topological order
     assert executed_tools == ["get_current_date", "web_search", "calculator"]
+
+
+def test_arxiv_search_tool_registration():
+    from app.agents.tool_executor import ToolExecutor
+    executor = ToolExecutor()
+    assert "arxiv_search" in executor.registered_tools
+
+
+def test_research_papers_query_routes_to_arxiv_search():
+    """Queries asking for research papers or literature must invoke arxiv_search."""
+    mock_tool_executor = MagicMock()
+    mock_result = MagicMock()
+    mock_result.serialize.return_value = {"tool_name": "arxiv_search", "result": {"papers": [{"title": "Test Paper"}]}}
+    mock_result.status = "success"
+    mock_result.result = {"papers": [{"title": "Test Paper"}]}
+    mock_tool_executor.execute.return_value = mock_result
+    mock_tool_executor.registered_tools = {"web_search", "get_current_date", "calculator", "arxiv_search"}
+
+    executor = ExistingLLMAgentExecutor(
+        finalizer_factory=lambda: MagicMock(finalize=lambda original_task, supporting_info: "final"),
+        tool_executor_factory=lambda: mock_tool_executor,
+    )
+
+    task = "find recent arxiv research papers on reinforcement learning in multi-agent systems"
+    planner_out = PlannerOutput(
+        task_understanding="find research papers on MARL",
+        required_capabilities=["research"],
+        requires_tools=True,
+        selected_agents=["planner", "tool_executor", "finalizer"],
+    )
+    arch = ArchitectureManager.create_default_architecture().get_architecture()
+
+    res = executor.execute(task, planner_out, arch)
+    mock_tool_executor.execute.assert_called_with("arxiv_search", {"query": task, "max_results": 5})
+    assert res is not None
+
 
 

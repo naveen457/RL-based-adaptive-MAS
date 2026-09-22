@@ -2,12 +2,19 @@ import argparse
 import sys
 from pathlib import Path
 
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 # Ensure workspace root is on sys.path for direct python app/main.py invocation
 ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from app.config.settings import settings
+from app.agents.finalizer import format_final_response
 from app.runtime.orchestrator import AdaptiveRuntimeOrchestrator, run_dynamic_runtime
 from app.evaluation.metrics_logger import MetricsLogger
 from app.graph.visualizer import format_architecture_display
@@ -29,10 +36,7 @@ def print_workflow_result(state):
     final = state.get("final_response") or state.get("final_answer")
     if final:
         print("FINAL SYNTHESIS")
-        if isinstance(final, dict):
-            print(f"  answer: {final.get('final_answer')}")
-        else:
-            print(f"  answer: {final}")
+        print(f"  answer: {format_final_response(final)}")
         print()
 
 
@@ -209,6 +213,7 @@ def main():
         # Dynamic loop 1: Map any tools_needed into capabilities dynamically
         tool_to_cap = {
             "web_search": "web_search",
+            "arxiv_search": "research",
             "calculator": "math",
             "code_interpreter": "coding",
             "retriever": "research",
@@ -303,14 +308,26 @@ def main():
             "estimated_cost_usd": actual_cost,
             "classification": rl_classification,
         }
+        tools_executed = getattr(result, "tools_executed", [])
         graph_display = format_architecture_display(
             final_arch,
             version=arch_version,
             actions_taken=result.accepted_actions,
             cost_profile=cost_profile,
             invoked_agents=invoked,
+            tools_executed=tools_executed,
         )
         print("\n" + graph_display)
+        try:
+            from app.graph.visualizer import save_graph_image
+            session_graph_path = os.path.join(session_dir, "graph.png")
+            save_graph_image(
+                invoked if invoked else final_arch,
+                session_graph_path,
+                tools_executed=tools_executed,
+            )
+        except Exception:
+            pass
 
 
         # 4. Print runtime trace and execution summary
@@ -319,10 +336,14 @@ def main():
             if getattr(result, "is_instant_rl", False)
             else f"LLM Adapter ({getattr(result, 'decision_source', 'llm')})"
         )
-        tools_executed = getattr(result, "tools_executed", [])
         missing_list = logged.get("missing_capabilities", [])
         surplus_list = logged.get("surplus_agents", [])
-        tool_to_cap = {"web_search": "web_search", "calculator": "math", "get_current_date": "web_search"}
+        tool_to_cap = {
+            "web_search": "web_search",
+            "arxiv_search": "research",
+            "calculator": "math",
+            "get_current_date": "web_search",
+        }
         unnecessary_tools_preview = [t for t in tools_executed if tool_to_cap.get(t, t) not in req_caps]
 
         if missing_list:
@@ -356,11 +377,14 @@ def main():
         print("\nFINAL RESPONSE:")
         print("-" * 50)
         final_resp = result.final_response
-        if isinstance(final_resp, dict):
-            print(final_resp.get("final_answer", final_resp))
-        else:
-            print(final_resp)
+        print(format_final_response(final_resp))
         print("-" * 50)
+
+        # Calculate the interval
+        end_time = time.perf_counter()
+        execution_time = end_time - start_time
+        print(f" Elapsed time: {execution_time:.6f} seconds")
+
 
         # 5. Interactive Human Feedback & Decoupled Dual-Objective Reward Calculation
         print(f"\n[HUMAN VERIFICATION & RLHF]")
@@ -462,10 +486,7 @@ def main():
         except Exception as q_err:
             print(f"  [Q-Learning Memory] Note: Q-table update deferred ({q_err})")
 
-        end_time = time.perf_counter()
-        # Calculate the interval
-        execution_time = end_time - start_time
-        print(f" Elapsed time: {execution_time:.6f} seconds")
+        
         
     logger.close()
 

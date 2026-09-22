@@ -194,7 +194,7 @@ class MASArchitecture(BaseModel):
                 )
 
         # 4. Core agents must be present.
-        required_core = {"planner", "researcher", "coder", "critic", "finalizer"}
+        required_core = {"planner", "coder", "critic", "finalizer"}
         missing_core = required_core - agent_ids
         if missing_core:
             errors.append(

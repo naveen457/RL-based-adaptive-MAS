@@ -234,9 +234,7 @@ def test_during_execution_architecture_adaptation_lifecycle() -> None:
 
     # 8. Final response produced
     assert result.final_response is not None
-    assert result.final_response.get("final_answer") == (
-        "Comprehensive palindrome solution with verified Java implementation."
-    )
+    assert "Comprehensive palindrome solution with verified Java implementation." in result.final_response.get("final_answer")
 
 
 def test_during_execution_no_change_scenario() -> None:

@@ -123,23 +123,7 @@ class AgentRegistry:
             )
         )
 
-        # 2. Researcher
-        reg.register(
-            AgentSpec(
-                agent_id="researcher",
-                role="research",
-                description=(
-                    "Synthesizes background context, reports, and detailed findings from existing "
-                    "internal knowledge or provided tool outputs. (Important: Does NOT have live web "
-                    "access and cannot search the internet; for live web data or current events, "
-                    "tool_executor MUST be selected)."
-                ),
-                capabilities=["research", "information_synthesis"],
-                node_type="cognitive",
-            )
-        )
-
-        # 3. Coder
+        # 2. Coder
         reg.register(
             AgentSpec(
                 agent_id="coder",
@@ -150,7 +134,7 @@ class AgentRegistry:
             )
         )
 
-        # 4. Critic
+        # 3. Critic
         reg.register(
             AgentSpec(
                 agent_id="critic",
@@ -161,28 +145,28 @@ class AgentRegistry:
             )
         )
 
-        # 5. Finalizer
+        # 4. Finalizer
         reg.register(
             AgentSpec(
                 agent_id="finalizer",
                 role="synthesis",
-                description="Consolidates intermediate outputs into a polished final response with limitations.",
+                description="Consolidates intermediate outputs into a clean final response.",
                 capabilities=["synthesis", "summarization"],
                 node_type="cognitive",
             )
         )
 
-        # 6. Dedicated Tool Executor Node (contains live web search and calculator; more tools can be added dynamically)
+        # 5. Dedicated Tool Executor Node (contains live web search, arXiv paper search, and calculator)
         reg.register(
             AgentSpec(
                 agent_id="tool_executor",
                 role="tool_execution",
                 description=(
-                    "Dedicated execution node for external tools and live web search. "
+                    "Dedicated execution node for external tools, live web search, and scientific paper retrieval. "
                     "MUST be selected whenever the task requires live web search, current/trending "
-                    "events, real-time facts, or mathematical calculations."
+                    "events, arXiv research papers, preprints, or mathematical calculations."
                 ),
-                capabilities=["tool_use", "web_search", "external_api"],
+                capabilities=["tool_use", "web_search", "research", "external_api"],
                 node_type="tool_executor",
                 tools=[
                     ToolSpec(
@@ -192,6 +176,14 @@ class AgentRegistry:
                             "Essential for current events, trending topics, latest news, and real-time facts."
                         ),
                         parameters={"query": "string (search terms)", "max_results": "integer (optional, default 5)"},
+                    ),
+                    ToolSpec(
+                        tool_name="arxiv_search",
+                        description=(
+                            "Searches arXiv for scientific research papers, academic preprints, authors, and abstracts. "
+                            "Essential whenever the task asks for research papers, scientific literature, machine learning papers, or citations."
+                        ),
+                        parameters={"query": "string (keywords, topic, title, or author)", "max_results": "integer (optional, default 5)"},
                     ),
                     ToolSpec(
                         tool_name="calculator",
