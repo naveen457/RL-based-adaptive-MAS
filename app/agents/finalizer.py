@@ -8,10 +8,10 @@ from pydantic import BaseModel, Field
 
 from app.config.settings import settings
 
-
 # ---------------------------------------------------------------------------
 # Structured output model
 # ---------------------------------------------------------------------------
+
 
 class FinalizerOutput(BaseModel):
     """Structured final answer synthesizing information from other agents."""
@@ -33,10 +33,12 @@ class FinalizerOutput(BaseModel):
 # System prompt
 # ---------------------------------------------------------------------------
 
+
 def get_finalizer_system_prompt(registry: Optional[Any] = None) -> str:
     """Generate dynamic finalizer system prompt containing all registered specialist capabilities and tools."""
     try:
         from app.agents.registry import default_registry
+
         reg = registry or default_registry
         registry_summary = reg.to_prompt_summary()
         agent_names = [f"'{a.agent_id}'" for a in reg.list_agents()]
@@ -73,8 +75,9 @@ Guidelines:
    - Accurately describe the multi-agent system and its currently registered tools ({tools_str}) and specialist agents ({agents_str}) dynamically present in the registry.
 6. CRITICAL - CODE PRESERVATION: If the task is a coding, programming, implementation, or technical problem, or if upstream outputs contain code, your 'final_answer' MUST include the complete, full runnable code implementation enclosed in standard markdown code blocks (e.g. ```python ... ```), along with the necessary explanation and test examples. NEVER omit, summarize, or describe the code in words without outputting the actual code itself.
 
-Output a single JSON object with the complete, clean response in 'final_answer'. Leave key_points and limitations empty. Do not include any extra text outside the JSON object.
+Output a single JSON object with the complete, clean response in 'final_answer'. Do not include any extra text outside the JSON object.
 """
+
 
 SYSTEM_PROMPT = get_finalizer_system_prompt()
 
@@ -82,6 +85,7 @@ SYSTEM_PROMPT = get_finalizer_system_prompt()
 # ---------------------------------------------------------------------------
 # Finalizer
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class Finalizer:
@@ -156,10 +160,14 @@ class Finalizer:
 
         parts = []
         if conversation_history:
-            parts.append(f"Conversation Context & Thread History:\n{conversation_history}")
+            parts.append(
+                f"Conversation Context & Thread History:\n{conversation_history}"
+            )
         parts.append(f"Original task:\n{original_task}")
         if supporting_info:
-            parts.append(f"Supporting information from other agents:\n{supporting_info}")
+            parts.append(
+                f"Supporting information from other agents:\n{supporting_info}"
+            )
 
         user_content = "\n\n".join(parts)
         sys_prompt = get_finalizer_system_prompt()
@@ -174,15 +182,24 @@ class Finalizer:
                     return res
                 if conversation_history:
                     # Retry without conversation history
-                    res = self.structured_llm.invoke([
-                        {"role": "system", "content": sys_prompt},
-                        {"role": "user", "content": f"Original task:\n{original_task}\n\nSupporting information from other agents:\n{supporting_info}"},
-                    ])
+                    res = self.structured_llm.invoke(
+                        [
+                            {"role": "system", "content": sys_prompt},
+                            {
+                                "role": "user",
+                                "content": f"Original task:\n{original_task}\n\nSupporting information from other agents:\n{supporting_info}",
+                            },
+                        ]
+                    )
                     if res is not None:
                         return res
             except Exception as e:
                 err_str = str(e).lower()
-                if ("rate_limit" in err_str or "429" in err_str or "tokens per minute" in err_str) and attempt < 2:
+                if (
+                    "rate_limit" in err_str
+                    or "429" in err_str
+                    or "tokens per minute" in err_str
+                ) and attempt < 2:
                     print("  [Rate Limit] Replenishing tokens, waiting 5s...")
                     time.sleep(5)
                     continue
@@ -190,7 +207,11 @@ class Finalizer:
                     break
 
         # Fallback if structured output produced None
-        ans = supporting_info if supporting_info else f"Completed response for: {original_task}"
+        ans = (
+            supporting_info
+            if supporting_info
+            else f"Completed response for: {original_task}"
+        )
         return FinalizerOutput(
             final_answer=ans,
             key_points=[ans[:200]],
@@ -202,13 +223,16 @@ class Finalizer:
 # Convenience helper
 # ---------------------------------------------------------------------------
 
+
 def create_final_answer(
     original_task: str,
     supporting_info: str,
 ) -> FinalizerOutput:
     """One-shot helper that constructs a Finalizer and produces a final answer."""
     finalizer = Finalizer.from_settings()
-    return finalizer.finalize(original_task=original_task, supporting_info=supporting_info)
+    return finalizer.finalize(
+        original_task=original_task, supporting_info=supporting_info
+    )
 
 
 def format_final_response(resp: Any) -> str:
@@ -221,8 +245,10 @@ def format_final_response(resp: Any) -> str:
         text = str(resp).strip()
     else:
         ans = resp.get("final_answer")
-        text = str(ans).strip() if (ans is not None and str(ans).strip()) else str(resp).strip()
+        text = (
+            str(ans).strip()
+            if (ans is not None and str(ans).strip())
+            else str(resp).strip()
+        )
 
     return text.replace("\u2011", "-").replace("\u2013", "-").replace("\u2014", "--")
-
-
