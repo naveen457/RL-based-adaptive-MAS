@@ -177,21 +177,35 @@ class ThreadMessageStore:
 
         # In-memory thread cache: thread_id -> List[BaseMessage]
         self._thread_cache: Dict[str, List[BaseMessage]] = {}
+        # In-memory thread user map: thread_id -> user_id
+        self._thread_user_map: Dict[str, str] = {}
 
-    def _save_thread(self, thread_id: str) -> None:
-        """Persist serialized dialogue messages for thread_id directly to MongoDB Atlas."""
+    def _save_thread(self, thread_id: str, user_id: Optional[str] = None) -> None:
+        """Persist serialized dialogue messages for thread_id directly to MongoDB Atlas under user_id."""
         msgs = [m for m in self._thread_cache.get(thread_id, []) if is_dialogue_message(m)]
         self._thread_cache[thread_id] = msgs
         serialized = [serialize_message(m) for m in msgs]
+
+        resolved_user = user_id or self._thread_user_map.get(thread_id)
+        if resolved_user:
+            self._thread_user_map[thread_id] = str(resolved_user)
+
         payload = {
             "thread_id": thread_id,
             "message_count": len(serialized),
             "messages": serialized,
             "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         }
+        if resolved_user:
+            payload["user_id"] = str(resolved_user)
 
         if self.threads_collection is not None:
             try:
+                # Prevent cross-user thread hijacking
+                existing = self.threads_collection.find_one({"thread_id": thread_id})
+                if existing and "user_id" in existing and resolved_user and str(existing["user_id"]) != str(resolved_user):
+                    raise PermissionError(f"Access denied: Thread '{thread_id}' belongs to another user.")
+
                 self.threads_collection.update_one(
                     {"thread_id": thread_id},
                     {"$set": payload},
@@ -202,14 +216,19 @@ class ThreadMessageStore:
 
     _save_to_disk = _save_thread
 
-    def _load_thread(self, thread_id: str) -> List[BaseMessage]:
-        """Load messages for thread_id directly from MongoDB Atlas."""
+    def _load_thread(self, thread_id: str, user_id: Optional[str] = None) -> List[BaseMessage]:
+        """Load messages for thread_id directly from MongoDB Atlas, strictly scoped to user_id."""
         raw_msgs = []
         if self.threads_collection is not None:
             try:
-                doc = self.threads_collection.find_one({"thread_id": thread_id})
+                query = {"thread_id": thread_id}
+                if user_id:
+                    query["user_id"] = str(user_id)
+                doc = self.threads_collection.find_one(query)
                 if doc and "messages" in doc:
                     raw_msgs = doc["messages"]
+                    if "user_id" in doc:
+                        self._thread_user_map[thread_id] = str(doc["user_id"])
             except Exception as e:
                 check_mongo_network_error(e)
 
@@ -220,8 +239,13 @@ class ThreadMessageStore:
 
     _load_from_disk = _load_thread
 
-    def get_messages(self, thread_id: str = DEFAULT_THREAD_ID) -> List[BaseMessage]:
-        """Retrieve all queued messages for a given thread_id."""
+    def get_messages(self, thread_id: str = DEFAULT_THREAD_ID, user_id: Optional[str] = None) -> List[BaseMessage]:
+        """Retrieve all queued messages for a given thread_id, ensuring user ownership."""
+        if user_id:
+            cached_user = self._thread_user_map.get(thread_id)
+            if cached_user and cached_user != str(user_id):
+                return []
+
         config = {"configurable": {"thread_id": thread_id}}
         checkpoint = self.checkpointer.get(config)
         if checkpoint:
@@ -229,82 +253,84 @@ class ThreadMessageStore:
             cp_msgs = [m for m in channel_values.get("messages", []) if is_dialogue_message(m)]
             if cp_msgs:
                 self._thread_cache[thread_id] = cp_msgs
-                self._save_thread(thread_id)
+                self._save_thread(thread_id, user_id=user_id)
                 return cp_msgs
 
         if thread_id in self._thread_cache:
+            if user_id and self._thread_user_map.get(thread_id) and self._thread_user_map[thread_id] != str(user_id):
+                return []
             return list(self._thread_cache[thread_id])
 
-        loaded = self._load_thread(thread_id)
+        loaded = self._load_thread(thread_id, user_id=user_id)
         if loaded:
             return loaded
 
         return []
 
-    def get_serialized_messages(self, thread_id: str = DEFAULT_THREAD_ID) -> List[Dict[str, Any]]:
+    def get_serialized_messages(self, thread_id: str = DEFAULT_THREAD_ID, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """Retrieve all queued messages as serialized dicts."""
-        return [serialize_message(m) for m in self.get_messages(thread_id)]
+        return [serialize_message(m) for m in self.get_messages(thread_id, user_id=user_id)]
 
-    def add_message(self, thread_id: str, message: BaseMessage | Dict[str, Any]) -> None:
+    def add_message(self, thread_id: str, message: BaseMessage | Dict[str, Any], user_id: Optional[str] = None) -> None:
         """Append a message to the specified thread history."""
-        self.add_messages(thread_id, [message])
+        self.add_messages(thread_id, [message], user_id=user_id)
 
     def add_messages(
         self,
         thread_id: str,
         messages: Sequence[BaseMessage | Dict[str, Any]],
+        user_id: Optional[str] = None,
     ) -> None:
         """Append multiple messages to the specified thread history."""
         if not messages:
             return
-        current = self.get_messages(thread_id)
+        current = self.get_messages(thread_id, user_id=user_id)
         deserialized = [deserialize_message(m) for m in messages]
         updated = list(current) + deserialized
         self._thread_cache[thread_id] = updated
-        self._save_thread(thread_id)
+        self._save_thread(thread_id, user_id=user_id)
 
     def sync_thread(
         self,
         thread_id: str,
         messages: Sequence[BaseMessage | Dict[str, Any]],
+        user_id: Optional[str] = None,
     ) -> None:
         """Synchronize current thread state with the latest message list while preserving prior history."""
         if not messages:
             return
         deserialized = [deserialize_message(m) for m in messages]
-        current = self.get_messages(thread_id)
+        current = self.get_messages(thread_id, user_id=user_id)
 
         if not current:
             self._thread_cache[thread_id] = deserialized
         else:
-            # Check if deserialized is a full replacement containing the original history
             first_curr_content = getattr(current[0], "content", None)
             first_new_content = getattr(deserialized[0], "content", None)
             if first_curr_content == first_new_content and len(deserialized) >= len(current):
                 self._thread_cache[thread_id] = deserialized
             else:
-                # If deserialized only contains the newest turn messages, append safely
                 self._thread_cache[thread_id] = list(current) + deserialized
 
-        self._save_thread(thread_id)
+        self._save_thread(thread_id, user_id=user_id)
 
-    def list_threads(self) -> List[str]:
-        """List all thread IDs known in cache or MongoDB Atlas."""
-        threads = set(self._thread_cache.keys())
-        if hasattr(self.checkpointer, "storage") and isinstance(self.checkpointer.storage, dict):
-            threads.update(self.checkpointer.storage.keys())
+    def list_threads(self, user_id: Optional[str] = None) -> List[str]:
+        """List all thread IDs strictly scoped to user_id."""
+        if not user_id:
+            return []
+
         if self.threads_collection is not None:
             try:
-                threads.update(self.threads_collection.distinct("thread_id"))
+                matched = self.threads_collection.distinct("thread_id", {"user_id": str(user_id)})
+                return sorted(matched)
             except Exception as e:
                 check_mongo_network_error(e)
-        if not threads:
-            return [self.DEFAULT_THREAD_ID]
-        return sorted(threads)
 
-    def get_thread_stats(self, thread_id: str = DEFAULT_THREAD_ID) -> Dict[str, Any]:
-        """Return summary statistics for a thread."""
-        msgs = self.get_messages(thread_id)
+        return sorted([tid for tid, uid in self._thread_user_map.items() if uid == str(user_id)])
+
+    def get_thread_stats(self, thread_id: str = DEFAULT_THREAD_ID, user_id: Optional[str] = None) -> Dict[str, Any]:
+        """Return summary statistics for a thread scoped to user_id."""
+        msgs = self.get_messages(thread_id, user_id=user_id)
         human_count = sum(1 for m in msgs if getattr(m, "type", "") in {"human", "user"})
         ai_count = sum(1 for m in msgs if getattr(m, "type", "") in {"ai", "assistant"})
         return {
@@ -314,6 +340,56 @@ class ThreadMessageStore:
             "ai_messages": ai_count,
             "has_history": len(msgs) > 0,
         }
+
+    def save_latest_graph(
+        self,
+        thread_id: str = DEFAULT_THREAD_ID,
+        graph_png_base64: str = "",
+        user_id: Optional[str] = None,
+    ) -> None:
+        """Store ONLY the latest graph PNG for this thread and user in MongoDB Atlas."""
+        if not graph_png_base64:
+            return
+
+        resolved_user = user_id or self._thread_user_map.get(thread_id)
+
+        if self.threads_collection is not None:
+            try:
+                update_fields: Dict[str, Any] = {
+                    "latest_graph": graph_png_base64,
+                    "graph_updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                }
+                if resolved_user:
+                    update_fields["user_id"] = str(resolved_user)
+
+                self.threads_collection.update_one(
+                    {"thread_id": thread_id},
+                    {"$set": update_fields},
+                    upsert=True,
+                )
+            except Exception as e:
+                check_mongo_network_error(e)
+
+    def get_latest_graph(
+        self,
+        thread_id: str = DEFAULT_THREAD_ID,
+        user_id: Optional[str] = None,
+    ) -> Optional[str]:
+        """Retrieve the latest graph PNG base64 for a thread scoped to user_id."""
+        if self.threads_collection is not None:
+            try:
+                query: Dict[str, Any] = {"thread_id": thread_id}
+                if user_id:
+                    query["user_id"] = str(user_id)
+
+                doc = self.threads_collection.find_one(query, {"latest_graph": 1, "user_id": 1})
+                if doc and "latest_graph" in doc:
+                    if user_id and doc.get("user_id") and str(doc["user_id"]) != str(user_id):
+                        return None
+                    return doc.get("latest_graph")
+            except Exception as e:
+                check_mongo_network_error(e)
+        return None
 
     def format_history(
         self,

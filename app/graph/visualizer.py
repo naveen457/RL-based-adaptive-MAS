@@ -390,6 +390,24 @@ def render_invoked_flow_png(
     return compiled.get_graph().draw_mermaid_png(output_file_path=output_file_path)
 
 
+def get_graph_png_bytes(
+    graph_or_arch: Any,
+    tools_executed: Optional[List[str]] = None,
+) -> Optional[bytes]:
+    """Render and return the PNG image bytes of the graph or architecture."""
+    try:
+        if hasattr(graph_or_arch, "get_graph"):
+            return graph_or_arch.get_graph().draw_mermaid_png()
+        elif hasattr(graph_or_arch, "draw_mermaid_png"):
+            return graph_or_arch.draw_mermaid_png()
+        elif isinstance(graph_or_arch, (list, tuple)):
+            return render_invoked_flow_png(list(graph_or_arch), output_file_path=None, tools_executed=tools_executed)
+        else:
+            return render_mermaid_png(graph_or_arch, output_file_path=None)
+    except Exception:
+        return None
+
+
 def save_graph_image(
     graph_or_arch: Any,
     output_path: str = "runs/graph.png",

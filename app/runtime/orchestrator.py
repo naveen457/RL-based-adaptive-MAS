@@ -337,6 +337,7 @@ class AdaptiveRuntimeOrchestrator:
         *,
         runtime_adaptation: bool = False,
         thread_id: str = "thread-1",
+        user_id: Optional[str] = None,
     ) -> DynamicGraphExecutionResult:
         """Adapt architecture, compile a graph from it, and execute that graph.
 
@@ -501,7 +502,7 @@ class AdaptiveRuntimeOrchestrator:
                         invoked.append(event.node)
             raw_messages = state.get("messages", []) if isinstance(state, dict) else []
             if raw_messages:
-                self.thread_store.sync_thread(thread_id, raw_messages)
+                self.thread_store.sync_thread(thread_id, raw_messages, user_id=user_id)
             serialized_messages = [serialize_message(m) for m in raw_messages]
 
             raw_tool_output = state.get("tool_output", []) if isinstance(state, dict) else []
@@ -769,7 +770,7 @@ class AdaptiveRuntimeOrchestrator:
             ],
         )
         if isinstance(final_state, dict) and final_state.get("messages"):
-            self.thread_store.sync_thread(thread_id, final_state.get("messages", []))
+            self.thread_store.sync_thread(thread_id, final_state.get("messages", []), user_id=user_id)
         return result_obj
 
     @staticmethod

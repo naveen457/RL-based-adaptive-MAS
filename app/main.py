@@ -319,13 +319,21 @@ def main():
         )
         print("\n" + graph_display)
         try:
-            from app.graph.visualizer import save_graph_image
+            import base64
+            from app.graph.visualizer import save_graph_image, get_graph_png_bytes
             session_graph_path = os.path.join(session_dir, "graph.png")
             save_graph_image(
                 invoked if invoked else final_arch,
                 session_graph_path,
                 tools_executed=tools_executed,
             )
+            png_bytes = get_graph_png_bytes(invoked if invoked else final_arch, tools_executed=tools_executed)
+            if png_bytes:
+                b64_str = base64.b64encode(png_bytes).decode("utf-8")
+                orchestrator.thread_store.save_latest_graph(
+                    thread_id=active_thread_id,
+                    graph_png_base64=b64_str,
+                )
         except Exception:
             pass
 
