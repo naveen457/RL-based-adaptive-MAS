@@ -21,7 +21,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 COPY --chown=appuser:appuser app/ ./app/
 COPY --chown=appuser:appuser data/ ./data/
 
-RUN pip install --no-cache-dir -e . && \
+RUN pip install --no-cache-dir --no-deps -e . && \
     mkdir -p /app/runs && chown -R appuser:appuser /app/runs
 
 USER appuser
