@@ -174,6 +174,8 @@ class ThreadMessageStore:
         self.storage_dir = None
         self.db = get_mongo_db(required=False) if use_mongo else None
         self.threads_collection = self.db["threads"] if self.db is not None else None
+        self.users_collection = self.db["users"] if self.db is not None else None
+        self.graphs_collection = self.db["graphs"] if self.db is not None else None
 
         # In-memory thread cache: thread_id -> List[BaseMessage]
         self._thread_cache: Dict[str, List[BaseMessage]] = {}
@@ -209,6 +211,23 @@ class ThreadMessageStore:
                 self.threads_collection.update_one(
                     {"thread_id": thread_id},
                     {"$set": payload},
+                    upsert=True,
+                )
+            except Exception as e:
+                check_mongo_network_error(e)
+
+        # Mirror under users collection: adaptive_mas/users/<user_id>/threads/<thread_id>/messages
+        if self.users_collection is not None and resolved_user:
+            try:
+                self.users_collection.update_one(
+                    {"_id": str(resolved_user)},
+                    {
+                        "$set": {
+                            "user_id": str(resolved_user),
+                            f"threads.{thread_id}": payload,
+                            "updated_at": payload["updated_at"],
+                        }
+                    },
                     upsert=True,
                 )
             except Exception as e:
@@ -347,17 +366,46 @@ class ThreadMessageStore:
         graph_png_base64: str = "",
         user_id: Optional[str] = None,
     ) -> None:
-        """Store ONLY the latest graph PNG for this thread and user in MongoDB Atlas."""
+        """Store ONLY the latest graph PNG for this thread and user in MongoDB Atlas.
+
+        Saves to dedicated 'graphs' collection where document _id is user_id,
+        and each chat (SHA code) stores its own latest graph.
+        """
         if not graph_png_base64:
             return
 
-        resolved_user = user_id or self._thread_user_map.get(thread_id)
+        resolved_user = user_id or self._thread_user_map.get(thread_id) or "default_user"
+        now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
+        # 1. Primary storage: Dedicated 'graphs' collection (User ID -> Chat SHA -> latest PNG)
+        if self.graphs_collection is not None:
+            try:
+                graph_entry = {
+                    "thread_id": thread_id,
+                    "graph": graph_png_base64,
+                    "updated_at": now_iso,
+                }
+                self.graphs_collection.update_one(
+                    {"_id": str(resolved_user)},
+                    {
+                        "$set": {
+                            "user_id": str(resolved_user),
+                            f"chats.{thread_id}": graph_entry,
+                            f"threads.{thread_id}": graph_entry,
+                            "updated_at": now_iso,
+                        }
+                    },
+                    upsert=True,
+                )
+            except Exception as e:
+                check_mongo_network_error(e)
+
+        # 2. Secondary storage: update thread document in threads collection
         if self.threads_collection is not None:
             try:
                 update_fields: Dict[str, Any] = {
                     "latest_graph": graph_png_base64,
-                    "graph_updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                    "graph_updated_at": now_iso,
                 }
                 if resolved_user:
                     update_fields["user_id"] = str(resolved_user)
@@ -375,7 +423,24 @@ class ThreadMessageStore:
         thread_id: str = DEFAULT_THREAD_ID,
         user_id: Optional[str] = None,
     ) -> Optional[str]:
-        """Retrieve the latest graph PNG base64 for a thread scoped to user_id."""
+        """Retrieve the latest graph PNG base64 for a thread scoped to user_id.
+
+        Checks the dedicated 'graphs' collection first, falling back to 'threads'.
+        """
+        resolved_user = user_id or self._thread_user_map.get(thread_id)
+
+        # 1. Check dedicated 'graphs' collection by user_id
+        if self.graphs_collection is not None and resolved_user:
+            try:
+                doc = self.graphs_collection.find_one({"_id": str(resolved_user)})
+                if doc:
+                    chat_data = doc.get("chats", {}).get(thread_id) or doc.get("threads", {}).get(thread_id)
+                    if chat_data and "graph" in chat_data:
+                        return chat_data["graph"]
+            except Exception as e:
+                check_mongo_network_error(e)
+
+        # 2. Fallback to threads collection
         if self.threads_collection is not None:
             try:
                 query: Dict[str, Any] = {"thread_id": thread_id}

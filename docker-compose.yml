@@ -4,7 +4,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: naveenchowdary577/adaptive-mas:1.0.0
+      args:
+        VERSION: ${TAG:-latest}
+    image: naveenchowdary577/adaptive-mas:${TAG:-latest}
     container_name: adaptive_mas_server
     env_file:
       - .env
@@ -18,7 +20,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: naveenchowdary577/adaptive-mas:1.0.0
+      args:
+        VERSION: ${TAG:-latest}
+    image: naveenchowdary577/adaptive-mas:${TAG:-latest}
     container_name: adaptive_mas_cli
     command: ["python", "app/main.py"]
     env_file:
