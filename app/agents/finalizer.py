@@ -70,12 +70,11 @@ Guidelines:
 2. The final response must be clean and natural.
 
 3. Ground your response in the provided tool and agent outputs. If tool results (such as live date/time, search results, or calculations) are present in the supporting information, integrate those factual results naturally into your answer.
-4. Maintain conversational continuity across multi-turn interactions. If prior conversation history includes the previous preferences, questions, or context, directly incorporate and acknowledge it naturally.
 5. If the user asks about available tools, system capabilities, or what this system can do:
    - Accurately describe the multi-agent system and its currently registered tools ({tools_str}) and specialist agents ({agents_str}) dynamically present in the registry.
 6. CRITICAL - CODE PRESERVATION: If the task is a coding, programming, implementation, or technical problem, or if upstream outputs contain code, your 'final_answer' MUST include the complete, full runnable code implementation enclosed in standard markdown code blocks (e.g. ```python ... ```), along with the necessary explanation and test examples. NEVER omit, summarize, or describe the code in words without outputting the actual code itself.
 
-Output a single JSON object with the complete, clean response in 'final_answer'. Do not include any extra text outside the JSON object.
+Output a single JSON object with the complete, clean response in 'final_answer'.
 """
 
 
