@@ -129,6 +129,17 @@ class DynamicGraphBuilder:
         if excluded_nodes:
             raw_nodes = raw_nodes - excluded_nodes
 
+        # Dynamic Missed Agent Recovery:
+        # If critic is active, ensure potential retry/fallback workers available in node_handlers
+        # (coder, researcher, tool_executor) are registered into graph_nodes for multi-turn closed-loop routing,
+        # but keep initial_active_workers restricted to RL choices so turn 0 maintains token pruning.
+        initial_active_workers = set(raw_nodes) - {"planner", "critic", "finalizer"}
+        if "critic" in raw_nodes:
+            for candidate in ("coder", "researcher", "tool_executor"):
+                if candidate in node_handlers and candidate not in raw_nodes:
+                    if not excluded_nodes or candidate not in excluded_nodes:
+                        raw_nodes.add(candidate)
+
         graph_nodes = sorted(raw_nodes)
         actual_entry = entry_point or "planner"
         if actual_entry not in graph_nodes:
@@ -163,13 +174,17 @@ class DynamicGraphBuilder:
                     if bypass_edge not in configured_edges:
                         configured_edges.append(bypass_edge)
 
-        # Ensure workers have valid incoming edges from planner and outgoing edges downstream
+        # Ensure workers have valid incoming edges from planner on Turn 0 (only for initial_active_workers)
         worker_nodes = [n for n in graph_nodes if n not in ("planner", "finalizer", "critic")]
         for w in worker_nodes:
-            if "planner" in graph_nodes and not any(e["source"] == "planner" and e["target"] == w for e in configured_edges):
-                configured_edges.append({"source": "planner", "target": w})
+            # Turn 0: Planner only invokes initial active workers to protect RL token pruning
+            if w in initial_active_workers and "planner" in graph_nodes:
+                if not any(e["source"] == "planner" and e["target"] == w for e in configured_edges):
+                    configured_edges.append({"source": "planner", "target": w})
+            
+            # All workers route to critic if critic exists, else to finalizer
             has_outgoing = any(e["source"] == w for e in configured_edges)
-            if not has_outgoing and "finalizer" in graph_nodes:
+            if not has_outgoing and ("critic" in graph_nodes or "finalizer" in graph_nodes):
                 target_node = "critic" if "critic" in graph_nodes else "finalizer"
                 configured_edges.append({"source": w, "target": target_node})
 
@@ -210,8 +225,8 @@ class DynamicGraphBuilder:
             "critic" in graph_nodes
             and len(critic_retry_candidates) > 0
         )
-        threshold = getattr(settings, "critic_quality_threshold", 0.75)
-        max_retries = getattr(settings, "critic_max_retries", 1)
+        threshold = getattr(settings, "critic_quality_threshold", 0.80)
+        max_retries = getattr(settings, "critic_max_retries", 3)
 
         wrapped_handlers = dict(node_handlers)
         for src_node in feedback_sources:
@@ -240,8 +255,12 @@ class DynamicGraphBuilder:
                     elif score is None:
                         score = 0.85
 
+                    status = getattr(critic_out, "verification_status", "correct") if critic_out else "correct"
+                    if isinstance(critic_out, dict):
+                        status = critic_out.get("verification_status", "correct")
+
                     if isinstance(res, dict):
-                        if score < threshold:
+                        if score < threshold or status == "incorrect":
                             res["_feedback_iterations"] = count + 1
                         else:
                             res["_feedback_iterations"] = count
@@ -262,7 +281,7 @@ class DynamicGraphBuilder:
 
             def _critic_router(state: Any) -> str:
                 count = state.get("_feedback_iterations", 0) if isinstance(state, dict) else 0
-                if count > max_retries:
+                if count >= max_retries:
                     return forward_target
 
                 critic_out = state.get("critic_output") if isinstance(state, dict) else None
@@ -275,12 +294,27 @@ class DynamicGraphBuilder:
                 elif score is None:
                     score = 0.85
 
-                if score >= threshold:
+                status = getattr(critic_out, "verification_status", "correct")
+                if isinstance(critic_out, dict):
+                    status = critic_out.get("verification_status", "correct")
+
+                # If threshold is reached and status is acceptable, exit loop to finalizer
+                if score >= threshold and status in ("correct", "partially_correct"):
                     return forward_target
 
                 target = getattr(critic_out, "retry_target_node", None)
                 if not target and isinstance(critic_out, dict):
                     target = critic_out.get("retry_target_node")
+
+                # Intelligent heuristic if target is not specified by LLM
+                if not target:
+                    issues_text = " ".join(getattr(critic_out, "issues", []) or []).lower()
+                    if any(w in issues_text for w in ["calculate", "math", "search", "tool", "api", "number"]):
+                        if "tool_executor" in critic_retry_candidates:
+                            target = "tool_executor"
+                    elif any(w in issues_text for w in ["code", "syntax", "function", "bug", "implement", "indentation"]):
+                        if "coder" in critic_retry_candidates:
+                            target = "coder"
 
                 if target and target in critic_retry_candidates:
                     return target

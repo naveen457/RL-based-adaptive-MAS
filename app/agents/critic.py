@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from langchain_openai import ChatOpenAI
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from app.config.settings import settings
 
@@ -31,6 +31,18 @@ class CriticOutput(BaseModel):
         default_factory=list,
         description="Concrete corrections or suggested fixes for the issues found.",
     )
+
+    @field_validator("issues", "missing_requirements", "corrections", mode="before")
+    @classmethod
+    def _coerce_list(cls, v: Any) -> List[str]:
+        if v is None:
+            return []
+        if isinstance(v, str):
+            lines = [line.strip().lstrip("-*•0123456789. ") for line in v.split("\n") if line.strip()]
+            return lines if lines else [v.strip()]
+        if isinstance(v, (list, tuple)):
+            return [str(x) for x in v]
+        return [str(v)]
     verification_status: str = Field(
         description="One of: 'correct', 'partially_correct', 'incorrect', 'unclear'. "
         "A concise verdict on the correctness of the output.",

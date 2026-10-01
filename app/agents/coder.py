@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from langchain_openai import ChatOpenAI
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.config.settings import settings
 
@@ -33,6 +33,18 @@ class CoderOutput(BaseModel):
         default_factory=list,
         description="Suggestions for testing the code, including edge cases and example usage.",
     )
+
+    @field_validator("assumptions", "testing_notes", mode="before")
+    @classmethod
+    def _coerce_list(cls, v: Any) -> List[str]:
+        if v is None:
+            return []
+        if isinstance(v, str):
+            lines = [line.strip().lstrip("-*•0123456789. ") for line in v.split("\n") if line.strip()]
+            return lines if lines else [v.strip()]
+        if isinstance(v, (list, tuple)):
+            return [str(x) for x in v]
+        return [str(v)]
 
 
 # ---------------------------------------------------------------------------

@@ -348,13 +348,24 @@ class ExistingLLMAgentExecutor:
         def researcher_node(state: Dict[str, Any]) -> Dict[str, Any]:
             event("started", "researcher")
             res_agent = self.researcher_factory()
+            supporting_parts = []
             if state.get("tool_output"):
-                supporting = json.dumps(state["tool_output"], default=str)
-                try:
-                    output = res_agent.research(task, supporting_context=supporting)
-                except TypeError:
-                    output = res_agent.research(task)
-            else:
+                supporting_parts.append("Live Tool Results:\n" + json.dumps(state["tool_output"], default=str))
+            critic_out = state.get("critic_output")
+            if critic_out:
+                miss = getattr(critic_out, "missing_requirements", []) or []
+                issues = getattr(critic_out, "issues", []) or []
+                corrections = getattr(critic_out, "corrections", []) or []
+                if miss:
+                    supporting_parts.append("Missing Requirements to address:\n" + "\n".join(miss))
+                if issues:
+                    supporting_parts.append("Critic Issues to resolve:\n" + "\n".join(issues))
+                if corrections:
+                    supporting_parts.append("Suggested Corrections:\n" + "\n".join(corrections))
+            supporting = "\n\n".join(supporting_parts) if supporting_parts else None
+            try:
+                output = res_agent.research(task, supporting_context=supporting) if supporting else res_agent.research(task)
+            except TypeError:
                 output = res_agent.research(task)
             event("completed", "researcher")
             return {
@@ -411,8 +422,20 @@ class ExistingLLMAgentExecutor:
         def tool_executor_node(state: Dict[str, Any]) -> Dict[str, Any]:
             event("started", "tool_executor")
             tool_calls = state.get("tool_calls")
+            critic_out = state.get("critic_output")
+            if not tool_calls and critic_out:
+                tool_calls = getattr(critic_out, "suggested_tool_calls", []) or []
+                if isinstance(critic_out, dict):
+                    tool_calls = tool_calls or critic_out.get("suggested_tool_calls", [])
+
             executor = self.tool_executor_factory()
             tools_to_run = list(getattr(planner_output, "tools_needed", []) or [])
+            # If critic suggested specific tools, ensure those tools are in tools_to_run
+            if tool_calls:
+                for call in tool_calls:
+                    if isinstance(call, dict) and "tool_name" in call and call["tool_name"] not in tools_to_run:
+                        tools_to_run.append(call["tool_name"])
+
             _, results = self._execute_tool_workflow(
                 task,
                 tools_to_run,

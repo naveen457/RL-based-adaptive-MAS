@@ -241,8 +241,8 @@ class ArchitectureManager:
                         f"Cannot activate agent '{action.agent_id}': already active"
                     )
                 updated.agents[agent_index] = agent.model_copy(update={"active": True})
+                edge_keys = {(e.source, e.target) for e in updated.communication_edges}
                 if action.agent_id == "tool_executor":
-                    edge_keys = {(e.source, e.target) for e in updated.communication_edges}
                     if ("planner", "tool_executor") not in edge_keys:
                         updated.communication_edges.append(
                             CommunicationEdge(source="planner", target="tool_executor")
@@ -250,6 +250,29 @@ class ArchitectureManager:
                     if ("tool_executor", "finalizer") not in edge_keys:
                         updated.communication_edges.append(
                             CommunicationEdge(source="tool_executor", target="finalizer")
+                        )
+                elif action.agent_id == "researcher":
+                    if ("planner", "researcher") not in edge_keys:
+                        updated.communication_edges.append(
+                            CommunicationEdge(source="planner", target="researcher")
+                        )
+                    if ("researcher", "finalizer") not in edge_keys and ("researcher", "critic") not in edge_keys:
+                        updated.communication_edges.append(
+                            CommunicationEdge(source="researcher", target="finalizer")
+                        )
+                elif action.agent_id == "coder":
+                    if ("planner", "coder") not in edge_keys:
+                        updated.communication_edges.append(
+                            CommunicationEdge(source="planner", target="coder")
+                        )
+                    if ("coder", "finalizer") not in edge_keys and ("coder", "critic") not in edge_keys:
+                        updated.communication_edges.append(
+                            CommunicationEdge(source="coder", target="finalizer")
+                        )
+                elif action.agent_id == "critic":
+                    if ("critic", "finalizer") not in edge_keys:
+                        updated.communication_edges.append(
+                            CommunicationEdge(source="critic", target="finalizer")
                         )
 
             elif action.action_type is ActionType.DEACTIVATE_AGENT:

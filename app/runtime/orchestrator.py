@@ -649,12 +649,19 @@ class AdaptiveRuntimeOrchestrator:
                     stage="COMPILED",
                 ),
             )
-            if "coder" in v1_active_agents and "coder" not in executed_in_v0:
+            if "coder" in v1_active_agents and ("coder" not in executed_in_v0 or (reassessment and any(a.get("agent_id") == "coder" for a in (reassessment.valid_actions or [])))):
                 entry_node = "coder"
+            elif "tool_executor" in v1_active_agents and ("tool_executor" not in executed_in_v0 or (reassessment and any(a.get("agent_id") == "tool_executor" for a in (reassessment.valid_actions or [])))):
+                entry_node = "tool_executor"
+            elif "researcher" in v1_active_agents and ("researcher" not in executed_in_v0 or (reassessment and any(a.get("agent_id") == "researcher" for a in (reassessment.valid_actions or [])))):
+                entry_node = "researcher"
             elif "critic" in v1_active_agents and "critic" not in executed_in_v0:
                 entry_node = "critic"
             else:
                 entry_node = "finalizer"
+
+            # Allow the entry_node, critic, and finalizer to execute in v1 even if visited in v0
+            nodes_to_exclude = set(executed_in_v0) - {entry_node, "critic", "finalizer"}
 
             built_v1 = DynamicGraphBuilder().build(
                 arch_v1,
@@ -663,7 +670,7 @@ class AdaptiveRuntimeOrchestrator:
                 architecture_version=version_v1,
                 architecture_actions=reassessment.valid_actions if reassessment else [],
                 entry_point=entry_node,
-                excluded_nodes=executed_in_v0,
+                excluded_nodes=nodes_to_exclude,
                 include_finalizer=True,
             )
             emit("graph.v1.compiled", version=version_v1, stage="COMPILED")

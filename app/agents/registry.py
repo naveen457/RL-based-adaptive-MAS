@@ -166,7 +166,7 @@ class AgentRegistry:
                     "MUST be selected whenever the task requires live web search, current/trending "
                     "events, arXiv research papers, preprints, or mathematical calculations."
                 ),
-                capabilities=["tool_use", "web_search", "research", "external_api"],
+                capabilities=["tool_use", "web_search", "math", "research", "external_api"],
                 node_type="tool_executor",
                 tools=[
                     ToolSpec(
@@ -202,6 +202,16 @@ class AgentRegistry:
             )
         )
 
+        # 6. Dedicated Researcher Node
+        reg.register(
+            AgentSpec(
+                agent_id="researcher",
+                role="research",
+                description="Conducts in-depth research, information synthesis, literature review, and technical exploration.",
+                capabilities=["research", "information_synthesis"],
+                node_type="cognitive",
+            )
+        )
 
         return reg
 
