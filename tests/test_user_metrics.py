@@ -66,11 +66,11 @@ def test_user_metrics_isolation(tmp_path):
     assert metrics_empty["summary"]["total_runs"] == 0
     assert len(metrics_empty["runs"]) == 0
 
-    # Verify user_comparison and benchmark_comparison
+    # Verify user_comparison based strictly on user tasks
     assert "user_comparison" in metrics_a
-    assert "benchmark_comparison" in metrics_a
     assert metrics_a["user_comparison"]["baseline"]["tokens"] == 2 * 3500
-    assert len(metrics_a["benchmark_comparison"]["overall"]) == 7
-    assert len(metrics_a["benchmark_comparison"]["categories"]) == 6
+    assert len(metrics_a["user_comparison"]["metrics"]) == 5
+    assert len(metrics_a["runs"]) == 2
+    assert "static_tokens" in metrics_a["runs"][0]
 
     print("SUCCESS: User metrics per-user isolation and comparative graphs verified perfectly!")

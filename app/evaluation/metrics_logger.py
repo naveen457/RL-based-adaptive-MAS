@@ -293,21 +293,44 @@ class MetricsLogger:
             cls_name = str(r.get("classification") or "simple").lower()
             complexity_breakdown[cls_name] = complexity_breakdown.get(cls_name, 0) + 1
 
+        # Calculate per-query comparison fields for each actual run submitted by this user
         formatted_runs = []
         for r in records[:50]:
             task_str = str(r.get("task", ""))
             short_task = (task_str[:77] + "...") if len(task_str) > 80 else task_str
+            tokens_used = r.get("estimated_tokens", 0)
+            cost_used = r.get("estimated_cost_usd", 0.0)
+            hops_used = r.get("critical_path_length", 5)
+            cov_score = r.get("coverage_score", 1.0)
+            net_util = r.get("net_utility", 0.0)
+
+            tok_saved = max(0, 3500 - tokens_used)
+            tok_savings_pct = round((tok_saved / 3500.0) * 100.0, 1) if tokens_used < 3500 else 0.0
+            cost_saved = round(max(0.0, 0.00525 - cost_used), 5)
+            cost_savings_pct = round(((0.00525 - cost_used) / 0.00525) * 100.0, 1) if cost_used < 0.00525 else 0.0
+            hop_reduction_pct = round(((5.0 - hops_used) / 5.0) * 100.0, 1) if hops_used < 5 else 0.0
+
             formatted_runs.append({
                 "step": r.get("step"),
                 "timestamp": r.get("timestamp"),
                 "thread_id": r.get("thread_id"),
                 "task": short_task,
-                "classification": r.get("classification", "simple"),
-                "estimated_tokens": r.get("estimated_tokens", 0),
-                "estimated_cost_usd": r.get("estimated_cost_usd", 0.0),
-                "coverage_score": r.get("coverage_score", 0.0),
-                "net_utility": r.get("net_utility", 0.0),
-                "critical_path_length": r.get("critical_path_length", 0),
+                "classification": r.get("classification", "standard"),
+                "estimated_tokens": tokens_used,
+                "static_tokens": 3500,
+                "tokens_saved": tok_saved,
+                "token_savings_pct": tok_savings_pct,
+                "estimated_cost_usd": cost_used,
+                "static_cost_usd": 0.00525,
+                "cost_saved_usd": cost_saved,
+                "cost_savings_pct": cost_savings_pct,
+                "coverage_score": cov_score,
+                "static_coverage": 1.0,
+                "net_utility": net_util,
+                "static_utility": 0.15,
+                "critical_path_length": hops_used,
+                "static_hops": 5,
+                "latency_reduction_pct": hop_reduction_pct,
                 "active_agents": r.get("active_agents", []),
                 "invoked_agents": r.get("invoked_agents", []),
                 "architecture_version": r.get("architecture_version", 0),
@@ -315,198 +338,93 @@ class MetricsLogger:
             })
 
         baseline_tokens_total = total_runs * 3500
-        baseline_cost_total = round(total_runs * 3500 * 0.0015 / 1000.0, 5)
-        token_savings_pct = (
+        baseline_cost_total = round(total_runs * 0.00525, 5)
+        overall_token_savings_pct = (
             round(((baseline_tokens_total - total_tokens) / baseline_tokens_total) * 100.0, 1)
             if baseline_tokens_total > 0
             else 0.0
         )
-        cost_savings_pct = (
+        overall_cost_savings_pct = (
             round(((baseline_cost_total - total_cost_usd) / baseline_cost_total) * 100.0, 1)
             if baseline_cost_total > 0
             else 0.0
         )
-        latency_reduction_pct = (
+        overall_latency_reduction_pct = (
             round(((5.0 - avg_critical_path) / 5.0) * 100.0, 1)
-            if (total_runs > 0 and avg_critical_path > 0)
+            if (total_runs > 0 and avg_critical_path > 0 and avg_critical_path < 5.0)
             else 0.0
         )
 
+        # Dynamic comparison metrics derived 100% from this user's actual tasks
         user_comparison = {
             "baseline": {
                 "tokens": baseline_tokens_total,
                 "cost_usd": baseline_cost_total,
                 "avg_hops": 5.0 if total_runs > 0 else 0.0,
                 "coverage_pct": 100.0 if total_runs > 0 else 0.0,
-                "architecture_type": "Static Pipeline (5 Agents)",
+                "avg_utility": 0.15 if total_runs > 0 else 0.0,
+                "architecture_type": "Static Pipeline (5 Agents: Planner → Researcher → Coder → Critic → Finalizer)",
             },
             "dynamic": {
                 "tokens": total_tokens,
                 "cost_usd": total_cost_usd,
                 "avg_hops": avg_critical_path,
                 "coverage_pct": round(avg_coverage * 100.0, 1),
-                "architecture_type": "Adaptive AMAS (RL Dynamic)",
+                "avg_utility": avg_net_utility,
+                "architecture_type": "Adaptive AMAS (Context-Driven Active Agents)",
             },
             "savings": {
-                "token_savings_pct": max(0.0, token_savings_pct),
+                "token_savings_pct": max(0.0, overall_token_savings_pct),
                 "tokens_saved": max(0, baseline_tokens_total - total_tokens),
-                "cost_savings_pct": max(0.0, cost_savings_pct),
+                "cost_savings_pct": max(0.0, overall_cost_savings_pct),
                 "cost_saved_usd": round(max(0.0, baseline_cost_total - total_cost_usd), 5),
-                "latency_reduction_pct": max(0.0, latency_reduction_pct),
+                "latency_reduction_pct": max(0.0, overall_latency_reduction_pct),
             },
-        }
-
-        benchmark_comparison = {
-            "overall": [
+            "metrics": [
                 {
                     "id": "tokens",
                     "label": "Token Consumption",
-                    "unit": "tokens/query",
-                    "static_val": 3500,
-                    "dynamic_val": 1460,
-                    "delta_pct": -58.3,
-                    "improvement_type": "reduction",
-                    "desc": "Tokens consumed per query across all active agents",
+                    "unit": "tokens",
+                    "static_val": baseline_tokens_total,
+                    "dynamic_val": total_tokens,
+                    "delta_pct": -overall_token_savings_pct if total_runs > 0 else 0.0,
+                    "desc": "Total tokens consumed across your queries versus static 5-agent execution",
                 },
                 {
                     "id": "latency",
-                    "label": "Execution Latency",
-                    "unit": "ms/query",
-                    "static_val": 4200,
-                    "dynamic_val": 1750,
-                    "delta_pct": -58.3,
-                    "improvement_type": "reduction",
-                    "desc": "End-to-end response generation latency",
+                    "label": "Execution Latency / Critical Path",
+                    "unit": "hops",
+                    "static_val": 5.0 if total_runs > 0 else 0.0,
+                    "dynamic_val": avg_critical_path,
+                    "delta_pct": -overall_latency_reduction_pct if total_runs > 0 else 0.0,
+                    "desc": "Average sequential agent hops required to answer your prompts",
                 },
                 {
                     "id": "cost",
                     "label": "Operating Cost",
-                    "unit": "$ per 1k queries",
-                    "static_val": 5.25,
-                    "dynamic_val": 2.19,
-                    "delta_pct": -58.3,
-                    "improvement_type": "reduction",
-                    "desc": "Inference and agent invocation cost per thousand requests",
-                },
-                {
-                    "id": "critical_path",
-                    "label": "Critical Path Length (L_crit)",
-                    "unit": "hops",
-                    "static_val": 5.0,
-                    "dynamic_val": 2.3,
-                    "delta_pct": -54.0,
-                    "improvement_type": "reduction",
-                    "desc": "Sequential execution hops through agent topology (GEMMAS / CARD proxy)",
+                    "unit": "USD ($)",
+                    "static_val": baseline_cost_total,
+                    "dynamic_val": total_cost_usd,
+                    "delta_pct": -overall_cost_savings_pct if total_runs > 0 else 0.0,
+                    "desc": "Estimated dollar cost for your queries versus the static baseline",
                 },
                 {
                     "id": "accuracy",
-                    "label": "Capability Coverage",
+                    "label": "Capability Coverage (Accuracy)",
                     "unit": "% alignment",
-                    "static_val": 100.0,
-                    "dynamic_val": 99.2,
-                    "delta_pct": -0.8,
-                    "improvement_type": "parity",
-                    "desc": "Intent-to-agent capability coverage with bloat pruned",
+                    "static_val": 100.0 if total_runs > 0 else 0.0,
+                    "dynamic_val": round(avg_coverage * 100.0, 1),
+                    "delta_pct": round((avg_coverage - 1.0) * 100.0, 1) if total_runs > 0 else 0.0,
+                    "desc": "Intent capability alignment achieved for your prompts with zero bloat",
                 },
                 {
-                    "id": "pareto_utility",
-                    "label": "Pareto Net Utility (U_pareto)",
-                    "unit": "utility score",
-                    "static_val": 0.15,
-                    "dynamic_val": 0.84,
-                    "delta_pct": 460.0,
-                    "improvement_type": "increase",
-                    "desc": "Dual-objective optimization balancing accuracy against token surplus (GPTSwarm ICML '24)",
-                },
-                {
-                    "id": "agent_pruning",
-                    "label": "Agent Pruning Rate (APR)",
-                    "unit": "% pruned",
-                    "static_val": 0.0,
-                    "dynamic_val": 61.7,
-                    "delta_pct": 61.7,
-                    "improvement_type": "increase",
-                    "desc": "Percentage of unused specialist agents deactivated per task (DyLAN EMNLP '24)",
-                },
-            ],
-            "categories": [
-                {
-                    "category": "Chit-Chat / Greetings",
-                    "static_tokens": 3500,
-                    "dynamic_tokens": 1300,
-                    "token_savings_pct": 62.9,
-                    "static_latency_ms": 4200,
-                    "dynamic_latency_ms": 1100,
-                    "latency_reduction_pct": 73.8,
-                    "accuracy_pct": 100.0,
-                    "static_hops": 5,
-                    "dynamic_hops": 2,
-                    "active_agents": ["Planner", "Finalizer"],
-                },
-                {
-                    "category": "Math & Calculation",
-                    "static_tokens": 3500,
-                    "dynamic_tokens": 1450,
-                    "token_savings_pct": 58.6,
-                    "static_latency_ms": 4200,
-                    "dynamic_latency_ms": 1650,
-                    "latency_reduction_pct": 60.7,
-                    "accuracy_pct": 100.0,
-                    "static_hops": 5,
-                    "dynamic_hops": 3,
-                    "active_agents": ["Planner", "Tool Executor", "Finalizer"],
-                },
-                {
-                    "category": "Code Generation",
-                    "static_tokens": 3500,
-                    "dynamic_tokens": 1950,
-                    "token_savings_pct": 44.3,
-                    "static_latency_ms": 4200,
-                    "dynamic_latency_ms": 2200,
-                    "latency_reduction_pct": 47.6,
-                    "accuracy_pct": 98.5,
-                    "static_hops": 5,
-                    "dynamic_hops": 3,
-                    "active_agents": ["Planner", "Coder", "Finalizer"],
-                },
-                {
-                    "category": "In-Depth Research",
-                    "static_tokens": 3500,
-                    "dynamic_tokens": 1950,
-                    "token_savings_pct": 44.3,
-                    "static_latency_ms": 4200,
-                    "dynamic_latency_ms": 2200,
-                    "latency_reduction_pct": 47.6,
-                    "accuracy_pct": 100.0,
-                    "static_hops": 5,
-                    "dynamic_hops": 3,
-                    "active_agents": ["Planner", "Researcher", "Finalizer"],
-                },
-                {
-                    "category": "Live Web Search",
-                    "static_tokens": 3500,
-                    "dynamic_tokens": 1450,
-                    "token_savings_pct": 58.6,
-                    "static_latency_ms": 4200,
-                    "dynamic_latency_ms": 1650,
-                    "latency_reduction_pct": 60.7,
-                    "accuracy_pct": 99.0,
-                    "static_hops": 5,
-                    "dynamic_hops": 3,
-                    "active_agents": ["Planner", "Tool Executor", "Finalizer"],
-                },
-                {
-                    "category": "Cross-Domain Synthesis",
-                    "static_tokens": 3500,
-                    "dynamic_tokens": 2750,
-                    "token_savings_pct": 21.4,
-                    "static_latency_ms": 4200,
-                    "dynamic_latency_ms": 3100,
-                    "latency_reduction_pct": 26.2,
-                    "accuracy_pct": 97.5,
-                    "static_hops": 5,
-                    "dynamic_hops": 5,
-                    "active_agents": ["Planner", "Researcher", "Coder", "Critic", "Finalizer"],
+                    "id": "utility",
+                    "label": "Pareto Net Utility",
+                    "unit": "score",
+                    "static_val": 0.15 if total_runs > 0 else 0.0,
+                    "dynamic_val": avg_net_utility,
+                    "delta_pct": round((avg_net_utility - 0.15) * 100.0, 1) if total_runs > 0 else 0.0,
+                    "desc": "Multi-objective efficiency score balancing accuracy against unnecessary agent bloat",
                 },
             ],
         }
@@ -524,7 +442,6 @@ class MetricsLogger:
                 "avg_reward": avg_reward,
             },
             "user_comparison": user_comparison,
-            "benchmark_comparison": benchmark_comparison,
             "agent_invocations": agent_invocations,
             "complexity_breakdown": complexity_breakdown,
             "runs": formatted_runs,
