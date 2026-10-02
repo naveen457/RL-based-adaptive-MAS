@@ -1,3 +1,4 @@
+import uuid
 from app.evaluation.metrics_logger import MetricsLogger
 from app.architecture.manager import ArchitectureManager
 
@@ -5,8 +6,8 @@ def test_user_metrics_isolation(tmp_path):
     logger = MetricsLogger(log_base_dir=str(tmp_path), session_id="test_session")
     arch = ArchitectureManager.create_default_architecture().get_architecture()
 
-    user_a = "user_alpha_1"
-    user_b = "user_beta_2"
+    user_a = f"user_alpha_{uuid.uuid4().hex[:8]}"
+    user_b = f"user_beta_{uuid.uuid4().hex[:8]}"
 
     # User A runs 2 tasks
     logger.log_task_run(
@@ -65,4 +66,11 @@ def test_user_metrics_isolation(tmp_path):
     assert metrics_empty["summary"]["total_runs"] == 0
     assert len(metrics_empty["runs"]) == 0
 
-    print("SUCCESS: User metrics per-user isolation verified perfectly!")
+    # Verify user_comparison and benchmark_comparison
+    assert "user_comparison" in metrics_a
+    assert "benchmark_comparison" in metrics_a
+    assert metrics_a["user_comparison"]["baseline"]["tokens"] == 2 * 3500
+    assert len(metrics_a["benchmark_comparison"]["overall"]) == 7
+    assert len(metrics_a["benchmark_comparison"]["categories"]) == 6
+
+    print("SUCCESS: User metrics per-user isolation and comparative graphs verified perfectly!")
