@@ -220,6 +220,8 @@ def chat(request: ChatRequest):
                 result=result,
                 architecture=final_arch,
                 required_capabilities=req_caps,
+                user_id=request.user_id,
+                thread_id=thread_id,
             )
 
         dual_calc = DualObjectiveRewardCalculator()
@@ -246,6 +248,14 @@ def chat(request: ChatRequest):
                 total_reward=step_reward,
                 components=comps,
             )
+            if metrics_logger.runs_collection is not None:
+                try:
+                    metrics_logger.runs_collection.update_one(
+                        {"step": step, "session_id": metrics_logger.session_id},
+                        {"$set": {"total_reward": step_reward, "r_arch": reward_info["r_arch"], "r_resp": reward_info["r_resp"]}}
+                    )
+                except Exception:
+                    pass
 
         # Update Q-policy
         if q_policy:
@@ -390,6 +400,32 @@ def get_thread_graph(thread_id: str, user_id: Optional[str] = None):
         "thread_id": thread_id,
         "graph": f"data:image/png;base64,{graph_b64}",
     }
+
+
+@app.get("/metrics")
+def get_metrics(user_id: Optional[str] = None, thread_id: Optional[str] = None):
+    """Retrieve multi-agent execution and RL adaptation metrics strictly scoped to user_id."""
+    metrics_logger: MetricsLogger = state.get("metrics_logger")
+    if not metrics_logger:
+        raise HTTPException(status_code=503, detail="Metrics logger not initialized")
+    if not user_id:
+        return {
+            "user_id": None,
+            "thread_id": thread_id,
+            "summary": {
+                "total_runs": 0,
+                "total_tokens": 0,
+                "total_cost_usd": 0.0,
+                "avg_coverage": 0.0,
+                "avg_net_utility": 0.0,
+                "avg_critical_path": 0.0,
+                "avg_reward": 0.0,
+            },
+            "agent_invocations": {},
+            "complexity_breakdown": {},
+            "runs": [],
+        }
+    return metrics_logger.get_user_metrics(user_id=user_id, thread_id=thread_id)
 
 
 if __name__ == "__main__":

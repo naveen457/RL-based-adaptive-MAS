@@ -62,6 +62,9 @@ class MetricsLogger:
         result: Any,
         architecture: MASArchitecture | Dict[str, Any],
         required_capabilities: Optional[List[str]] = None,
+        user_id: Optional[str] = None,
+        thread_id: Optional[str] = None,
+        reward_info: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Record and log all metrics for one task execution."""
         # Normalize architecture to MASArchitecture if needed
@@ -136,6 +139,8 @@ class MetricsLogger:
             "timestamp": datetime.datetime.now().isoformat(),
             "step": step,
             "session_id": self.session_id,
+            "user_id": str(user_id) if user_id else None,
+            "thread_id": str(thread_id) if thread_id else None,
             "task": task,
             "required_capabilities": required_capabilities or [],
             "architecture_id": arch_obj.architecture_id,
@@ -156,6 +161,11 @@ class MetricsLogger:
             "final_response": final_response,
         }
 
+        if reward_info:
+            log_record["total_reward"] = reward_info.get("total_reward", 0.0)
+            log_record["r_arch"] = reward_info.get("r_arch", 0.0)
+            log_record["r_resp"] = reward_info.get("r_resp", 0.0)
+
         # Write to session log
         with open(self.jsonl_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(log_record) + "\n")
@@ -173,6 +183,153 @@ class MetricsLogger:
                 check_mongo_network_error(e)
 
         return log_record
+
+    def get_user_metrics(
+        self,
+        user_id: str,
+        thread_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Retrieve and aggregate metrics strictly isolated to a specific user_id."""
+        if not user_id:
+            return {
+                "user_id": None,
+                "thread_id": thread_id,
+                "summary": {
+                    "total_runs": 0,
+                    "total_tokens": 0,
+                    "total_cost_usd": 0.0,
+                    "avg_coverage": 0.0,
+                    "avg_net_utility": 0.0,
+                    "avg_critical_path": 0.0,
+                    "avg_reward": 0.0,
+                },
+                "agent_invocations": {},
+                "complexity_breakdown": {},
+                "runs": [],
+            }
+
+        records: List[Dict[str, Any]] = []
+
+        # 1. Fetch from MongoDB Atlas runs collection
+        if self.runs_collection is not None:
+            try:
+                query: Dict[str, Any] = {"user_id": str(user_id)}
+                if thread_id:
+                    query["thread_id"] = str(thread_id)
+                cursor = self.runs_collection.find(query).sort("step", -1).limit(100)
+                for doc in cursor:
+                    doc_copy = dict(doc)
+                    if "_id" in doc_copy:
+                        doc_copy["_id"] = str(doc_copy["_id"])
+                    records.append(doc_copy)
+            except Exception as e:
+                from app.memory.mongo_client import check_mongo_network_error
+                check_mongo_network_error(e)
+
+        # 2. Fallback to local structured JSONL logs if MongoDB returned nothing or unavailable
+        if not records and self.global_jsonl_path.exists():
+            try:
+                with open(self.global_jsonl_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            rec = json.loads(line)
+                            if str(rec.get("user_id")) == str(user_id):
+                                if not thread_id or str(rec.get("thread_id")) == str(thread_id):
+                                    records.append(rec)
+                        except Exception:
+                            continue
+                records.reverse()
+                records = records[:100]
+            except Exception:
+                pass
+
+        total_runs = len(records)
+        total_tokens = sum(r.get("estimated_tokens", 0) for r in records)
+        total_cost_usd = round(sum(r.get("estimated_cost_usd", 0.0) for r in records), 5)
+        avg_coverage = (
+            round(sum(r.get("coverage_score", 0.0) for r in records) / total_runs, 3)
+            if total_runs > 0
+            else 0.0
+        )
+        avg_net_utility = (
+            round(sum(r.get("net_utility", 0.0) for r in records) / total_runs, 3)
+            if total_runs > 0
+            else 0.0
+        )
+        avg_critical_path = (
+            round(sum(r.get("critical_path_length", 0.0) for r in records) / total_runs, 2)
+            if total_runs > 0
+            else 0.0
+        )
+        rewards = [r.get("total_reward") for r in records if r.get("total_reward") is not None]
+        avg_reward = (
+            round(sum(rewards) / len(rewards), 3)
+            if rewards
+            else 0.0
+        )
+
+        agent_invocations: Dict[str, int] = {
+            "planner": 0,
+            "researcher": 0,
+            "coder": 0,
+            "critic": 0,
+            "tool_executor": 0,
+            "finalizer": 0,
+        }
+        for r in records:
+            for ag in r.get("invoked_agents", []):
+                ag_str = str(ag).lower()
+                agent_invocations[ag_str] = agent_invocations.get(ag_str, 0) + 1
+
+        complexity_breakdown: Dict[str, int] = {
+            "simple": 0,
+            "moderate": 0,
+            "complex": 0,
+        }
+        for r in records:
+            cls_name = str(r.get("classification") or "simple").lower()
+            complexity_breakdown[cls_name] = complexity_breakdown.get(cls_name, 0) + 1
+
+        formatted_runs = []
+        for r in records[:50]:
+            task_str = str(r.get("task", ""))
+            short_task = (task_str[:77] + "...") if len(task_str) > 80 else task_str
+            formatted_runs.append({
+                "step": r.get("step"),
+                "timestamp": r.get("timestamp"),
+                "thread_id": r.get("thread_id"),
+                "task": short_task,
+                "classification": r.get("classification", "simple"),
+                "estimated_tokens": r.get("estimated_tokens", 0),
+                "estimated_cost_usd": r.get("estimated_cost_usd", 0.0),
+                "coverage_score": r.get("coverage_score", 0.0),
+                "net_utility": r.get("net_utility", 0.0),
+                "critical_path_length": r.get("critical_path_length", 0),
+                "active_agents": r.get("active_agents", []),
+                "invoked_agents": r.get("invoked_agents", []),
+                "architecture_version": r.get("architecture_version", 0),
+                "total_reward": r.get("total_reward", None),
+            })
+
+        return {
+            "user_id": str(user_id),
+            "thread_id": thread_id,
+            "summary": {
+                "total_runs": total_runs,
+                "total_tokens": total_tokens,
+                "total_cost_usd": total_cost_usd,
+                "avg_coverage": avg_coverage,
+                "avg_net_utility": avg_net_utility,
+                "avg_critical_path": avg_critical_path,
+                "avg_reward": avg_reward,
+            },
+            "agent_invocations": agent_invocations,
+            "complexity_breakdown": complexity_breakdown,
+            "runs": formatted_runs,
+        }
 
     def log_reward(
         self,
