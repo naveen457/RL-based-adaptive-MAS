@@ -40,6 +40,11 @@ jobs:
           pip install --no-deps -e .
 
       - name: Run unit and regression tests
+        env:
+          NVIDIA_API_KEY: "nvapi-mock-ci-key-for-testing"
+          NVIDIA_MODEL: "nvidia/nemotron-3.5-lightning-30b-a3b"
+          LANGCHAIN_TRACING_V2: "false"
+          LANGSMITH_TRACING: "false"
         run: |
           pytest -v -m "not integration"
 
