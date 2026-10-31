@@ -45,12 +45,14 @@ class MetricsLogger:
 
     @property
     def runs_collection(self):
-        if self._runs_collection is None:
+        if self._runs_collection is None and getattr(self, "_use_mongo", True):
             from app.memory.mongo_client import get_mongo_db
             current_db = get_mongo_db(required=False)
             if current_db is not None:
                 self.db = current_db
                 self._runs_collection = current_db["runs"]
+            else:
+                self._use_mongo = False
         return self._runs_collection
 
     @runs_collection.setter

@@ -260,8 +260,20 @@ class ExistingLLMAgentExecutor:
         elif "tool_executor" in active_agents:
             trace.append(self._not_invoked("tool_executor"))
 
-        # 2. Researcher node removed; mark not_invoked
-        trace.append(self._not_invoked("researcher"))
+        # 2. Researcher execution (receives tool output context if available)
+        research_output = None
+        if getattr(planner_output, "requires_research", False) and "researcher" in active_agents:
+            tool_ctx = json.dumps(tool_outputs) if tool_outputs else None
+            researcher_inst = self.researcher_factory()
+            try:
+                research_output = researcher_inst.research(task, supporting_context=tool_ctx)
+            except TypeError:
+                research_output = researcher_inst.research(task)
+
+            supporting_outputs["researcher"] = research_output
+            trace.append(self._completed("researcher", research_output))
+        else:
+            trace.append(self._not_invoked("researcher"))
 
         # 3. Coder execution
         coder_output = None

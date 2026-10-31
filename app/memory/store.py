@@ -187,6 +187,8 @@ class ThreadMessageStore:
     def db(self):
         if self._db is None and self._use_mongo:
             self._db = get_mongo_db(required=False)
+            if self._db is None:
+                self._use_mongo = False
         return self._db
 
     @db.setter

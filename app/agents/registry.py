@@ -123,7 +123,23 @@ class AgentRegistry:
             )
         )
 
-        # 2. Coder
+        # 2. Researcher
+        reg.register(
+            AgentSpec(
+                agent_id="researcher",
+                role="research",
+                description=(
+                    "Synthesizes background context, reports, and detailed findings from existing "
+                    "internal knowledge or provided tool outputs. (Important: Does NOT have live web "
+                    "access and cannot search the internet; for live web data or current events, "
+                    "tool_executor MUST be selected)."
+                ),
+                capabilities=["research", "information_synthesis"],
+                node_type="cognitive",
+            )
+        )
+
+        # 3. Coder
         reg.register(
             AgentSpec(
                 agent_id="coder",

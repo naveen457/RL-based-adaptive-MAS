@@ -352,8 +352,10 @@ class SimulatedDecisionLLM:
 
 
 def _create_mock_executor() -> ExistingLLMAgentExecutor:
+    from app.agents.tool_executor import ToolExecutionOutput, ToolExecutor
+
     class MockResearcher:
-        def research(self, task: str) -> ResearcherOutput:
+        def research(self, task: str, supporting_context: Optional[str] = None) -> ResearcherOutput:
             return ResearcherOutput(
                 research_question=task,
                 findings=["Comprehensive empirical research findings gathered."],
@@ -361,7 +363,7 @@ def _create_mock_executor() -> ExistingLLMAgentExecutor:
             )
 
     class MockCoder:
-        def code(self, task: str) -> CoderOutput:
+        def code(self, task: str, feedback: Optional[str] = None) -> CoderOutput:
             return CoderOutput(
                 approach="Algorithmic optimization",
                 code="def solution():\n    return 'verified_benchmark_output'",
@@ -372,7 +374,7 @@ def _create_mock_executor() -> ExistingLLMAgentExecutor:
         def review(self, original_task: str, output_to_review: str) -> CriticOutput:
             return CriticOutput(
                 overall_assessment="Solution verified successfully.",
-                verification_status="passed",
+                verification_status="correct",
                 issues=[],
                 corrections=[],
             )
@@ -385,11 +387,31 @@ def _create_mock_executor() -> ExistingLLMAgentExecutor:
                 limitations=[],
             )
 
+    class MockToolExecutor(ToolExecutor):
+        def execute(self, tool_name: str, arguments: dict[str, Any] | None = None) -> ToolExecutionOutput:
+            args = arguments or {}
+            if tool_name in {"get_current_date", "date", "time"}:
+                res = {"current_date": "2026-10-31", "year": "2026"}
+            elif tool_name == "calculator":
+                res = "42.0 (mock evaluated)"
+            elif tool_name == "arxiv_search":
+                res = "Found 3 mock academic papers on arXiv relevant to query."
+            elif tool_name == "web_search":
+                res = "Found mock web search results for query."
+            else:
+                res = f"Mock output for {tool_name}"
+            return ToolExecutionOutput(
+                tool_name=tool_name,
+                result=res,
+                status="success",
+            )
+
     return ExistingLLMAgentExecutor(
         researcher_factory=MockResearcher,
         coder_factory=MockCoder,
         critic_factory=MockCritic,
         finalizer_factory=MockFinalizer,
+        tool_executor_factory=MockToolExecutor,
     )
 
 
@@ -481,6 +503,10 @@ class MultiTaskBenchmarkSuite:
             )
 
     def run(self) -> Dict[str, Any]:
+        if self.mode == "mock":
+            import os
+            os.environ["LANGCHAIN_TRACING_V2"] = "false"
+
         print("=" * 85)
         print("  ADAPTIVE MULTI-AGENT SYSTEM (AMAS) — MULTI-TASK TRAINING & BENCHMARK SUITE")
         print("=" * 85)

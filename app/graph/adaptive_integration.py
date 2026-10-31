@@ -178,6 +178,7 @@ class AdaptiveWorkflowAdapter:
     # Required core agents that the existing baseline MAS expects.
     REQUIRED_CORE_AGENTS = frozenset({
         "planner",
+        "researcher",
         "coder",
         "critic",
         "finalizer",
@@ -524,7 +525,7 @@ class AdaptiveWorkflowAdapter:
         unsupported: List[str] = []
 
         # Detect unexpected agents not recognized in the system.
-        allowed_agents = self.REQUIRED_CORE_AGENTS | {"tool_executor", "researcher"}
+        allowed_agents = self.REQUIRED_CORE_AGENTS | {"tool_executor"}
         unexpected = sorted(agent_ids - allowed_agents)
         if unexpected:
             unsupported.append(
@@ -536,7 +537,9 @@ class AdaptiveWorkflowAdapter:
             (e.source, e.target) for e in architecture.communication_edges
         }
         required_paths = [
+            ("planner", "researcher"),
             ("planner", "coder"),
+            ("researcher", "critic"),
             ("coder", "critic"),
             ("critic", "finalizer"),
         ]
@@ -558,7 +561,7 @@ class AdaptiveWorkflowAdapter:
         if missing:
             reason = (
                 f"Missing required core agents: {', '.join(missing)}. "
-                f"The existing MAS requires planner, coder, critic, "
+                f"The existing MAS requires planner, researcher, coder, critic, "
                 f"and finalizer."
             )
             compatible = False

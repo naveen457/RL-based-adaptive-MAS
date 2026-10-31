@@ -20,8 +20,32 @@ env:
   IMAGE_NAME: naveenchowdary577/adaptive-mas
 
 jobs:
+  test:
+    name: Run Pytest Test Suite
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install --no-deps -e .
+
+      - name: Run unit and regression tests
+        run: |
+          pytest -v -m "not integration"
+
   docker:
     name: Build, Publish and Deploy AMAS
+    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: read
