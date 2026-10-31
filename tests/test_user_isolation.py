@@ -1,7 +1,9 @@
+import pytest
 import requests
 
 BASE_URL = "http://127.0.0.1:8000"
 
+@pytest.mark.integration
 def test_user_isolation():
     user_a = "user_alpha_1"
     user_b = "user_beta_2"

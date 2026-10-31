@@ -27,6 +27,7 @@ def test_tool_executor_evaluates_as_optimal_not_malformed():
     """Topology with planner -> tool_executor -> finalizer must be classified as OPTIMAL, not MALFORMED."""
     mgr = ArchitectureManager.create_default_architecture()
     mgr.apply_action(ArchitectureAction(action_type=ActionType.ACTIVATE_AGENT, agent_id="tool_executor"))
+    mgr.apply_action(ArchitectureAction(action_type=ActionType.DEACTIVATE_AGENT, agent_id="researcher"))
     mgr.apply_action(ArchitectureAction(action_type=ActionType.DEACTIVATE_AGENT, agent_id="coder"))
     updated = mgr.apply_action(ArchitectureAction(action_type=ActionType.DEACTIVATE_AGENT, agent_id="critic"))
 

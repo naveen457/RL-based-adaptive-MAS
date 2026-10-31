@@ -146,8 +146,9 @@ def test_critic_low_score_triggers_retry_loop():
     assert "final_answer" in result
 
 
-def test_critic_max_retries_safeguard_prevents_infinite_loop():
-    """Even if Critic always gives quality_score < threshold, max_retries = 1 forces termination to finalizer."""
+def test_critic_max_retries_safeguard_prevents_infinite_loop(monkeypatch):
+    """Even if Critic always gives quality_score < threshold, max_retries = 2 forces termination to finalizer."""
+    monkeypatch.setattr(settings, "critic_max_retries", 2)
     mgr = ArchitectureManager.create_default_architecture()
     mgr.apply_action(ArchitectureAction(action_type=ActionType.ACTIVATE_AGENT, agent_id="tool_executor"))
     mgr.apply_action(ArchitectureAction(action_type=ActionType.DEACTIVATE_AGENT, agent_id="researcher"))

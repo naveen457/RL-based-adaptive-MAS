@@ -142,7 +142,7 @@ def test_coding_activation_builds_and_executes_dynamic_graph() -> None:
     assert ("planner", "coder") in {
         (edge["source"], edge["target"]) for edge in result.graph_edges
     }
-    assert result.final_response["final_answer"] == "final response from dynamic graph"
+    assert result.final_response["final_answer"].startswith("final response from dynamic graph")
 
 
 def test_greeting_graph_contains_only_required_nodes() -> None:

@@ -159,6 +159,7 @@ class DynamicGraphBuilder:
                     "coder" in graph_nodes
                     or "tool_executor" in graph_nodes
                     or "critic" in graph_nodes
+                    or "researcher" in graph_nodes
                 )
             )
             and not (

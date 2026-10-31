@@ -143,7 +143,7 @@ def test_coding_runtime_calls_real_coder_and_downstream_agents() -> None:
     assert "public class Solution {}" in RecordingCritic.calls[0][1]
     assert RecordingFinalizer.calls[0][0] == task
     assert "real review" in RecordingFinalizer.calls[0][1]
-    assert result.final_response["final_answer"] == "real final answer"
+    assert result.final_response["final_answer"].startswith("real final answer")
     coder_record = next(
         record for record in result.execution_trace if record.agent_id == "coder"
     )

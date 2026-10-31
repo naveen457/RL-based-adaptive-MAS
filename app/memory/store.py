@@ -399,11 +399,32 @@ class ThreadMessageStore:
         self._save_thread(thread_id, user_id=user_id)
 
     def list_threads(self, user_id: Optional[str] = None) -> List[str]:
-        """List all thread IDs strictly scoped to user_id in reverse chronological order."""
-        if not user_id:
-            return []
-
+        """List all thread IDs, optionally strictly scoped to user_id in reverse chronological order."""
         coll = self.threads_collection
+        if not user_id:
+            if coll is not None:
+                try:
+                    if hasattr(coll, "distinct"):
+                        tids = coll.distinct("thread_id")
+                        if tids:
+                            return list(tids)
+                    cursor = coll.find({}, {"thread_id": 1, "updated_at": 1}).sort("updated_at", -1)
+                    tids = []
+                    seen = set()
+                    for doc in cursor:
+                        tid = doc.get("thread_id")
+                        if tid and tid not in seen:
+                            seen.add(tid)
+                            tids.append(tid)
+                    return tids
+                except Exception as e:
+                    check_mongo_network_error(e)
+            threads = set(self._thread_cache.keys())
+            if hasattr(self.checkpointer, "storage"):
+                threads.update(self.checkpointer.storage.keys())
+            threads.update(self._thread_user_map.keys())
+            return sorted(list(threads))
+
         if coll is not None:
             try:
                 user_id_candidates: List[Any] = [str(user_id)]
