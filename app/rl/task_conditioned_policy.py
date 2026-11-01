@@ -329,6 +329,7 @@ class TaskConditionedPolicy(BasePolicy):
             hidden_dim=hidden_dim,
         )
         self.optimizer = optim.Adam(self.model.parameters(), lr=learning_rate)
+        self.last_update_metrics: Dict[str, float] = {}
 
     def select_action(
         self,
@@ -427,6 +428,31 @@ class TaskConditionedPolicy(BasePolicy):
         next_valid_action_ids: List[int],
         gamma: float = 0.9,
     ) -> float:
+        metrics = self.update_from_transition_with_metrics(
+            observation=observation,
+            task_context=task_context,
+            action_id=action_id,
+            reward=reward,
+            next_observation=next_observation,
+            done=done,
+            valid_action_ids=valid_action_ids,
+            next_valid_action_ids=next_valid_action_ids,
+            gamma=gamma,
+        )
+        return metrics["loss"]
+
+    def update_from_transition_with_metrics(
+        self,
+        observation: Dict[str, Any],
+        task_context: Optional[MetaTaskContext],
+        action_id: int,
+        reward: float,
+        next_observation: Dict[str, Any],
+        done: bool,
+        valid_action_ids: List[int],
+        next_valid_action_ids: List[int],
+        gamma: float = 0.9,
+    ) -> Dict[str, float]:
         del valid_action_ids
         self._validate_action_ids([action_id])
         if next_valid_action_ids:
@@ -451,8 +477,36 @@ class TaskConditionedPolicy(BasePolicy):
 
         loss = nn.functional.mse_loss(scores[int(action_id)], target)
         loss.backward()
+
+        # Research diagnostics: gradient norm
+        grads = [p.grad.detach() for p in self.model.parameters() if p.grad is not None]
+        grad_norm = float(torch.norm(torch.stack([torch.norm(g, 2) for g in grads]), 2).item()) if grads else 0.0
+
+        # Parameter norm
+        params = [p.detach() for p in self.model.parameters()]
+        param_norm = float(torch.norm(torch.stack([torch.norm(p, 2) for p in params]), 2).item()) if params else 0.0
+
+        # Action distribution entropy across valid actions
+        with torch.no_grad():
+            v_ids = next_valid_action_ids if next_valid_action_ids else list(range(self.action_dim))
+            v_scores = scores[torch.tensor(v_ids, dtype=torch.long)]
+            probs = torch.softmax(v_scores, dim=-1)
+            entropy = float((-torch.sum(probs * torch.log(probs + 1e-8))).item())
+
+        lr = float(self.optimizer.param_groups[0].get("lr", self.learning_rate))
+
         self.optimizer.step()
-        return float(loss.item())
+
+        metrics = {
+            "loss": float(loss.item()),
+            "policy_gradient_norm": grad_norm,
+            "parameter_norm": param_norm,
+            "action_distribution_entropy": entropy,
+            "learning_rate": lr,
+            "reward": float(reward),
+        }
+        self.last_update_metrics = metrics
+        return metrics
 
     def save(self, path: str | Path) -> None:
         payload = {

@@ -1,0 +1,101 @@
+task_id,domain,required_capabilities,policy_name,seed,adaptation_steps,initial_performance,final_performance,adaptation_gain,step_0,step_1,step_2,evaluation_mode,measurement_type,is_proxy,source_file
+task-research-002,Research,"research, synthesis",shared_meta_policy,42,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-002,Research,"research, synthesis",shared_meta_policy,101,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-002,Research,"research, synthesis",shared_meta_policy,202,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-002,Research,"research, synthesis",shared_meta_policy,303,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-002,Research,"research, synthesis",shared_meta_policy,404,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-002,Research,"research, synthesis",fresh_scratch_policy,42,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-002,Research,"research, synthesis",fresh_scratch_policy,101,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-002,Research,"research, synthesis",fresh_scratch_policy,202,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-002,Research,"research, synthesis",fresh_scratch_policy,303,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-002,Research,"research, synthesis",fresh_scratch_policy,404,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-002,Research,"research, synthesis",deterministic_baseline,42,2,1.0,1.0,0.0,1.0,1.0,1.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-002,Research,"research, synthesis",deterministic_baseline,101,2,1.0,1.0,0.0,1.0,1.0,1.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-002,Research,"research, synthesis",deterministic_baseline,202,2,1.0,1.0,0.0,1.0,1.0,1.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-002,Research,"research, synthesis",deterministic_baseline,303,2,1.0,1.0,0.0,1.0,1.0,1.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-002,Research,"research, synthesis",deterministic_baseline,404,2,1.0,1.0,0.0,1.0,1.0,1.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-002,Research,"research, synthesis",random_policy,42,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-002,Research,"research, synthesis",random_policy,101,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-002,Research,"research, synthesis",random_policy,202,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-002,Research,"research, synthesis",random_policy,303,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-002,Research,"research, synthesis",random_policy,404,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-001,Research,research,shared_meta_policy,42,2,0.0,0.0,0.0,0.0,0.0,0.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-001,Research,research,shared_meta_policy,101,2,0.0,0.0,0.0,0.0,0.0,0.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-001,Research,research,shared_meta_policy,202,2,0.0,0.0,0.0,0.0,0.0,0.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-001,Research,research,shared_meta_policy,303,2,0.0,0.0,0.0,0.0,0.0,0.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-001,Research,research,shared_meta_policy,404,2,0.0,0.0,0.0,0.0,0.0,0.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-001,Research,research,fresh_scratch_policy,42,2,0.0,0.0,0.0,0.0,0.0,0.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-001,Research,research,fresh_scratch_policy,101,2,0.0,0.0,0.0,0.0,0.0,0.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-001,Research,research,fresh_scratch_policy,202,2,0.0,0.0,0.0,0.0,0.0,0.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-001,Research,research,fresh_scratch_policy,303,2,0.0,0.0,0.0,0.0,0.0,0.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-001,Research,research,fresh_scratch_policy,404,2,0.0,0.0,0.0,0.0,0.0,0.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-001,Research,research,deterministic_baseline,42,2,1.0,1.0,0.0,1.0,1.0,1.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-001,Research,research,deterministic_baseline,101,2,1.0,1.0,0.0,1.0,1.0,1.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-001,Research,research,deterministic_baseline,202,2,1.0,1.0,0.0,1.0,1.0,1.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-001,Research,research,deterministic_baseline,303,2,1.0,1.0,0.0,1.0,1.0,1.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-001,Research,research,deterministic_baseline,404,2,1.0,1.0,0.0,1.0,1.0,1.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-001,Research,research,random_policy,42,2,0.0,0.0,0.0,0.0,0.0,0.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-001,Research,research,random_policy,101,2,0.0,0.0,0.0,0.0,0.0,0.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-001,Research,research,random_policy,202,2,0.0,0.0,0.0,0.0,0.0,0.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-001,Research,research,random_policy,303,2,0.0,0.0,0.0,0.0,0.0,0.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-research-001,Research,research,random_policy,404,2,0.0,0.0,0.0,0.0,0.0,0.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-summarization-001,NLP,synthesis,shared_meta_policy,42,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-summarization-001,NLP,synthesis,shared_meta_policy,101,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-summarization-001,NLP,synthesis,shared_meta_policy,202,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-summarization-001,NLP,synthesis,shared_meta_policy,303,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-summarization-001,NLP,synthesis,shared_meta_policy,404,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-summarization-001,NLP,synthesis,fresh_scratch_policy,42,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-summarization-001,NLP,synthesis,fresh_scratch_policy,101,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-summarization-001,NLP,synthesis,fresh_scratch_policy,202,2,0.6,0.0,-0.6,0.6,0.6,0.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-summarization-001,NLP,synthesis,fresh_scratch_policy,303,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-summarization-001,NLP,synthesis,fresh_scratch_policy,404,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-summarization-001,NLP,synthesis,deterministic_baseline,42,2,1.0,1.0,0.0,1.0,1.0,1.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-summarization-001,NLP,synthesis,deterministic_baseline,101,2,1.0,1.0,0.0,1.0,1.0,1.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-summarization-001,NLP,synthesis,deterministic_baseline,202,2,1.0,1.0,0.0,1.0,1.0,1.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-summarization-001,NLP,synthesis,deterministic_baseline,303,2,1.0,1.0,0.0,1.0,1.0,1.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-summarization-001,NLP,synthesis,deterministic_baseline,404,2,1.0,1.0,0.0,1.0,1.0,1.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-summarization-001,NLP,synthesis,random_policy,42,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-summarization-001,NLP,synthesis,random_policy,101,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-summarization-001,NLP,synthesis,random_policy,202,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-summarization-001,NLP,synthesis,random_policy,303,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-summarization-001,NLP,synthesis,random_policy,404,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-analysis-001,Analysis,"analysis, planning",shared_meta_policy,42,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-analysis-001,Analysis,"analysis, planning",shared_meta_policy,101,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-analysis-001,Analysis,"analysis, planning",shared_meta_policy,202,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-analysis-001,Analysis,"analysis, planning",shared_meta_policy,303,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-analysis-001,Analysis,"analysis, planning",shared_meta_policy,404,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-analysis-001,Analysis,"analysis, planning",fresh_scratch_policy,42,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-analysis-001,Analysis,"analysis, planning",fresh_scratch_policy,101,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-analysis-001,Analysis,"analysis, planning",fresh_scratch_policy,202,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-analysis-001,Analysis,"analysis, planning",fresh_scratch_policy,303,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-analysis-001,Analysis,"analysis, planning",fresh_scratch_policy,404,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-analysis-001,Analysis,"analysis, planning",deterministic_baseline,42,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-analysis-001,Analysis,"analysis, planning",deterministic_baseline,101,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-analysis-001,Analysis,"analysis, planning",deterministic_baseline,202,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-analysis-001,Analysis,"analysis, planning",deterministic_baseline,303,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-analysis-001,Analysis,"analysis, planning",deterministic_baseline,404,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-analysis-001,Analysis,"analysis, planning",random_policy,42,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-analysis-001,Analysis,"analysis, planning",random_policy,101,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-analysis-001,Analysis,"analysis, planning",random_policy,202,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-analysis-001,Analysis,"analysis, planning",random_policy,303,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-analysis-001,Analysis,"analysis, planning",random_policy,404,2,0.6,0.6,0.0,0.6,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-coding-001,Coding,"coding, verification",shared_meta_policy,42,2,1.0,0.6,-0.4,1.0,1.0,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-coding-001,Coding,"coding, verification",shared_meta_policy,101,2,1.0,0.6,-0.4,1.0,1.0,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-coding-001,Coding,"coding, verification",shared_meta_policy,202,2,1.0,0.6,-0.4,1.0,1.0,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-coding-001,Coding,"coding, verification",shared_meta_policy,303,2,1.0,0.6,-0.4,1.0,1.0,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-coding-001,Coding,"coding, verification",shared_meta_policy,404,2,1.0,0.6,-0.4,1.0,1.0,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-coding-001,Coding,"coding, verification",fresh_scratch_policy,42,2,1.0,0.6,-0.4,1.0,1.0,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-coding-001,Coding,"coding, verification",fresh_scratch_policy,101,2,1.0,1.0,0.0,1.0,1.0,1.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-coding-001,Coding,"coding, verification",fresh_scratch_policy,202,2,1.0,1.0,0.0,1.0,1.0,1.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-coding-001,Coding,"coding, verification",fresh_scratch_policy,303,2,1.0,1.0,0.0,1.0,1.0,1.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-coding-001,Coding,"coding, verification",fresh_scratch_policy,404,2,1.0,1.0,0.0,1.0,1.0,1.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-coding-001,Coding,"coding, verification",deterministic_baseline,42,2,1.0,1.0,0.0,1.0,1.0,1.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-coding-001,Coding,"coding, verification",deterministic_baseline,101,2,1.0,1.0,0.0,1.0,1.0,1.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-coding-001,Coding,"coding, verification",deterministic_baseline,202,2,1.0,1.0,0.0,1.0,1.0,1.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-coding-001,Coding,"coding, verification",deterministic_baseline,303,2,1.0,1.0,0.0,1.0,1.0,1.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-coding-001,Coding,"coding, verification",deterministic_baseline,404,2,1.0,1.0,0.0,1.0,1.0,1.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-coding-001,Coding,"coding, verification",random_policy,42,2,1.0,1.0,0.0,1.0,1.0,1.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-coding-001,Coding,"coding, verification",random_policy,101,2,1.0,0.6,-0.4,1.0,1.0,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-coding-001,Coding,"coding, verification",random_policy,202,2,1.0,0.6,-0.4,1.0,0.6,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-coding-001,Coding,"coding, verification",random_policy,303,2,1.0,0.6,-0.4,1.0,1.0,0.6,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json
+task-coding-001,Coding,"coding, verification",random_policy,404,2,1.0,1.0,0.0,1.0,1.0,1.0,mock_neural_evaluator,simulated_proxy,True,data/multi_task_baseline_results.json

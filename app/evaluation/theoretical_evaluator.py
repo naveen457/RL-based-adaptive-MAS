@@ -101,6 +101,7 @@ class ComprehensiveArchitectureEvaluation(BaseModel):
     topology: TopologicalMetrics
     pareto: ParetoUtilityResult
     overall_score: float
+    structural_efficiency: float = 0.0
 
     def serialize(self) -> Dict[str, Any]:
         return self.model_dump(mode="json", exclude_none=True)
@@ -349,6 +350,14 @@ class TheoreticalArchitectureEvaluator:
         # Combined overall score
         overall = round((0.4 * alignment_score + 0.3 * topological_efficiency + 0.3 * net_utility), 4)
 
+        # Structural efficiency formula:
+        # SE = Coverage * TopologicalEfficiency / (1 + len(surplus_agents)) in [0, 1]
+        # Quantifies joint capability sufficiency and graph compactness while penalizing unused nodes.
+        structural_eff = round(
+            float(coverage_score * topological_efficiency / (1.0 + len(surplus_agents))),
+            4,
+        )
+
         return ComprehensiveArchitectureEvaluation(
             architecture_id=architecture.architecture_id,
             architecture_version=getattr(architecture, "version", None),
@@ -362,4 +371,5 @@ class TheoreticalArchitectureEvaluator:
             topology=topology,
             pareto=pareto,
             overall_score=overall,
+            structural_efficiency=structural_eff,
         )

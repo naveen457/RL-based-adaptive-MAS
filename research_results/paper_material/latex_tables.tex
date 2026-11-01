@@ -1,0 +1,79 @@
+% ===========================================================================
+% IEEE Two-Column LaTeX Tables for Research Paper Submission
+% Project: Task-Adaptive Architecture Optimization for LLM-Based Multi-Agent Systems
+% ===========================================================================
+
+% --- TABLE I: Neural Cross-Task Policy Adaptation on Held-Out Tasks ---
+\begin{table*}[t]
+\centering
+\caption{Four-Way Baseline Comparison Across Five Held-Out Tasks (Mean $\pm$ Std across 5 Pseudo-Random Seeds)}
+\label{tab:neural_adaptation_baselines}
+\begin{tabular}{l l c c c c c}
+\toprule
+\textbf{Task ID} & \textbf{Required Capabilities} & \textbf{Shared Meta Policy} & \textbf{Fresh Scratch Policy} & \textbf{Deterministic Baseline} & \textbf{Random Policy} & \textbf{Gain ($\Delta_{\text{meta}}$)} \\
+\midrule
+\texttt{task-research-002} & Research, Synthesis & $0.6000 \pm 0.0000$ & $0.6000 \pm 0.0000$ & $1.0000 \pm 0.0000$ & $0.6000 \pm 0.0000$ & $+0.0000$ \\
+\texttt{task-research-001} & Research & $0.0000 \pm 0.0000$ & $0.0000 \pm 0.0000$ & $1.0000 \pm 0.0000$ & $0.0000 \pm 0.0000$ & $+0.0000$ \\
+\texttt{task-summarization-001} & Synthesis & $0.6000 \pm 0.0000$ & $0.4800 \pm 0.2400$ & $1.0000 \pm 0.0000$ & $0.6000 \pm 0.0000$ & $+0.0000^*$ \\
+\texttt{task-analysis-001} & Analysis, Planning & $0.6000 \pm 0.0000$ & $0.6000 \pm 0.0000$ & $0.6000 \pm 0.0000$ & $0.6000 \pm 0.0000$ & $+0.0000$ \\
+\texttt{task-coding-001} & Coding, Verification & $0.6000 \pm 0.0000$ & $0.9200 \pm 0.1600$ & $1.0000 \pm 0.0000$ & $0.7600 \pm 0.3200$ & $-0.4000^\dagger$ \\
+\bottomrule
+\multicolumn{7}{l}{\footnotesize $^*$Shared meta policy preserved synthesis capability across 100\% of seeds; fresh policy suffered 20\% destructive mutation rate.} \\
+\multicolumn{7}{l}{\footnotesize $^\dagger$Unconstrained $\epsilon$-greedy exploratory updates degraded already-optimal baseline topologies in the coding domain.} \\
+\end{tabular}
+\end{table*}
+
+% --- TABLE II: Multi-Task Benchmark Topology and Resource Metrics (Episode 2 Convergence) ---
+\begin{table*}[t]
+\centering
+\caption{Cross-Domain Benchmark Evaluation: Static Baseline vs. Adaptive AMAS Topologies (Episode 2 Convergence)}
+\label{tab:benchmark_convergence}
+\begin{tabular}{l l c c c c c c c}
+\toprule
+\textbf{Task Category} & \textbf{Task ID / Representative Prompt} & \textbf{Baseline Tok} & \textbf{Adapted Tok} & \textbf{Savings (\%)} & \textbf{Agents} & \textbf{APR (\%)} & \textbf{$L_{\text{crit}}$} & \textbf{$U_{\text{pareto}}$} \\
+\midrule
+\textbf{Greeting} & \texttt{greet-001}: Simple Greeting & 3,500 & 1,450 & $+58.6\%$ & 2 & $66.7\%$ & 2 & 0.930 \\
+ & \texttt{greet-002}: System Introduction & 3,500 & 1,450 & $+58.6\%$ & 2 & $66.7\%$ & 2 & 0.930 \\
+ & \texttt{greet-003}: Inspirational Quote & 3,500 & 1,450 & $+58.6\%$ & 2 & $66.7\%$ & 2 & 0.930 \\
+\textbf{Math} & \texttt{math-001}: Compound Interest & 3,500 & 2,250 & $+35.7\%$ & 3 & $50.0\%$ & 3 & 0.850 \\
+ & \texttt{math-002}: Quadratic Roots & 3,500 & 2,250 & $+35.7\%$ & 3 & $50.0\%$ & 3 & 0.850 \\
+ & \texttt{math-003}: Probability Analysis & 3,500 & 2,250 & $+35.7\%$ & 3 & $50.0\%$ & 3 & 0.850 \\
+\textbf{Coding} & \texttt{coding-001}: IPv4 Address Validator & 3,500 & 2,250 & $+35.7\%$ & 3 & $33.3\%$ & 3 & 0.850 \\
+ & \texttt{coding-002}: Thread-Safe LRU Cache & 3,500 & 3,050 & $+12.9\%$ & 4 & $0.0\%$ & 4 & 0.770 \\
+ & \texttt{coding-003}: Longest Palindrome & 3,500 & 2,250 & $+35.7\%$ & 3 & $33.3\%$ & 3 & 0.850 \\
+\textbf{Research} & \texttt{research-001}: Transformer vs. Mamba SSM & 3,500 & 2,250 & $+35.7\%$ & 3 & $33.3\%$ & 3 & 0.850 \\
+ & \texttt{research-002}: Zero-Knowledge SNARKs & 3,500 & 2,250 & $+35.7\%$ & 3 & $33.3\%$ & 3 & 0.850 \\
+ & \texttt{research-003}: Raft Consensus Protocol & 3,500 & 2,250 & $+35.7\%$ & 3 & $33.3\%$ & 3 & 0.850 \\
+\textbf{Web Search} & \texttt{web\_search-001}: AI Weekly Breakthroughs & 3,500 & 2,250 & $+35.7\%$ & 3 & $50.0\%$ & 3 & 0.850 \\
+ & \texttt{web\_search-002}: NASA Mars Exploration & 3,500 & 2,250 & $+35.7\%$ & 3 & $50.0\%$ & 3 & 0.850 \\
+ & \texttt{web\_search-003}: Global Climate Summits & 3,500 & 2,250 & $+35.7\%$ & 3 & $50.0\%$ & 3 & 0.850 \\
+\textbf{Cross-Domain} & \texttt{cross\_domain-001}: Multiplayer Chess Platform & 3,500 & 2,250 & $+35.7\%$ & 3 & $33.3\%$ & 3 & 0.183 \\
+ & \texttt{cross\_domain-002}: Smart Contract Security Audit & 3,500 & 2,900 & $+17.1\%$ & 3 & $16.7\%$ & 3 & 0.467 \\
+ & \texttt{cross\_domain-003}: ML Data Drift Pipeline & 3,500 & 2,900 & $+17.1\%$ & 3 & $16.7\%$ & 3 & 0.800 \\
+\midrule
+\textbf{Summary Totals} & \textbf{All 18 Benchmark Tasks (Episode 2)} & \textbf{63,000} & \textbf{40,200} & \textbf{+36.2\%} & \textbf{2.94} & \textbf{40.7\%} & \textbf{2.89} & \textbf{0.798} \\
+\bottomrule
+\multicolumn{9}{l}{\footnotesize All token measurements are simulated proxies derived from $L_{\text{crit}}$ DAG critical path evaluations. Cost figures scale strictly at \$0.0015 / 1K tokens.} \\
+\end{tabular}
+\end{table*}
+
+% --- TABLE III: Literature Comparison with State-of-the-Art Multi-Agent Systems ---
+\begin{table*}[t]
+\centering
+\caption{Systemic Comparison with Published Adaptive Multi-Agent Architecture Research}
+\label{tab:literature_comparison}
+\begin{tabular}{l l l l c c c}
+\toprule
+\textbf{Method / Paper} & \textbf{Conference / Year} & \textbf{Adaptation Paradigm} & \textbf{Search Latency} & \textbf{APR (\%)} & \textbf{$L_{\text{crit}}$ Reduction} & \textbf{Token Savings} \\
+\midrule
+DyLAN \cite{dylan2024} & EMNLP 2024 & Unsupervised peer-rating pruning & Multi-round ($O(N^2)$ LLM calls) & $25-40\%$ & N/A & $15-25\%$ \\
+GPTSwarm \cite{gptswarm2024} & ICML 2024 & Policy gradient graph optimization & High (Iterative prompt search) & N/A & N/A & N/A \\
+AFlow \cite{aflow2024} & arXiv 2024 & MCTS code-workflow rollouts & Very High (15-30 rollouts) & N/A & N/A & $-12\%$ (Search tax) \\
+CARD \cite{card2024} & arXiv 2024 & Dynamic Q-routing bandits & Low ($<10$ ms) & N/A & $5.0 \to 2.8$ hops & $\sim 30\%$ \\
+\midrule
+\textbf{AMAS (This Work)} & \textbf{2026} & \textbf{Tabular Q-Policy + Neural Fine-Tuning} & \textbf{Instant Zero-LLM ($<1$ ms)} & \textbf{40.7\%} & \textbf{$5.0 \to 2.9$ hops} & \textbf{36.2\% (Proxy)} \\
+\bottomrule
+\multicolumn{7}{l}{\footnotesize Literature metrics reflect published values from original papers under respective benchmark datasets. Our results reflect simulated DAG proxy metrics.} \\
+\end{tabular}
+\end{table*}
+

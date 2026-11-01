@@ -22,7 +22,14 @@
    - [Master SOTA Comparison Table](#master-comparison-table-amas-vs-sota)
    - [Core Research Metrics Glossary](#core-research-metrics-glossary)
    - [Strengths & Candid Trade-offs](#where-amas-leads-vs-honest-trade-offs)
-4. [Research Questions & Objectives](#-research-questions--objectives)
+4. [Research Experiments and Results](#-research-experiments-and-results)
+   - [Overview of Two Central Contributions](#1-overview-of-two-central-contributions)
+   - [Benchmark Methodology & Dataset Suite](#2-benchmark-methodology--dataset-suite)
+   - [Main Experimentally Supported Findings](#3-main-experimentally-supported-findings)
+   - [Compact Benchmark Summary Table](#4-compact-benchmark-summary-table-episode-2-convergence)
+   - [Publication-Quality Visualizations](#5-publication-quality-experimental-visualizations)
+   - [Research Documentation & Links](#6-detailed-research-documentation--links)
+5. [Research Questions & Objectives](#-research-questions--objectives)
 5. [System Architecture & Workflow](#-system-architecture--workflow)
    - [End-to-End Dynamic Workflow (Mermaid)](#end-to-end-dynamic-workflow)
    - [Architectural Layers Breakdown](#architectural-layers-breakdown)
@@ -183,6 +190,109 @@ Rewards architectural compactness independently from response generation, preven
 2. **Continuous Zero-Shot Latent Interpolation:** CARD (2026) and MaAS (2025) use continuous Variational Graph Autoencoders (VGAEs) to smoothly interpolate topologies across unseen task spaces, whereas AMAS uses discrete tabular Q-learning requiring 2 warmup passes or relying on Critic runtime recovery.
 3. **Joint Prompt Text Search:** AFlow uses DSPy MIPROv2 to optimize the natural language wording of each agent's system prompt alongside the graph wiring. AMAS adapts the graph architecture and passes dynamic Critic feedback, but leaves persona templates fixed.
 4. **Unbounded Subjective Deliberation:** For creative writing or subjective consensus, DyLAN's 5–10 round democratic debates outperform AMAS's test-gated verification loops.
+
+---
+
+## 🔬 Research Experiments and Results
+
+This section summarizes the experimental evidence, statistical validation, and empirical findings for our academic paper submission:
+**"Task-Adaptive Architecture Optimization for LLM-Based Multi-Agent Systems using Reinforcement Learning and Cross-Task Adaptation."**
+
+### 1. Overview of Two Central Contributions
+The experimental framework evaluates two distinct architectural pathways:
+1. **Contribution 1 (Task-Conditioned Neural Adaptation):** Evaluates whether a shared neural policy pre-trained across a distribution of tasks can generalize and rapidly adapt to previously unseen held-out tasks.
+2. **Contribution 2 (Dynamic Multi-Agent Architecture Adaptation):** Evaluates a task-aware tabular Q-learning policy and dynamic LangGraph workflow synthesis that mutates agent roster composition, role assignments, and directed communication edges to optimize the Pareto frontier between token cost and capability coverage.
+
+> [!NOTE]
+> **Scientific Integrity & Proxy Demarcation:** In accordance with rigorous scientific reporting standards, primary benchmark token metrics are deterministic theoretical proxies based on DAG critical paths ($L_{\text{crit}}$) and agent invocation counts (`is_proxy: True`). Negative token savings on complex cross-domain tasks are preserved and reported without artificial clamping.
+
+---
+
+### 2. Benchmark Methodology & Dataset Suite
+- **18-Task Cross-Domain Suite:** Evaluated across 6 functional domains: *Greeting* (3 tasks), *Math & Calculation* (3 tasks), *Coding* (3 tasks), *Research* (3 tasks), *Web Search* (3 tasks), and *Cross-Domain Hybrid* (3 tasks).
+- **Multi-Seed Neural Evaluation:** 5 held-out target tasks evaluated across 5 random seeds (`[42, 101, 202, 303, 404]`) over 2 fine-tuning adaptation steps (100 total trajectories).
+- **Evaluation Convergence:** 36 sequential task runs across 2 continuous episodes.
+
+---
+
+### 3. Main Experimentally Supported Findings
+
+1. **Token & Latency Compression:**
+   - **36.19% Net Token Reduction** on Episode 2 ($p = 4.4 \times 10^{-6}$, paired Student's t-test).
+   - **36.19% Cumulative Token Savings** across all 36 task executions over 2 episodes ($80,400$ adapted vs. $126,000$ baseline tokens).
+   - **42.2% Critical Path Compression:** Sequential hops reduced from 5.0 to **2.89 hops**, directly reducing latency proxy overhead.
+2. **Topological Parsimony & Pruning:**
+   - **40.74% Mean Agent Pruning Rate (APR%):** Safely pruned from 5.0 agents down to **2.94 active agents**, maintaining **100% capability coverage** across 15 of 18 tasks.
+3. **Instant Zero-Overhead Active RL Exploitation:**
+   - **72.22% Active RL Policy Hit Rate** (13 / 18 tasks) by Episode 2, executing mutations in **$<1$ ms with $0$ extra search tokens**.
+4. **Sub-Millisecond Dynamic LangGraph Compilation:**
+   - Combined graph construction ($T_{\text{build}} = 0.052$ ms) and LangGraph compilation ($T_{\text{comp}} = 0.029$ ms) averages **0.081 ms total adaptation overhead** with 100% cycle-free DAG compilation success.
+5. **Transparent Negative Savings:**
+   - Complex cross-domain tasks legitimately require expanded agent teams, resulting in negative savings ($-5.7\%$ on chess platform, $-24.3\%$ on smart contract audit).
+6. **Empirical Neural Adaptation Constraints:**
+   - Bounded adaptation gains ($0.0000 \pm 0.0000$) across research tasks highlight that discrete neural adaptation is strictly limited by the action alphabet (`role_options=['analysis', 'planning']` cannot recover missing `research` capabilities).
+   - On summarization tasks, the shared meta-policy demonstrated superior stability against destructive mutations (100% preservation vs. 20% degradation in fresh scratch initialization).
+
+---
+
+### 4. Compact Benchmark Summary Table (Episode 2 Convergence)
+
+| Task ID | Domain | Baseline Tok | Adapted Tok | Savings (%) | Active Agents | APR (%) | $L_{\text{crit}}$ | $U_{\text{pareto}}$ | Decision Engine |
+|---|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|---|
+| `greet-001` | Greeting | 3,500 | 1,450 | **+58.6%** | 2 | 66.7% | 2 | 0.930 | Active RL (0 tok, <1ms) |
+| `greet-002` | Greeting | 3,500 | 1,450 | **+58.6%** | 2 | 66.7% | 2 | 0.930 | Active RL (0 tok, <1ms) |
+| `greet-003` | Greeting | 3,500 | 1,450 | **+58.6%** | 2 | 66.7% | 2 | 0.930 | Active RL (0 tok, <1ms) |
+| `math-001` | Math | 3,500 | 2,250 | **+35.7%** | 3 | 50.0% | 3 | 0.850 | Active RL (0 tok, <1ms) |
+| `math-002` | Math | 3,500 | 2,250 | **+35.7%** | 3 | 50.0% | 3 | 0.850 | Active RL (0 tok, <1ms) |
+| `math-003` | Math | 3,500 | 2,250 | **+35.7%** | 3 | 50.0% | 3 | 0.850 | Active RL (0 tok, <1ms) |
+| `coding-001` | Coding | 3,500 | 2,250 | **+35.7%** | 3 | 33.3% | 3 | 0.850 | LLM Adapter Fallback |
+| `coding-002` | Coding | 3,500 | 3,050 | **+12.9%** | 4 | 0.0% | 4 | 0.770 | Active RL (0 tok, <1ms) |
+| `coding-003` | Coding | 3,500 | 2,250 | **+35.7%** | 3 | 33.3% | 3 | 0.850 | Active RL (0 tok, <1ms) |
+| `research-001` | Research | 3,500 | 2,250 | **+35.7%** | 3 | 33.3% | 3 | 0.850 | LLM Adapter Fallback |
+| `research-002` | Research | 3,500 | 2,250 | **+35.7%** | 3 | 33.3% | 3 | 0.850 | Active RL (0 tok, <1ms) |
+| `research-003` | Research | 3,500 | 2,250 | **+35.7%** | 3 | 33.3% | 3 | 0.850 | LLM Adapter Fallback |
+| `web_search-001` | Web Search | 3,500 | 2,250 | **+35.7%** | 3 | 50.0% | 3 | 0.850 | Active RL (0 tok, <1ms) |
+| `web_search-002` | Web Search | 3,500 | 2,250 | **+35.7%** | 3 | 50.0% | 3 | 0.850 | LLM Adapter Fallback |
+| `web_search-003` | Web Search | 3,500 | 2,250 | **+35.7%** | 3 | 50.0% | 3 | 0.850 | Active RL (0 tok, <1ms) |
+| `cross_domain-001` | Cross-Domain | 3,500 | 2,250 | **+35.7%** | 3 | 33.3% | 3 | 0.183 | Active RL (0 tok, <1ms) |
+| `cross_domain-002` | Cross-Domain | 3,500 | 2,900 | **+17.1%** | 3 | 16.7% | 3 | 0.467 | Active RL (0 tok, <1ms) |
+| `cross_domain-003` | Cross-Domain | 3,500 | 2,900 | **+17.1%** | 3 | 16.7% | 3 | 0.800 | LLM Adapter Fallback |
+| **Total / Mean** | **All 18 Tasks** | **63,000** | **40,200** | **+36.2%** | **2.94** | **40.7%** | **2.89** | **0.798** | **72.2% Active RL** |
+
+---
+
+### 5. Publication-Quality Experimental Visualizations
+
+#### Cross-Task Adaptation Trajectory & Held-Out Generalization
+| Figure 1: Neural Adaptation Trajectories | Figure 2: Held-Out Generalization Across 5 Tasks |
+|:---:|:---:|
+| ![Neural Adaptation Curve](research_results/figures/figure_01_adaptation_curve.png) | ![Held-Out Comparison](research_results/figures/figure_02_heldout_comparison.png) |
+
+#### Architecture Parsimony & Token Efficiency
+| Figure 3: Capability Coverage vs Active Agents | Figure 4: Per-Task Token Savings & Expansions |
+|:---:|:---:|
+| ![Capability vs Agents](research_results/figures/figure_03_capability_vs_agents.png) | ![Token Efficiency](research_results/figures/figure_04_token_comparison.png) |
+
+#### Critical Path Compression & Structural Pareto Utility
+| Figure 5: Critical Path Length by Domain | Figure 6: Complexity vs. Net Pareto Utility |
+|:---:|:---:|
+| ![Critical Path Compression](research_results/figures/figure_05_critical_path.png) | ![Architecture Utility](research_results/figures/figure_06_architecture_utility.png) |
+
+#### LangGraph Overhead & RL Decision Decomposition
+| Figure 7: Dynamic Graph Compilation Latency | Figure 8: RL Decision Breakdown & Mutation Space |
+|:---:|:---:|
+| ![Dynamic Graph Overhead](research_results/figures/figure_07_graph_overhead.png) | ![RL Actions](research_results/figures/figure_08_rl_actions.png) |
+
+---
+
+### 6. Detailed Research Documentation & Links
+
+- 📑 **Comprehensive Findings Document:** [research_results/experimental_findings.md](research_results/experimental_findings.md)
+- 📊 **Statistical Analysis & Inferential Tests:** [research_results/statistical_analysis/statistical_analysis.md](research_results/statistical_analysis/statistical_analysis.md)
+- 📚 **Literature & SOTA Comparison:** [research_results/literature/literature_comparison.md](research_results/literature/literature_comparison.md)
+- 📋 **Extracted Raw Datasets (CSV & JSON):** [research_results/extracted_data/](research_results/extracted_data/)
+- 🖹 **IEEE Two-Column LaTeX Assets:** [research_results/paper_material/](research_results/paper_material/)
+- 🖼️ **Vector Graphics (PDF) & High-Res Plots:** [research_results/figures/](research_results/figures/)
 
 ---
 

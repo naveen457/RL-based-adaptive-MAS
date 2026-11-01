@@ -1,0 +1,1562 @@
+{
+  "task-research-002": {
+    "target_task_id": "task-research-002",
+    "adaptation_steps": 2,
+    "seeds": [
+      42,
+      101,
+      202,
+      303,
+      404
+    ],
+    "summary_statistics": {
+      "shared_meta_policy": {
+        "sample_count": 5,
+        "mean_final_performance": 0.6,
+        "std_final_performance": 0.0,
+        "mean_adaptation_gain": 0.0,
+        "std_adaptation_gain": 0.0,
+        "average_adaptation_curve": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      },
+      "fresh_scratch_policy": {
+        "sample_count": 5,
+        "mean_final_performance": 0.6,
+        "std_final_performance": 0.0,
+        "mean_adaptation_gain": 0.0,
+        "std_adaptation_gain": 0.0,
+        "average_adaptation_curve": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      },
+      "deterministic_baseline": {
+        "sample_count": 5,
+        "mean_final_performance": 1.0,
+        "std_final_performance": 0.0,
+        "mean_adaptation_gain": 0.0,
+        "std_adaptation_gain": 0.0,
+        "average_adaptation_curve": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "random_policy": {
+        "sample_count": 5,
+        "mean_final_performance": 0.6,
+        "std_final_performance": 0.0,
+        "mean_adaptation_gain": 0.0,
+        "std_adaptation_gain": 0.0,
+        "average_adaptation_curve": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      }
+    },
+    "seed_records": {
+      "shared_meta_policy": [
+        {
+          "policy_name": "shared_meta_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "shared_meta_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "shared_meta_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "shared_meta_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "shared_meta_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        }
+      ],
+      "fresh_scratch_policy": [
+        {
+          "policy_name": "fresh_scratch_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "fresh_scratch_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "fresh_scratch_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "fresh_scratch_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "fresh_scratch_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        }
+      ],
+      "deterministic_baseline": [
+        {
+          "policy_name": "deterministic_baseline",
+          "initial_performance": 1.0,
+          "final_performance": 1.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "policy_name": "deterministic_baseline",
+          "initial_performance": 1.0,
+          "final_performance": 1.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "policy_name": "deterministic_baseline",
+          "initial_performance": 1.0,
+          "final_performance": 1.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "policy_name": "deterministic_baseline",
+          "initial_performance": 1.0,
+          "final_performance": 1.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "policy_name": "deterministic_baseline",
+          "initial_performance": 1.0,
+          "final_performance": 1.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      ],
+      "random_policy": [
+        {
+          "policy_name": "random_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "random_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "random_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "random_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "random_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        }
+      ]
+    },
+    "proxy_note": "Deterministic architecture-task compatibility proxy; this is NOT actual LLM task execution."
+  },
+  "task-research-001": {
+    "target_task_id": "task-research-001",
+    "adaptation_steps": 2,
+    "seeds": [
+      42,
+      101,
+      202,
+      303,
+      404
+    ],
+    "summary_statistics": {
+      "shared_meta_policy": {
+        "sample_count": 5,
+        "mean_final_performance": 0.0,
+        "std_final_performance": 0.0,
+        "mean_adaptation_gain": 0.0,
+        "std_adaptation_gain": 0.0,
+        "average_adaptation_curve": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "fresh_scratch_policy": {
+        "sample_count": 5,
+        "mean_final_performance": 0.0,
+        "std_final_performance": 0.0,
+        "mean_adaptation_gain": 0.0,
+        "std_adaptation_gain": 0.0,
+        "average_adaptation_curve": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "deterministic_baseline": {
+        "sample_count": 5,
+        "mean_final_performance": 1.0,
+        "std_final_performance": 0.0,
+        "mean_adaptation_gain": 0.0,
+        "std_adaptation_gain": 0.0,
+        "average_adaptation_curve": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "random_policy": {
+        "sample_count": 5,
+        "mean_final_performance": 0.0,
+        "std_final_performance": 0.0,
+        "mean_adaptation_gain": 0.0,
+        "std_adaptation_gain": 0.0,
+        "average_adaptation_curve": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "seed_records": {
+      "shared_meta_policy": [
+        {
+          "policy_name": "shared_meta_policy",
+          "initial_performance": 0.0,
+          "final_performance": 0.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "policy_name": "shared_meta_policy",
+          "initial_performance": 0.0,
+          "final_performance": 0.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "policy_name": "shared_meta_policy",
+          "initial_performance": 0.0,
+          "final_performance": 0.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "policy_name": "shared_meta_policy",
+          "initial_performance": 0.0,
+          "final_performance": 0.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "policy_name": "shared_meta_policy",
+          "initial_performance": 0.0,
+          "final_performance": 0.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      ],
+      "fresh_scratch_policy": [
+        {
+          "policy_name": "fresh_scratch_policy",
+          "initial_performance": 0.0,
+          "final_performance": 0.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "policy_name": "fresh_scratch_policy",
+          "initial_performance": 0.0,
+          "final_performance": 0.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "policy_name": "fresh_scratch_policy",
+          "initial_performance": 0.0,
+          "final_performance": 0.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "policy_name": "fresh_scratch_policy",
+          "initial_performance": 0.0,
+          "final_performance": 0.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "policy_name": "fresh_scratch_policy",
+          "initial_performance": 0.0,
+          "final_performance": 0.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      ],
+      "deterministic_baseline": [
+        {
+          "policy_name": "deterministic_baseline",
+          "initial_performance": 1.0,
+          "final_performance": 1.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "policy_name": "deterministic_baseline",
+          "initial_performance": 1.0,
+          "final_performance": 1.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "policy_name": "deterministic_baseline",
+          "initial_performance": 1.0,
+          "final_performance": 1.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "policy_name": "deterministic_baseline",
+          "initial_performance": 1.0,
+          "final_performance": 1.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "policy_name": "deterministic_baseline",
+          "initial_performance": 1.0,
+          "final_performance": 1.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      ],
+      "random_policy": [
+        {
+          "policy_name": "random_policy",
+          "initial_performance": 0.0,
+          "final_performance": 0.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "policy_name": "random_policy",
+          "initial_performance": 0.0,
+          "final_performance": 0.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "policy_name": "random_policy",
+          "initial_performance": 0.0,
+          "final_performance": 0.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "policy_name": "random_policy",
+          "initial_performance": 0.0,
+          "final_performance": 0.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "policy_name": "random_policy",
+          "initial_performance": 0.0,
+          "final_performance": 0.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      ]
+    },
+    "proxy_note": "Deterministic architecture-task compatibility proxy; this is NOT actual LLM task execution."
+  },
+  "task-summarization-001": {
+    "target_task_id": "task-summarization-001",
+    "adaptation_steps": 2,
+    "seeds": [
+      42,
+      101,
+      202,
+      303,
+      404
+    ],
+    "summary_statistics": {
+      "shared_meta_policy": {
+        "sample_count": 5,
+        "mean_final_performance": 0.6,
+        "std_final_performance": 0.0,
+        "mean_adaptation_gain": 0.0,
+        "std_adaptation_gain": 0.0,
+        "average_adaptation_curve": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      },
+      "fresh_scratch_policy": {
+        "sample_count": 5,
+        "mean_final_performance": 0.48,
+        "std_final_performance": 0.268328,
+        "mean_adaptation_gain": -0.12,
+        "std_adaptation_gain": 0.268328,
+        "average_adaptation_curve": [
+          0.6,
+          0.6,
+          0.48
+        ]
+      },
+      "deterministic_baseline": {
+        "sample_count": 5,
+        "mean_final_performance": 1.0,
+        "std_final_performance": 0.0,
+        "mean_adaptation_gain": 0.0,
+        "std_adaptation_gain": 0.0,
+        "average_adaptation_curve": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "random_policy": {
+        "sample_count": 5,
+        "mean_final_performance": 0.6,
+        "std_final_performance": 0.0,
+        "mean_adaptation_gain": 0.0,
+        "std_adaptation_gain": 0.0,
+        "average_adaptation_curve": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      }
+    },
+    "seed_records": {
+      "shared_meta_policy": [
+        {
+          "policy_name": "shared_meta_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "shared_meta_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "shared_meta_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "shared_meta_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "shared_meta_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        }
+      ],
+      "fresh_scratch_policy": [
+        {
+          "policy_name": "fresh_scratch_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "fresh_scratch_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "fresh_scratch_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.0,
+          "adaptation_gain": -0.6,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.0
+          ]
+        },
+        {
+          "policy_name": "fresh_scratch_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "fresh_scratch_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        }
+      ],
+      "deterministic_baseline": [
+        {
+          "policy_name": "deterministic_baseline",
+          "initial_performance": 1.0,
+          "final_performance": 1.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "policy_name": "deterministic_baseline",
+          "initial_performance": 1.0,
+          "final_performance": 1.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "policy_name": "deterministic_baseline",
+          "initial_performance": 1.0,
+          "final_performance": 1.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "policy_name": "deterministic_baseline",
+          "initial_performance": 1.0,
+          "final_performance": 1.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "policy_name": "deterministic_baseline",
+          "initial_performance": 1.0,
+          "final_performance": 1.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      ],
+      "random_policy": [
+        {
+          "policy_name": "random_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "random_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "random_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "random_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "random_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        }
+      ]
+    },
+    "proxy_note": "Deterministic architecture-task compatibility proxy; this is NOT actual LLM task execution."
+  },
+  "task-analysis-001": {
+    "target_task_id": "task-analysis-001",
+    "adaptation_steps": 2,
+    "seeds": [
+      42,
+      101,
+      202,
+      303,
+      404
+    ],
+    "summary_statistics": {
+      "shared_meta_policy": {
+        "sample_count": 5,
+        "mean_final_performance": 0.6,
+        "std_final_performance": 0.0,
+        "mean_adaptation_gain": 0.0,
+        "std_adaptation_gain": 0.0,
+        "average_adaptation_curve": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      },
+      "fresh_scratch_policy": {
+        "sample_count": 5,
+        "mean_final_performance": 0.6,
+        "std_final_performance": 0.0,
+        "mean_adaptation_gain": 0.0,
+        "std_adaptation_gain": 0.0,
+        "average_adaptation_curve": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      },
+      "deterministic_baseline": {
+        "sample_count": 5,
+        "mean_final_performance": 0.6,
+        "std_final_performance": 0.0,
+        "mean_adaptation_gain": 0.0,
+        "std_adaptation_gain": 0.0,
+        "average_adaptation_curve": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      },
+      "random_policy": {
+        "sample_count": 5,
+        "mean_final_performance": 0.6,
+        "std_final_performance": 0.0,
+        "mean_adaptation_gain": 0.0,
+        "std_adaptation_gain": 0.0,
+        "average_adaptation_curve": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      }
+    },
+    "seed_records": {
+      "shared_meta_policy": [
+        {
+          "policy_name": "shared_meta_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "shared_meta_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "shared_meta_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "shared_meta_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "shared_meta_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        }
+      ],
+      "fresh_scratch_policy": [
+        {
+          "policy_name": "fresh_scratch_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "fresh_scratch_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "fresh_scratch_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "fresh_scratch_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "fresh_scratch_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        }
+      ],
+      "deterministic_baseline": [
+        {
+          "policy_name": "deterministic_baseline",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "deterministic_baseline",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "deterministic_baseline",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "deterministic_baseline",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "deterministic_baseline",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        }
+      ],
+      "random_policy": [
+        {
+          "policy_name": "random_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "random_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "random_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "random_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "random_policy",
+          "initial_performance": 0.6,
+          "final_performance": 0.6,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            0.6,
+            0.6,
+            0.6
+          ]
+        }
+      ]
+    },
+    "proxy_note": "Deterministic architecture-task compatibility proxy; this is NOT actual LLM task execution."
+  },
+  "task-coding-001": {
+    "target_task_id": "task-coding-001",
+    "adaptation_steps": 2,
+    "seeds": [
+      42,
+      101,
+      202,
+      303,
+      404
+    ],
+    "summary_statistics": {
+      "shared_meta_policy": {
+        "sample_count": 5,
+        "mean_final_performance": 0.6,
+        "std_final_performance": 0.0,
+        "mean_adaptation_gain": -0.4,
+        "std_adaptation_gain": 0.0,
+        "average_adaptation_curve": [
+          1.0,
+          1.0,
+          0.6
+        ]
+      },
+      "fresh_scratch_policy": {
+        "sample_count": 5,
+        "mean_final_performance": 0.92,
+        "std_final_performance": 0.178885,
+        "mean_adaptation_gain": -0.08,
+        "std_adaptation_gain": 0.178885,
+        "average_adaptation_curve": [
+          1.0,
+          1.0,
+          0.92
+        ]
+      },
+      "deterministic_baseline": {
+        "sample_count": 5,
+        "mean_final_performance": 1.0,
+        "std_final_performance": 0.0,
+        "mean_adaptation_gain": 0.0,
+        "std_adaptation_gain": 0.0,
+        "average_adaptation_curve": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "random_policy": {
+        "sample_count": 5,
+        "mean_final_performance": 0.76,
+        "std_final_performance": 0.219089,
+        "mean_adaptation_gain": -0.24,
+        "std_adaptation_gain": 0.219089,
+        "average_adaptation_curve": [
+          1.0,
+          0.92,
+          0.76
+        ]
+      }
+    },
+    "seed_records": {
+      "shared_meta_policy": [
+        {
+          "policy_name": "shared_meta_policy",
+          "initial_performance": 1.0,
+          "final_performance": 0.6,
+          "adaptation_gain": -0.4,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            1.0,
+            1.0,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "shared_meta_policy",
+          "initial_performance": 1.0,
+          "final_performance": 0.6,
+          "adaptation_gain": -0.4,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            1.0,
+            1.0,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "shared_meta_policy",
+          "initial_performance": 1.0,
+          "final_performance": 0.6,
+          "adaptation_gain": -0.4,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            1.0,
+            1.0,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "shared_meta_policy",
+          "initial_performance": 1.0,
+          "final_performance": 0.6,
+          "adaptation_gain": -0.4,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            1.0,
+            1.0,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "shared_meta_policy",
+          "initial_performance": 1.0,
+          "final_performance": 0.6,
+          "adaptation_gain": -0.4,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            1.0,
+            1.0,
+            0.6
+          ]
+        }
+      ],
+      "fresh_scratch_policy": [
+        {
+          "policy_name": "fresh_scratch_policy",
+          "initial_performance": 1.0,
+          "final_performance": 0.6,
+          "adaptation_gain": -0.4,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            1.0,
+            1.0,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "fresh_scratch_policy",
+          "initial_performance": 1.0,
+          "final_performance": 1.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "policy_name": "fresh_scratch_policy",
+          "initial_performance": 1.0,
+          "final_performance": 1.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "policy_name": "fresh_scratch_policy",
+          "initial_performance": 1.0,
+          "final_performance": 1.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "policy_name": "fresh_scratch_policy",
+          "initial_performance": 1.0,
+          "final_performance": 1.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      ],
+      "deterministic_baseline": [
+        {
+          "policy_name": "deterministic_baseline",
+          "initial_performance": 1.0,
+          "final_performance": 1.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "policy_name": "deterministic_baseline",
+          "initial_performance": 1.0,
+          "final_performance": 1.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "policy_name": "deterministic_baseline",
+          "initial_performance": 1.0,
+          "final_performance": 1.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "policy_name": "deterministic_baseline",
+          "initial_performance": 1.0,
+          "final_performance": 1.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "policy_name": "deterministic_baseline",
+          "initial_performance": 1.0,
+          "final_performance": 1.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      ],
+      "random_policy": [
+        {
+          "policy_name": "random_policy",
+          "initial_performance": 1.0,
+          "final_performance": 1.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "policy_name": "random_policy",
+          "initial_performance": 1.0,
+          "final_performance": 0.6,
+          "adaptation_gain": -0.4,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            1.0,
+            1.0,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "random_policy",
+          "initial_performance": 1.0,
+          "final_performance": 0.6,
+          "adaptation_gain": -0.4,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            1.0,
+            0.6,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "random_policy",
+          "initial_performance": 1.0,
+          "final_performance": 0.6,
+          "adaptation_gain": -0.4,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            1.0,
+            1.0,
+            0.6
+          ]
+        },
+        {
+          "policy_name": "random_policy",
+          "initial_performance": 1.0,
+          "final_performance": 1.0,
+          "adaptation_gain": 0.0,
+          "adaptation_steps": 2,
+          "adaptation_curve": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      ]
+    },
+    "proxy_note": "Deterministic architecture-task compatibility proxy; this is NOT actual LLM task execution."
+  }
+}

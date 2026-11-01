@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import Any, Callable, Dict, Mapping
 
 from langgraph.graph import END, StateGraph
@@ -25,6 +26,14 @@ class DynamicGraphMetadata(BaseModel):
     architecture_actions: list[dict[str, Any]] = Field(default_factory=list)
     compiled: bool = False
     graph_representation: str = ""
+    build_time_ms: float = 0.0
+    compilation_time_ms: float = 0.0
+    node_count: int = 0
+    edge_count: int = 0
+    recovery_count: int = 0
+    conditional_route_count: int = 0
+    build_success: bool = True
+    compilation_success: bool = True
 
     def serialize(self) -> dict[str, Any]:
         return self.model_dump(mode="json", exclude_none=True)
@@ -96,6 +105,7 @@ class DynamicGraphBuilder:
         checkpointer: Optional[Any] = None,
         save_image_path: Optional[str] = None,
     ) -> DynamicGraphBuildResult:
+        t_build_start = time.perf_counter()
         active = set(architecture.active_agent_ids)
         required = {"planner"}
         if include_finalizer:
@@ -360,11 +370,17 @@ class DynamicGraphBuilder:
             if node not in outgoing:
                 graph.add_edge(node, END)
 
+        conditional_routes = (1 if has_critic_loop else 0) + len(feedback_edges)
+        t_compile_start = time.perf_counter()
         compiled_graph = (
             graph.compile(checkpointer=checkpointer)
             if checkpointer is not None
             else graph.compile()
         )
+        t_compile_end = time.perf_counter()
+        compilation_time_ms = round((t_compile_end - t_compile_start) * 1000.0, 3)
+        build_time_ms = round((t_compile_end - t_build_start) * 1000.0, 3)
+
         if save_image_path:
             try:
                 from pathlib import Path
@@ -383,6 +399,13 @@ class DynamicGraphBuilder:
             architecture_actions=architecture_actions or [],
             compiled=True,
             graph_representation=representation,
+            build_time_ms=build_time_ms,
+            compilation_time_ms=compilation_time_ms,
+            node_count=len(graph_nodes),
+            edge_count=len(graph_edges),
+            conditional_route_count=conditional_routes,
+            build_success=True,
+            compilation_success=True,
         )
         return DynamicGraphBuildResult(
             metadata=metadata,

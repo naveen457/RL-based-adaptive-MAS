@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import Any, Callable, Dict, Optional, Protocol
 
 from pydantic import BaseModel, Field
@@ -119,6 +120,18 @@ class DynamicGraphExecutionResult(BaseModel):
     thread_id: str = "thread-1"
     messages: list[Dict[str, Any]] = Field(default_factory=list)
     tools_executed: list[str] = Field(default_factory=list)
+    execution_time_ms: float = 0.0
+    build_time_ms: float = 0.0
+    compilation_time_ms: float = 0.0
+    node_count: int = 0
+    edge_count: int = 0
+    recovery_count: int = 0
+    conditional_route_count: int = 0
+    build_success_rate: float = 1.0
+    compilation_success_rate: float = 1.0
+    actual_tokens: Optional[int] = None
+    actual_cost_usd: Optional[float] = None
+    time_to_first_response_ms: Optional[float] = None
 
     @property
     def agents_actually_invoked(self) -> list[str]:
@@ -413,7 +426,7 @@ class AdaptiveRuntimeOrchestrator:
 
         if is_trivial_task:
             decision_source = "fast_path_trivial"
-            is_instant_rl = True
+            is_instant_rl = False
             arch_decision = {"decision": "no_change", "reasoning": "Trivial input; baseline topology sufficient."}
             valid_actions = []
             plan_output_dict = planner_output.model_dump(mode="json")
@@ -490,7 +503,10 @@ class AdaptiveRuntimeOrchestrator:
                 "messages": input_messages,
             }
             invoke_config = {"configurable": {"thread_id": thread_id}}
+            t_exec_start = time.perf_counter()
             state = built.compiled_graph.invoke(initial_input, config=invoke_config)
+            t_exec_end = time.perf_counter()
+            execution_time_ms = round((t_exec_end - t_exec_start) * 1000.0, 3)
             emit("workflow.completed", version=version, stage="ACTUAL")
             final_response = state.get("final_answer") if isinstance(state, dict) else None
             if isinstance(final_response, BaseModel):
@@ -536,6 +552,15 @@ class AdaptiveRuntimeOrchestrator:
                 thread_id=thread_id,
                 messages=serialized_messages,
                 tools_executed=tools_called,
+                execution_time_ms=execution_time_ms,
+                build_time_ms=built.metadata.build_time_ms,
+                compilation_time_ms=built.metadata.compilation_time_ms,
+                node_count=built.metadata.node_count,
+                edge_count=built.metadata.edge_count,
+                recovery_count=state.get("_feedback_iterations", 0) if isinstance(state, dict) else 0,
+                conditional_route_count=built.metadata.conditional_route_count,
+                build_success_rate=1.0 if built.metadata.build_success else 0.0,
+                compilation_success_rate=1.0 if built.metadata.compilation_success else 0.0,
             )
 
         # ------------------------------------------------------------------

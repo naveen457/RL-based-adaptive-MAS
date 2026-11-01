@@ -1,0 +1,7 @@
+category,task_count,mean_baseline_tokens,mean_adapted_tokens,mean_token_savings_pct,mean_active_agents,mean_apr_pct,mean_critical_path,mean_capability_coverage_pct,mean_net_utility
+coding,3,3500.0,2516.7,28.09,3.33,44.43,3.33,100.0,0.823
+cross_domain,3,3500.0,2683.3,23.33,3.67,38.87,3.0,66.7,0.483
+greeting,3,3500.0,1450.0,58.57,2.0,66.7,2.0,100.0,0.93
+math,3,3500.0,2250.0,35.71,3.0,50.0,3.0,100.0,0.85
+research,3,3500.0,2250.0,35.71,3.0,50.0,3.0,100.0,0.85
+web_search,3,3500.0,2250.0,35.71,3.0,50.0,3.0,100.0,0.85

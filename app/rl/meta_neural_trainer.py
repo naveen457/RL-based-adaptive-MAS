@@ -53,6 +53,67 @@ class MetaTrainingResult:
     loss_curve: List[float]
     performance_curve: List[float]
     deterministic_seed: Optional[int]
+    rewards_curve: List[float] = field(default_factory=list)
+    gradient_norms: List[float] = field(default_factory=list)
+    parameter_norms: List[float] = field(default_factory=list)
+    entropy_curve: List[float] = field(default_factory=list)
+    learning_rate_curve: List[float] = field(default_factory=list)
+    proxy_note: str = PROXY_NOTE
+
+    def serialize(self) -> Dict[str, Any]:
+        return asdict(self)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return self.serialize()
+
+
+@dataclass(frozen=True)
+class GeneralizationResult:
+    """Serializable evaluation result measuring cross-task generalization to unseen tasks."""
+
+    train_task_ids: List[str]
+    unseen_task_ids: List[str]
+    train_task_reward: float
+    held_out_task_reward: float
+    generalization_gap: float
+    initial_adaptation_reward: float
+    final_adaptation_reward: float
+    adaptation_gain: float
+    adaptation_steps: int
+    adaptation_curve: List[float] = field(default_factory=list)
+    adaptation_losses: List[float] = field(default_factory=list)
+    seed: Optional[int] = None
+    proxy_note: str = PROXY_NOTE
+
+    def serialize(self) -> Dict[str, Any]:
+        return asdict(self)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return self.serialize()
+
+
+@dataclass(frozen=True)
+class PolicyBenchmarkRecord:
+    policy_name: str
+    initial_performance: float
+    final_performance: float
+    adaptation_gain: float
+    adaptation_steps: int
+    adaptation_curve: List[float] = field(default_factory=list)
+
+    def serialize(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class BaselineComparisonResult:
+    """Serializable result comparing shared meta policy against baselines on held-out tasks."""
+
+    target_task_id: str
+    adaptation_steps: int
+    methods: Dict[str, PolicyBenchmarkRecord]
+    seed: Optional[int] = None
+    aggregate_stats: Dict[str, Any] = field(default_factory=dict)
     proxy_note: str = PROXY_NOTE
 
     def serialize(self) -> Dict[str, Any]:
@@ -121,6 +182,7 @@ class MetaNeuralTrainer:
         meta_updates: int = 6,
         adaptation_updates: int = 3,
         seed: Optional[int] = None,
+        logger: Optional[Any] = None,
     ) -> None:
         if meta_updates < 1:
             raise ValueError("meta_updates must be >= 1")
@@ -143,6 +205,7 @@ class MetaNeuralTrainer:
         if seed is not None:
             torch.manual_seed(seed)
         self.evaluator = TaskPerformanceEvaluator()
+        self.logger = logger
 
         if training_tasks is None or unseen_tasks is None:
             train_dist, test_dist = deterministic_train_test_split(
@@ -186,15 +249,26 @@ class MetaNeuralTrainer:
     def unseen_task_ids(self) -> List[str]:
         return [task.task_id for task in self.unseen_tasks]
 
-    def train(self, *, num_updates: Optional[int] = None) -> MetaTrainingResult:
+    def train(
+        self,
+        *,
+        num_updates: Optional[int] = None,
+        logger: Optional[Any] = None,
+    ) -> MetaTrainingResult:
         """Run shared-policy task-conditioned meta-training."""
 
         updates = self.meta_updates if num_updates is None else num_updates
         if updates < 1:
             raise ValueError("num_updates must be >= 1")
 
+        eff_logger = logger or self.logger
         losses: List[float] = []
         performances: List[float] = []
+        rewards_curve: List[float] = []
+        gradient_norms: List[float] = []
+        parameter_norms: List[float] = []
+        entropy_curve: List[float] = []
+        learning_rate_curve: List[float] = []
         update_task_ids: List[str] = []
 
         for update_index in range(updates):
@@ -202,7 +276,26 @@ class MetaNeuralTrainer:
             step = self._adaptation_update(self.policy, task)
             losses.append(step["loss"])
             performances.append(step["post_performance"])
+            rewards_curve.append(step.get("reward", 0.0))
+            gradient_norms.append(step.get("policy_gradient_norm", 0.0))
+            parameter_norms.append(step.get("parameter_norm", 0.0))
+            entropy_curve.append(step.get("action_distribution_entropy", 0.0))
+            learning_rate_curve.append(step.get("learning_rate", self.policy.learning_rate))
             update_task_ids.append(task.task_id)
+
+            if eff_logger is not None:
+                eff_logger.log_neural_metrics(
+                    step=update_index + 1,
+                    metrics={
+                        "training_loss": step["loss"],
+                        "training_reward": step.get("reward", 0.0),
+                        "policy_gradient_norm": step.get("policy_gradient_norm", 0.0),
+                        "parameter_norm": step.get("parameter_norm", 0.0),
+                        "action_distribution_entropy": step.get("action_distribution_entropy", 0.0),
+                        "learning_rate": step.get("learning_rate", self.policy.learning_rate),
+                        "training_step": float(update_index + 1),
+                    },
+                )
 
         return MetaTrainingResult(
             training_task_ids=self.training_task_ids,
@@ -214,12 +307,22 @@ class MetaNeuralTrainer:
             loss_curve=losses,
             performance_curve=performances,
             deterministic_seed=self.seed,
+            rewards_curve=rewards_curve,
+            gradient_norms=gradient_norms,
+            parameter_norms=parameter_norms,
+            entropy_curve=entropy_curve,
+            learning_rate_curve=learning_rate_curve,
         )
 
-    def meta_train(self, *, num_updates: Optional[int] = None) -> MetaTrainingResult:
+    def meta_train(
+        self,
+        *,
+        num_updates: Optional[int] = None,
+        logger: Optional[Any] = None,
+    ) -> MetaTrainingResult:
         """Explicit Step 27 name for the shared meta-training operation."""
 
-        return self.train(num_updates=num_updates)
+        return self.train(num_updates=num_updates, logger=logger)
 
     def adapt_and_evaluate(
         self,
@@ -326,6 +429,237 @@ class MetaNeuralTrainer:
         result = self.evaluator.evaluate(task, architecture)
         return float(result.task_success_score)
 
+    def evaluate_generalization(
+        self,
+        *,
+        unseen_tasks: Optional[Sequence[MetaTask]] = None,
+        adaptation_updates: Optional[int] = None,
+        logger: Optional[Any] = None,
+        seed: Optional[int] = None,
+    ) -> GeneralizationResult:
+        """Evaluate cross-task generalization and adaptation on unseen held-out tasks."""
+        eff_logger = logger or self.logger
+        targets = list(unseen_tasks or self.unseen_tasks)
+        if not targets:
+            raise ValueError("unseen_tasks must contain at least one task")
+
+        # 1. Evaluate training task average performance
+        train_perfs = [
+            self.evaluate_policy_on_task(self.policy, task)
+            for task in self.training_tasks
+        ]
+        train_reward = float(sum(train_perfs) / max(1, len(train_perfs)))
+
+        # 2. Evaluate held-out task zero-shot performance
+        held_out_perfs = [
+            self.evaluate_policy_on_task(self.policy, task)
+            for task in targets
+        ]
+        held_out_reward = float(sum(held_out_perfs) / max(1, len(held_out_perfs)))
+        gen_gap = round(train_reward - held_out_reward, 6)
+
+        # 3. Fast adaptation on primary target unseen task
+        target = targets[0]
+        updates = self.adaptation_updates if adaptation_updates is None else adaptation_updates
+        compare_seed = self.seed if seed is None else seed
+        adapting_policy = self._clone_policy(self.policy, seed=compare_seed)
+
+        perturbed_arch = self._perturbed_target_architecture()
+        init_perf = self._evaluate_task_performance(target, perturbed_arch)
+
+        adaptation_curve = [init_perf]
+        adaptation_losses: List[float] = []
+        current_arch = perturbed_arch
+
+        for _ in range(updates):
+            up = self._adaptation_update(
+                adapting_policy,
+                target,
+                initial_architecture=current_arch,
+            )
+            adaptation_losses.append(up["loss"])
+            current_arch = up["after_architecture"]
+            perf_step = self._evaluate_task_performance(target, current_arch)
+            adaptation_curve.append(perf_step)
+
+        final_perf = adaptation_curve[-1]
+        gain = round(final_perf - init_perf, 6)
+
+        result = GeneralizationResult(
+            train_task_ids=self.training_task_ids,
+            unseen_task_ids=[t.task_id for t in targets],
+            train_task_reward=round(train_reward, 6),
+            held_out_task_reward=round(held_out_reward, 6),
+            generalization_gap=gen_gap,
+            initial_adaptation_reward=round(init_perf, 6),
+            final_adaptation_reward=round(final_perf, 6),
+            adaptation_gain=gain,
+            adaptation_steps=updates,
+            adaptation_curve=adaptation_curve,
+            adaptation_losses=adaptation_losses,
+            seed=compare_seed,
+        )
+
+        if eff_logger is not None:
+            eff_logger.log_meta_metrics(
+                step=0,
+                metrics={
+                    "train_task_reward": result.train_task_reward,
+                    "held_out_task_reward": result.held_out_task_reward,
+                    "generalization_gap": result.generalization_gap,
+                    "initial_adaptation_reward": result.initial_adaptation_reward,
+                    "final_adaptation_reward": result.final_adaptation_reward,
+                    "adaptation_gain": result.adaptation_gain,
+                    "adaptation_steps": float(result.adaptation_steps),
+                    "adaptation_curve": result.adaptation_curve,
+                },
+            )
+
+        return result
+
+    def run_baseline_comparison(
+        self,
+        unseen_task: Optional[MetaTask] = None,
+        *,
+        adaptation_updates: Optional[int] = None,
+        seeds: Optional[Sequence[int]] = None,
+        logger: Optional[Any] = None,
+    ) -> Dict[str, Any]:
+        """Compare Shared Meta Policy against Fresh Policy, Deterministic Baseline, and Random Policy.
+
+        Evaluates across multiple seeds reporting initial performance, adaptation curves,
+        final performance, gains, mean, and standard deviation.
+        """
+        eff_logger = logger or self.logger
+        target = unseen_task or self.unseen_tasks[0]
+        updates = self.adaptation_updates if adaptation_updates is None else adaptation_updates
+        run_seeds = list(seeds or [self.seed or 42, 101, 202])
+
+        method_names = ["shared_meta_policy", "fresh_scratch_policy", "deterministic_baseline", "random_policy"]
+        seed_results: Dict[str, List[PolicyBenchmarkRecord]] = {m: [] for m in method_names}
+
+        for s in run_seeds:
+            # 1. Shared Meta Policy
+            meta_pol = self._clone_policy(self.policy, seed=s)
+            arch_m = self._perturbed_target_architecture()
+            p0_m = self._evaluate_task_performance(target, arch_m)
+            curve_m = [p0_m]
+            for _ in range(updates):
+                up = self._adaptation_update(meta_pol, target, initial_architecture=arch_m)
+                arch_m = up["after_architecture"]
+                curve_m.append(self._evaluate_task_performance(target, arch_m))
+            seed_results["shared_meta_policy"].append(PolicyBenchmarkRecord(
+                policy_name="shared_meta_policy",
+                initial_performance=round(p0_m, 6),
+                final_performance=round(curve_m[-1], 6),
+                adaptation_gain=round(curve_m[-1] - p0_m, 6),
+                adaptation_steps=updates,
+                adaptation_curve=curve_m,
+            ))
+
+            # 2. Fresh Scratch Policy
+            fresh_pol = create_task_conditioned_policy_from_environment(
+                self._make_environment(),
+                learning_rate=self.policy.learning_rate,
+                seed=s,
+            )
+            arch_f = self._perturbed_target_architecture()
+            p0_f = self._evaluate_task_performance(target, arch_f)
+            curve_f = [p0_f]
+            for _ in range(updates):
+                up = self._adaptation_update(fresh_pol, target, initial_architecture=arch_f)
+                arch_f = up["after_architecture"]
+                curve_f.append(self._evaluate_task_performance(target, arch_f))
+            seed_results["fresh_scratch_policy"].append(PolicyBenchmarkRecord(
+                policy_name="fresh_scratch_policy",
+                initial_performance=round(p0_f, 6),
+                final_performance=round(curve_f[-1], 6),
+                adaptation_gain=round(curve_f[-1] - p0_f, 6),
+                adaptation_steps=updates,
+                adaptation_curve=curve_f,
+            ))
+
+            # 3. Deterministic Baseline (Fixed baseline topology with zero learning updates)
+            arch_d = ArchitectureManager.create_default_architecture().get_architecture()
+            perf_d = self._evaluate_task_performance(target, arch_d)
+            curve_d = [perf_d] * (updates + 1)
+            seed_results["deterministic_baseline"].append(PolicyBenchmarkRecord(
+                policy_name="deterministic_baseline",
+                initial_performance=round(perf_d, 6),
+                final_performance=round(perf_d, 6),
+                adaptation_gain=0.0,
+                adaptation_steps=updates,
+                adaptation_curve=curve_d,
+            ))
+
+            # 4. Random Policy (Selects actions uniformly at random from valid action space)
+            arch_r = self._perturbed_target_architecture()
+            p0_r = self._evaluate_task_performance(target, arch_r)
+            curve_r = [p0_r]
+            rng_r = random.Random(s)
+            for _ in range(updates):
+                env_r = self._make_environment(architecture=arch_r)
+                env_r.reset()
+                valid_acts = list(range(env_r.mapper.action_count))
+                rand_act = rng_r.choice(valid_acts)
+                env_r.step(rand_act)
+                arch_r = env_r.manager.to_architecture_model()
+                curve_r.append(self._evaluate_task_performance(target, arch_r))
+            seed_results["random_policy"].append(PolicyBenchmarkRecord(
+                policy_name="random_policy",
+                initial_performance=round(p0_r, 6),
+                final_performance=round(curve_r[-1], 6),
+                adaptation_gain=round(curve_r[-1] - p0_r, 6),
+                adaptation_steps=updates,
+                adaptation_curve=curve_r,
+            ))
+
+        # Statistical Aggregates across seeds
+        summary_stats: Dict[str, Any] = {}
+        for m in method_names:
+            recs = seed_results[m]
+            final_vals = [r.final_performance for r in recs]
+            gains = [r.adaptation_gain for r in recs]
+            n = len(final_vals)
+            mean_final = float(sum(final_vals) / max(1, n))
+            var_final = float(sum((x - mean_final) ** 2 for x in final_vals) / max(1, n - 1)) if n > 1 else 0.0
+            std_final = round(var_final ** 0.5, 6)
+
+            mean_gain = float(sum(gains) / max(1, n))
+            var_gain = float(sum((x - mean_gain) ** 2 for x in gains) / max(1, n - 1)) if n > 1 else 0.0
+            std_gain = round(var_gain ** 0.5, 6)
+
+            avg_curve = []
+            for step_idx in range(updates + 1):
+                step_vals = [r.adaptation_curve[step_idx] for r in recs if step_idx < len(r.adaptation_curve)]
+                avg_curve.append(round(sum(step_vals) / max(1, len(step_vals)), 6))
+
+            summary_stats[m] = {
+                "sample_count": n,
+                "mean_final_performance": round(mean_final, 6),
+                "std_final_performance": std_final,
+                "mean_adaptation_gain": round(mean_gain, 6),
+                "std_adaptation_gain": std_gain,
+                "average_adaptation_curve": avg_curve,
+            }
+
+        out = {
+            "target_task_id": target.task_id,
+            "adaptation_steps": updates,
+            "seeds": run_seeds,
+            "summary_statistics": summary_stats,
+            "seed_records": {m: [r.serialize() for r in recs] for m, recs in seed_results.items()},
+            "proxy_note": PROXY_NOTE,
+        }
+
+        if eff_logger is not None and getattr(eff_logger, "_writer", None) is not None:
+            for m, stats in summary_stats.items():
+                for st, val in enumerate(stats["average_adaptation_curve"]):
+                    eff_logger._writer.add_scalar(f"Baselines/{m}/AdaptationCurve", val, st)
+            eff_logger._writer.flush()
+
+        return out
+
     def _adaptation_update(
         self,
         policy: TaskConditionedPolicy,
@@ -372,6 +706,7 @@ class MetaNeuralTrainer:
             valid_action_ids=valid_actions,
             next_valid_action_ids=list(range(env.mapper.action_count)),
         )
+        step_diag = getattr(policy, "last_update_metrics", {})
         return {
             "loss": round(float(loss), 10),
             "pre_performance": float(before_performance),
@@ -379,6 +714,10 @@ class MetaNeuralTrainer:
             "reward": round(float(reward), 10),
             "action_id": float(action_id),
             "after_architecture": after_architecture,
+            "policy_gradient_norm": step_diag.get("policy_gradient_norm", 0.0),
+            "parameter_norm": step_diag.get("parameter_norm", 0.0),
+            "action_distribution_entropy": step_diag.get("action_distribution_entropy", 0.0),
+            "learning_rate": step_diag.get("learning_rate", policy.learning_rate),
         }
 
     def _make_environment(

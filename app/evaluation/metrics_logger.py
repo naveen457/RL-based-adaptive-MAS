@@ -71,6 +71,10 @@ class MetricsLogger:
     def log_dir(self) -> str:
         return str(self.session_dir)
 
+    @property
+    def jsonl_file(self) -> Path:
+        return self.jsonl_path
+
     def log_task_run(
         self,
         step: int,
@@ -81,6 +85,19 @@ class MetricsLogger:
         user_id: Optional[str] = None,
         thread_id: Optional[str] = None,
         reward_info: Optional[Dict[str, Any]] = None,
+        *,
+        experiment_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        seed: Optional[int] = None,
+        policy_type: Optional[str] = None,
+        policy_initialization: Optional[str] = None,
+        training_config: Optional[Dict[str, Any]] = None,
+        evaluation_mode: str = "mock",
+        measurement_type: str = "simulated",
+        actual_tokens: Optional[int] = None,
+        actual_cost_usd: Optional[float] = None,
+        time_to_first_response_ms: Optional[float] = None,
+        **kwargs: Any,
     ) -> Dict[str, Any]:
         """Record and log all metrics for one task execution."""
         # Normalize architecture to MASArchitecture if needed
@@ -114,9 +131,121 @@ class MetricsLogger:
         arch_version = res_dict.get("architecture_version", 0)
         final_response = res_dict.get("final_response", "")
 
+        # Action statistics
+        proposed_actions = accepted_actions + rejected_actions
+        proposed_count = len(proposed_actions)
+        accepted_count = len(accepted_actions)
+        rejected_count = len(rejected_actions)
+        acceptance_rate = round(accepted_count / max(1, proposed_count), 4)
+        invalid_action_rate = round(rejected_count / max(1, proposed_count), 4)
+
+        action_type_counts: Dict[str, int] = {
+            "activate_agent": 0,
+            "deactivate_agent": 0,
+            "add_edge": 0,
+            "remove_edge": 0,
+            "change_role": 0,
+        }
+        for act in accepted_actions:
+            atype = act.get("action_type") if isinstance(act, dict) else getattr(act, "action_type", None)
+            if atype in action_type_counts:
+                action_type_counts[atype] += 1
+
+        # Role distribution across active agents
+        role_counts: Dict[str, int] = {}
+        for a in arch_obj.agents:
+            if a.active:
+                role_counts[a.role] = role_counts.get(a.role, 0) + 1
+
+        # Graph execution telemetry
+        build_time_ms = float(kwargs.get("build_time_ms") if kwargs.get("build_time_ms") is not None else (res_dict.get("build_time_ms", 0.0) or 0.0))
+        compilation_time_ms = float(kwargs.get("compilation_time_ms") if kwargs.get("compilation_time_ms") is not None else (res_dict.get("compilation_time_ms", 0.0) or 0.0))
+        execution_time_ms = float(kwargs.get("execution_time_ms") if kwargs.get("execution_time_ms") is not None else (res_dict.get("execution_time_ms", 0.0) or 0.0))
+        node_count = int(kwargs.get("node_count") if kwargs.get("node_count") is not None else (res_dict.get("node_count", len(res_dict.get("graph_nodes", []))) or 0))
+        edge_count = int(kwargs.get("edge_count") if kwargs.get("edge_count") is not None else (res_dict.get("edge_count", len(res_dict.get("graph_edges", []))) or 0))
+        recovery_count = int(kwargs.get("recovery_count") if kwargs.get("recovery_count") is not None else (res_dict.get("recovery_count", 0) or 0))
+        conditional_route_count = int(kwargs.get("conditional_route_count") if kwargs.get("conditional_route_count") is not None else (res_dict.get("conditional_route_count", 0) or 0))
+        build_success_rate = float(res_dict.get("build_success_rate", 1.0) or 1.0)
+        compilation_success_rate = float(res_dict.get("compilation_success_rate", 1.0) or 1.0)
+
+        # Actual provider measurements if available
+        act_tokens = actual_tokens if actual_tokens is not None else res_dict.get("actual_tokens")
+        act_cost = actual_cost_usd if actual_cost_usd is not None else res_dict.get("actual_cost_usd")
+        ttft_ms = time_to_first_response_ms if time_to_first_response_ms is not None else res_dict.get("time_to_first_response_ms")
+
         # 1. Log to TensorBoard (if writer initialized)
         if self._writer is not None:
-            # Numerical Metrics
+            # Architecture structure & quality
+            self._writer.add_scalar("Architecture/AgentCount", len(arch_obj.agents), step)
+            self._writer.add_scalar("Architecture/ActiveAgentCount", evaluation.active_agent_count, step)
+            self._writer.add_scalar("Architecture/InactiveAgentCount", len(arch_obj.agents) - evaluation.active_agent_count, step)
+            self._writer.add_scalar("Architecture/EdgeCount", len(arch_obj.communication_edges), step)
+            self._writer.add_scalar("Architecture/GraphDensity", evaluation.topology.graph_density, step)
+            self._writer.add_scalar("Architecture/CapabilityCoverage", evaluation.alignment.coverage_score, step)
+            self._writer.add_scalar("Architecture/NetUtility", evaluation.pareto.net_utility, step)
+            self._writer.add_scalar("Architecture/OverallScore", evaluation.overall_score, step)
+            self._writer.add_scalar("Architecture/SurplusAgents", len(evaluation.alignment.surplus_agents), step)
+            self._writer.add_scalar("Architecture/StructuralEfficiency", evaluation.structural_efficiency, step)
+            self._writer.add_scalar("Architecture/RequiredCapabilityCount", len(required_capabilities or []), step)
+            self._writer.add_scalar("Architecture/SatisfiedCapabilityCount", len(evaluation.alignment.covered_capabilities), step)
+            self._writer.add_scalar("Architecture/ArchitectureVersion", arch_version, step)
+            self._writer.add_scalar("Architecture/MutationCount", accepted_count, step)
+            for r_name, r_cnt in role_counts.items():
+                self._writer.add_scalar(f"Architecture/RoleDistribution/{r_name}", r_cnt, step)
+
+            # RL Actions
+            self._writer.add_scalar("RL/Actions/Proposed", proposed_count, step)
+            self._writer.add_scalar("RL/Actions/Accepted", accepted_count, step)
+            self._writer.add_scalar("RL/Actions/Rejected", rejected_count, step)
+            self._writer.add_scalar("RL/Actions/AcceptanceRate", acceptance_rate, step)
+            self._writer.add_scalar("RL/Actions/InvalidActionRate", invalid_action_rate, step)
+            for atype, acnt in action_type_counts.items():
+                self._writer.add_scalar(f"RL/Actions/{atype}", acnt, step)
+
+            confidence = res_dict.get("confidence")
+            if isinstance(confidence, (int, float)):
+                self._writer.add_scalar("RL/Actions/SelectedQValue", float(confidence), step)
+
+            # Dynamic Graph
+            self._writer.add_scalar("Graph/BuildTimeMs", build_time_ms, step)
+            self._writer.add_scalar("Graph/CompilationTimeMs", compilation_time_ms, step)
+            self._writer.add_scalar("Graph/NodeCount", node_count, step)
+            self._writer.add_scalar("Graph/EdgeCount", edge_count, step)
+            self._writer.add_scalar("Graph/ExecutionTimeMs", execution_time_ms, step)
+            self._writer.add_scalar("Graph/RecoveryCount", recovery_count, step)
+            self._writer.add_scalar("Graph/ConditionalRouteCount", conditional_route_count, step)
+            self._writer.add_scalar("Graph/BuildSuccessRate", build_success_rate, step)
+            self._writer.add_scalar("Graph/CompilationSuccessRate", compilation_success_rate, step)
+
+            # Execution & Resource Efficiency
+            self._writer.add_scalar("Execution/EstimatedTokens", cost_profile["estimated_tokens"], step)
+            self._writer.add_scalar("Execution/EstimatedCostUSD", cost_profile["estimated_cost_usd"], step)
+            self._writer.add_scalar("Execution/LatencyMs", execution_time_ms, step)
+            self._writer.add_scalar("Execution/AgentInvocationCount", len(invoked_agents), step)
+            self._writer.add_scalar("Execution/SuccessfulAgentCount", len(invoked_agents), step)
+            self._writer.add_scalar("Execution/FailedAgentCount", 0.0, step)
+            if act_tokens is not None:
+                self._writer.add_scalar("Execution/ActualTokens", float(act_tokens), step)
+            if act_cost is not None:
+                self._writer.add_scalar("Execution/ActualCostUSD", float(act_cost), step)
+            if ttft_ms is not None:
+                self._writer.add_scalar("Execution/TimeToFirstResponseMs", float(ttft_ms), step)
+
+            # Evaluation Quality & Reliability
+            self._writer.add_scalar("Evaluation/CapabilityCoverage", evaluation.alignment.coverage_score, step)
+            self._writer.add_scalar("Evaluation/TaskCompatibility", evaluation.alignment.coverage_score, step)
+            self._writer.add_scalar("Evaluation/NetUtility", evaluation.pareto.net_utility, step)
+            self._writer.add_scalar("Evaluation/ArchitectureValidity", evaluation.validity_score, step)
+            self._writer.add_scalar("Evaluation/ExecutionFailureRate", 0.0, step)
+            self._writer.add_scalar("Evaluation/MeanAdaptationTimeMs", build_time_ms, step)
+            if reward_info:
+                self._writer.add_scalar("Evaluation/Reward", float(reward_info.get("total_reward", 0.0)), step)
+                self._writer.add_scalar("Evaluation/RewardComponents/Architecture", float(reward_info.get("r_arch", 0.0)), step)
+                self._writer.add_scalar("Evaluation/RewardComponents/ResponseQuality", float(reward_info.get("r_resp", 0.0)), step)
+            if evaluation.task_success_score is not None:
+                self._writer.add_scalar("Evaluation/TaskSuccess", float(evaluation.task_success_score), step)
+
+            # Backward-compatible legacy metric tags
             self._writer.add_scalar("Metrics/Tokens", cost_profile["estimated_tokens"], step)
             self._writer.add_scalar("Metrics/Cost_USD", cost_profile["estimated_cost_usd"], step)
             self._writer.add_scalar("Metrics/ActiveAgentsCount", evaluation.active_agent_count, step)
@@ -125,8 +254,8 @@ class MetricsLogger:
             self._writer.add_scalar("Metrics/CapabilityCoverage", evaluation.alignment.coverage_score, step)
             self._writer.add_scalar("Metrics/OverallScore", evaluation.overall_score, step)
             self._writer.add_scalar("Metrics/ArchitectureVersion", arch_version, step)
-            self._writer.add_scalar("RL_Actions/AcceptedCount", len(accepted_actions), step)
-            self._writer.add_scalar("RL_Actions/RejectedCount", len(rejected_actions), step)
+            self._writer.add_scalar("RL_Actions/AcceptedCount", accepted_count, step)
+            self._writer.add_scalar("RL_Actions/RejectedCount", rejected_count, step)
 
             # Agent Activation Status (Binary 1/0 flags)
             for agent_id in ["planner", "coder", "researcher", "critic", "tool_executor", "finalizer"]:
@@ -150,7 +279,7 @@ class MetricsLogger:
             self._writer.add_text("Execution/AsciiGraph", f"```\n{ascii_graph}\n```", step)
             self._writer.flush()
 
-        # 2. Append to structured JSONL logs
+        # 2. Append to structured JSONL logs (Extended research schema + 100% backward compatibility)
         log_record = {
             "timestamp": datetime.datetime.now().isoformat(),
             "step": step,
@@ -174,8 +303,62 @@ class MetricsLogger:
             "has_cycles": evaluation.topology.has_cycles,
             "net_utility": evaluation.pareto.net_utility,
             "overall_score": evaluation.overall_score,
+            "structural_efficiency": evaluation.structural_efficiency,
             "final_response": final_response,
+            "is_proxy": True,
+            "experiment_metadata": {
+                "experiment_id": experiment_id or self.session_id,
+                "run_id": run_id or f"run_{step}",
+                "seed": seed,
+                "policy_type": policy_type or "active_q_learning",
+                "policy_initialization": policy_initialization or "default",
+                "evaluation_mode": evaluation_mode,
+                "measurement_type": measurement_type,
+                "training_config": training_config or {},
+            },
+            "graph_metrics": {
+                "build_time_ms": build_time_ms,
+                "compilation_time_ms": compilation_time_ms,
+                "execution_time_ms": execution_time_ms,
+                "node_count": node_count,
+                "edge_count": edge_count,
+                "recovery_count": recovery_count,
+                "conditional_route_count": conditional_route_count,
+                "build_success_rate": build_success_rate,
+                "compilation_success_rate": compilation_success_rate,
+            },
+            "action_metrics": {
+                "proposed": proposed_count,
+                "accepted": accepted_count,
+                "rejected": rejected_count,
+                "acceptance_rate": acceptance_rate,
+                "invalid_action_rate": invalid_action_rate,
+                "action_type_counts": action_type_counts,
+            },
+            "architecture_metrics": {
+                "agent_count": len(arch_obj.agents),
+                "active_agent_count": evaluation.active_agent_count,
+                "inactive_agent_count": len(arch_obj.agents) - evaluation.active_agent_count,
+                "edge_count": len(arch_obj.communication_edges),
+                "graph_density": evaluation.topology.graph_density,
+                "critical_path_length": evaluation.topology.critical_path_length,
+                "capability_coverage": evaluation.alignment.coverage_score,
+                "net_utility": evaluation.pareto.net_utility,
+                "overall_score": evaluation.overall_score,
+                "structural_efficiency": evaluation.structural_efficiency,
+                "surplus_agents_count": len(evaluation.alignment.surplus_agents),
+                "required_capability_count": len(required_capabilities or []),
+                "satisfied_capability_count": len(evaluation.alignment.covered_capabilities),
+                "role_distribution": role_counts,
+            },
         }
+
+        if act_tokens is not None:
+            log_record["actual_tokens"] = act_tokens
+        if act_cost is not None:
+            log_record["actual_cost_usd"] = act_cost
+        if ttft_ms is not None:
+            log_record["time_to_first_response_ms"] = ttft_ms
 
         if reward_info:
             log_record["total_reward"] = reward_info.get("total_reward", 0.0)
@@ -522,6 +705,51 @@ class MetricsLogger:
                     if isinstance(v, (int, float)):
                         self._writer.add_scalar(f"RewardComponents/{k}", float(v), step)
             self._writer.flush()
+
+    def log_neural_metrics(self, step: int, metrics: Dict[str, float]) -> None:
+        """Log Task-Conditioned Neural Policy training telemetry to TensorBoard."""
+        if self._writer is None:
+            return
+        tag_map = {
+            "loss": "Neural/TrainingLoss",
+            "training_loss": "Neural/TrainingLoss",
+            "reward": "Neural/TrainingReward",
+            "training_reward": "Neural/TrainingReward",
+            "policy_gradient_norm": "Neural/PolicyGradientNorm",
+            "gradient_norm": "Neural/PolicyGradientNorm",
+            "parameter_norm": "Neural/ParameterNorm",
+            "action_distribution_entropy": "Neural/ActionDistributionEntropy",
+            "entropy": "Neural/ActionDistributionEntropy",
+            "learning_rate": "Neural/LearningRate",
+            "training_step": "Neural/TrainingStep",
+        }
+        for key, val in metrics.items():
+            if isinstance(val, (int, float)):
+                tag = tag_map.get(key, f"Neural/{key}")
+                self._writer.add_scalar(tag, float(val), step)
+        self._writer.flush()
+
+    def log_meta_metrics(self, step: int, metrics: Dict[str, Any]) -> None:
+        """Log cross-task adaptation and meta-generalization telemetry to TensorBoard."""
+        if self._writer is None:
+            return
+        tag_map = {
+            "train_task_reward": "Meta/TrainTaskReward",
+            "held_out_task_reward": "Meta/HeldOutTaskReward",
+            "generalization_gap": "Meta/GeneralizationGap",
+            "initial_adaptation_reward": "Meta/InitialAdaptationReward",
+            "final_adaptation_reward": "Meta/FinalAdaptationReward",
+            "adaptation_gain": "Meta/AdaptationGain",
+            "adaptation_steps": "Meta/AdaptationSteps",
+        }
+        for key, val in metrics.items():
+            if isinstance(val, (int, float)):
+                tag = tag_map.get(key, f"Meta/{key}")
+                self._writer.add_scalar(tag, float(val), step)
+            elif isinstance(val, list) and key == "adaptation_curve":
+                for adapt_step, perf in enumerate(val):
+                    self._writer.add_scalar("Meta/AdaptationCurve", float(perf), adapt_step)
+        self._writer.flush()
 
     def close(self) -> None:
         """Flush and close all writer handles."""

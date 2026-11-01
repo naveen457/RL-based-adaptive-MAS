@@ -573,30 +573,51 @@ class MultiTaskBenchmarkSuite:
                     result=result,
                     architecture=final_arch,
                     required_capabilities=task.required_capabilities,
+                    experiment_id=f"benchmark_ep{ep}",
+                    evaluation_mode=self.mode,
+                    measurement_type="simulated" if self.mode == "mock" else "live",
+                    execution_time_ms=getattr(result, "execution_time_ms", None),
+                    build_time_ms=getattr(result, "build_time_ms", None),
+                    compilation_time_ms=getattr(result, "compilation_time_ms", None),
+                    node_count=getattr(result, "node_count", None),
+                    edge_count=getattr(result, "edge_count", None),
+                    recovery_count=getattr(result, "recovery_count", 0),
+                    conditional_route_count=getattr(result, "conditional_route_count", 0),
                 )
 
                 # Baseline comparison (Static 5-Agent MAS)
                 baseline_tokens = 3500
                 baseline_cost = round((baseline_tokens / 1000.0) * 0.0015, 5)
 
-                actual_tokens = len(invoked) * 650 + max(0, len(invoked) - 1) * 150
-                actual_cost = round((actual_tokens / 1000.0) * 0.0015, 5)
+                if self.mode == "live" and logged.get("actual_tokens") is not None:
+                    actual_tokens = int(logged["actual_tokens"])
+                    actual_cost = float(logged.get("actual_cost_usd", round((actual_tokens / 1000.0) * 0.0015, 5)))
+                else:
+                    # Use the theoretical DAG evaluator cost profile from CostTracker / metrics.jsonl
+                    actual_tokens = int(logged.get("estimated_tokens", len(invoked) * 650 + max(0, len(invoked) - 1) * 150))
+                    actual_cost = float(logged.get("estimated_cost_usd", round((actual_tokens / 1000.0) * 0.0015, 5)))
 
-                token_savings = max(0.0, ((baseline_tokens - actual_tokens) / baseline_tokens) * 100.0)
-                cost_savings = max(0.0, ((baseline_cost - actual_cost) / baseline_cost) * 100.0)
+                # Unclamped savings: negative values when actual consumption exceeds baseline
+                token_savings = ((baseline_tokens - actual_tokens) / baseline_tokens) * 100.0
+                cost_savings = ((baseline_cost - actual_cost) / baseline_cost) * 100.0
 
                 classification = logged.get("classification", "OPTIMAL")
-                is_instant = getattr(result, "is_instant_rl", False)
-                engine = "Active RL Policy" if is_instant else "LLM Adapter"
-                if is_instant:
+                dec_source = getattr(result, "decision_source", "llm_adapter")
+                is_instant = getattr(result, "is_instant_rl", False) and dec_source == "rl_policy"
+                if dec_source == "rl_policy":
+                    engine = "Active RL Policy"
                     ep_instant_count += 1
+                elif dec_source == "fast_path_trivial":
+                    engine = "Heuristic Bypass"
+                else:
+                    engine = "LLM Adapter"
 
                 # Academic paper metrics (DyLAN, GEMMAS, GPTSwarm, MaAS)
                 total_pool = 6
                 apr_pct = round(((total_pool - len(invoked)) / total_pool) * 100.0, 1)
                 crit_path = logged.get("critical_path_length", len(invoked))
-                adapt_tok = 0 if is_instant else 450
-                adapt_lat_ms = 0.8 if is_instant else 850.0
+                adapt_tok = 0 if is_instant else (0 if dec_source == "fast_path_trivial" else 450)
+                adapt_lat_ms = 0.8 if is_instant else (0.1 if dec_source == "fast_path_trivial" else 850.0)
 
                 # Update Q-learning policy with transition & reward
                 try:
@@ -649,7 +670,12 @@ class MultiTaskBenchmarkSuite:
                 )
 
                 task_idx = ((step_counter - 1) % len(BENCHMARK_TASKS)) + 1
-                engine_short = "Active RL (0 tok, <1ms)" if is_instant else "LLM Adapter"
+                if is_instant:
+                    engine_short = "Active RL (0 tok, <1ms)"
+                elif dec_source == "fast_path_trivial":
+                    engine_short = "Heuristic Bypass (0 tok)"
+                else:
+                    engine_short = "LLM Adapter"
                 print(f"  [{task_idx:>2d}/{len(BENCHMARK_TASKS)}] {task.task_name:<26} -> {classification.upper():<12} | {actual_tokens:>4d} tok | {engine_short}", flush=True)
 
                 # Rate limiting to ensure strict adherence to <= 50 req/min in live mode
@@ -678,12 +704,17 @@ class MultiTaskBenchmarkSuite:
         print(header)
         print("-" * 122)
 
-        # Use the final episode metrics for the report
+        # Use the final episode metrics for the convergence report
         final_ep_metrics = [m for m in self.metrics if m.episode == self.episodes]
 
         for m in final_ep_metrics:
             tokens_str = f"{m.baseline_tokens}/{m.adapted_tokens}"
-            engine_str = "Active RL (0 tok, <1ms)" if m.is_instant_rl else "LLM Adapter"
+            if m.is_instant_rl:
+                engine_str = "Active RL (0 tok, <1ms)"
+            elif m.decision_engine == "Heuristic Bypass":
+                engine_str = "Heuristic Bypass"
+            else:
+                engine_str = "LLM Adapter"
             row = (
                 f"{m.task_name[:24]:<25} | "
                 f"{m.category[:11]:<12} | "
@@ -715,30 +746,101 @@ class MultiTaskBenchmarkSuite:
 
         rl_hits = sum(1 for m in final_ep_metrics if m.is_instant_rl)
         rl_hit_rate = (rl_hits / len(final_ep_metrics)) * 100.0
+        heuristic_bypass_count = sum(1 for m in final_ep_metrics if m.decision_engine == "Heuristic Bypass")
+        heuristic_bypass_rate = (heuristic_bypass_count / len(final_ep_metrics)) * 100.0
+        adapter_fallback_count = sum(1 for m in final_ep_metrics if m.decision_engine == "LLM Adapter")
+        adapter_fallback_rate = (adapter_fallback_count / len(final_ep_metrics)) * 100.0
 
         optimal_count = sum(1 for m in final_ep_metrics if m.classification.upper() == "OPTIMAL")
         optimal_pct = (optimal_count / len(final_ep_metrics)) * 100.0
 
+        # Multi-episode cumulative metrics
+        cum_base_tokens = sum(m.baseline_tokens for m in self.metrics)
+        cum_adapt_tokens = sum(m.adapted_tokens for m in self.metrics)
+        cum_token_savings = ((cum_base_tokens - cum_adapt_tokens) / cum_base_tokens) * 100.0 if cum_base_tokens > 0 else 0.0
+        cum_base_cost = sum(m.baseline_cost for m in self.metrics)
+        cum_adapt_cost = sum(m.adapted_cost for m in self.metrics)
+        cum_cost_savings = ((cum_base_cost - cum_adapt_cost) / cum_base_cost) * 100.0 if cum_base_cost > 0 else 0.0
+
+        # Per-episode breakdown
+        per_ep_dict: Dict[str, Any] = {}
+        for ep_num in range(1, self.episodes + 1):
+            ep_m = [m for m in self.metrics if m.episode == ep_num]
+            if ep_m:
+                ep_b_tok = sum(m.baseline_tokens for m in ep_m)
+                ep_a_tok = sum(m.adapted_tokens for m in ep_m)
+                ep_b_cost = sum(m.baseline_cost for m in ep_m)
+                ep_a_cost = sum(m.adapted_cost for m in ep_m)
+                per_ep_dict[f"episode_{ep_num}"] = {
+                    "baseline_tokens": ep_b_tok,
+                    "adapted_tokens": ep_a_tok,
+                    "token_savings_pct": round(((ep_b_tok - ep_a_tok) / ep_b_tok) * 100.0, 2),
+                    "baseline_cost_usd": round(ep_b_cost, 5),
+                    "adapted_cost_usd": round(ep_a_cost, 5),
+                    "cost_savings_pct": round(((ep_b_cost - ep_a_cost) / ep_b_cost) * 100.0, 2),
+                    "active_rl_hits": sum(1 for m in ep_m if m.is_instant_rl),
+                    "heuristic_bypass_count": sum(1 for m in ep_m if m.decision_engine == "Heuristic Bypass"),
+                    "adapter_fallback_count": sum(1 for m in ep_m if m.decision_engine == "LLM Adapter"),
+                }
+
         print(f"\nKEY RESEARCH INDICATORS (CROSS-PAPER EVALUATION):")
-        print(f"  * Total Baseline Tokens:   {total_base_tokens:,}")
-        print(f"  * Total Adapted Tokens:    {total_adapt_tokens:,} ({overall_token_savings:.1f}% net token reduction)")
-        print(f"  * Total Baseline Cost:     ${total_base_cost:.4f}")
-        print(f"  * Total Adapted Cost:      ${total_adapt_cost:.4f} ({overall_cost_savings:.1f}% cost reduction)")
+        print(f"  * Report Scope:            Final Episode #{self.episodes} Convergence")
+        print(f"  * Final Ep Baseline Tokens:{total_base_tokens:,}")
+        print(f"  * Final Ep Adapted Tokens: {total_adapt_tokens:,} ({overall_token_savings:.1f}% net token reduction)")
+        print(f"  * Final Ep Baseline Cost:  ${total_base_cost:.4f}")
+        print(f"  * Final Ep Adapted Cost:   ${total_adapt_cost:.4f} ({overall_cost_savings:.1f}% cost reduction)")
+        print(f"  * Cumulative All Episodes: {cum_adapt_tokens:,} / {cum_base_tokens:,} tokens ({cum_token_savings:.1f}% reduction across {self.episodes} episodes)")
         print(f"  * Mean Agent Pruning Rate: {avg_apr:.1f}% APR (DyLAN EMNLP '24 metric)")
         print(f"  * Mean Critical Path:      {avg_lcrit:.1f} sequential hops (GEMMAS/CARD latency proxy)")
         print(f"  * Mean Pareto Net Utility: {avg_utility:.3f} (GPTSwarm ICML '24 metric)")
         print(f"  * Mean Capability Coverage:{avg_coverage:.1f}%")
         print(f"  * Pareto Optimality Rate:  {optimal_count}/{len(final_ep_metrics)} ({optimal_pct:.1f}% OPTIMAL topologies)")
         print(f"  * Active RL Hit Rate:      {rl_hits}/{len(final_ep_metrics)} ({rl_hit_rate:.1f}% instant zero-LLM adaptations, 0 tokens, <1ms)")
+        print(f"  * Heuristic Fast Path:     {heuristic_bypass_count}/{len(final_ep_metrics)} ({heuristic_bypass_rate:.1f}% trivial task bypass, 0 tokens, <1ms)")
+        print(f"  * LLM Adapter Fallback:    {adapter_fallback_count}/{len(final_ep_metrics)} ({adapter_fallback_rate:.1f}% multi-step adapter calls)")
         print(f"  * Learned Q-table Memory:  {self.q_policy.q_table.num_state_action_pairs()} entries -> {self.q_table_path}")
         print(f"  * TensorBoard Dashboard:   tensorboard --logdir {self.log_base_dir}")
         print("=" * 122)
 
         summary_data = {
+            "summary_scope": "final_episode_with_cumulative",
             "episodes": self.episodes,
             "mode": self.mode,
             "session_mode": self.session_mode,
             "total_tasks": len(final_ep_metrics),
+            "final_episode": {
+                "episode": self.episodes,
+                "baseline_tokens": total_base_tokens,
+                "adapted_tokens": total_adapt_tokens,
+                "token_savings_pct": round(overall_token_savings, 2),
+                "baseline_cost_usd": round(total_base_cost, 5),
+                "adapted_cost_usd": round(total_adapt_cost, 5),
+                "cost_savings_pct": round(overall_cost_savings, 2),
+                "active_rl_hits": rl_hits,
+                "active_rl_hit_rate_pct": round(rl_hit_rate, 2),
+                "heuristic_bypass_count": heuristic_bypass_count,
+                "heuristic_bypass_rate_pct": round(heuristic_bypass_rate, 2),
+                "adapter_fallback_count": adapter_fallback_count,
+                "adapter_fallback_rate_pct": round(adapter_fallback_rate, 2),
+                "pareto_optimal_rate_pct": round(optimal_pct, 2),
+                "mean_agent_pruning_rate_pct": round(avg_apr, 2),
+                "mean_critical_path_length": round(avg_lcrit, 2),
+                "mean_pareto_net_utility": round(avg_utility, 3),
+                "mean_capability_coverage_pct": round(avg_coverage, 2),
+            },
+            "cumulative": {
+                "total_episodes": self.episodes,
+                "total_task_runs": len(self.metrics),
+                "cumulative_baseline_tokens": cum_base_tokens,
+                "cumulative_adapted_tokens": cum_adapt_tokens,
+                "cumulative_token_savings_pct": round(cum_token_savings, 2),
+                "mean_episode_adapted_tokens": round(cum_adapt_tokens / max(1, self.episodes), 1),
+                "cumulative_baseline_cost_usd": round(cum_base_cost, 5),
+                "cumulative_adapted_cost_usd": round(cum_adapt_cost, 5),
+                "cumulative_cost_savings_pct": round(cum_cost_savings, 2),
+            },
+            "per_episode_breakdown": per_ep_dict,
+            # Backward-compatible root fields (reflecting final episode convergence)
             "total_baseline_tokens": total_base_tokens,
             "total_adapted_tokens": total_adapt_tokens,
             "token_savings_pct": round(overall_token_savings, 2),
@@ -751,6 +853,9 @@ class MultiTaskBenchmarkSuite:
             "mean_capability_coverage_pct": round(avg_coverage, 2),
             "pareto_optimal_rate_pct": round(optimal_pct, 2),
             "active_rl_hit_rate_pct": round(rl_hit_rate, 2),
+            "active_rl_hits": rl_hits,
+            "heuristic_bypass_count": heuristic_bypass_count,
+            "adapter_fallback_count": adapter_fallback_count,
             "q_table_entries": self.q_policy.q_table.num_state_action_pairs(),
         }
 

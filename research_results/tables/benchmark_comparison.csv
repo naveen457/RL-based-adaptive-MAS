@@ -1,0 +1,19 @@
+task_id,task_name,category,baseline_tokens,adapted_tokens,token_reduction_pct,baseline_cost_usd,adapted_cost_usd,cost_reduction_pct,active_agents,agent_pruning_rate_pct,critical_path_length,capability_coverage_pct,net_utility,classification
+greet-001,Simple Greeting,greeting,3500,1450,58.57,0.00525,0.00217,58.67,2,66.7,2,100.0,0.93,optimal
+greet-002,System Introduction,greeting,3500,1450,58.57,0.00525,0.00217,58.67,2,66.7,2,100.0,0.93,optimal
+greet-003,Inspirational Quote,greeting,3500,1450,58.57,0.00525,0.00217,58.67,2,66.7,2,100.0,0.93,optimal
+math-001,Compound Interest,math,3500,2250,35.71,0.00525,0.00337,35.81,3,50.0,3,100.0,0.85,optimal
+math-002,Quadratic Roots,math,3500,2250,35.71,0.00525,0.00337,35.81,3,50.0,3,100.0,0.85,optimal
+math-003,Probability Analysis,math,3500,2250,35.71,0.00525,0.00337,35.81,3,50.0,3,100.0,0.85,optimal
+code-001,IPv4 Address Validator,coding,3500,2250,35.71,0.00525,0.00337,35.81,3,50.0,3,100.0,0.85,optimal
+code-002,Thread-Safe LRU Cache,coding,3500,3050,12.86,0.00525,0.00458,12.76,4,33.3,4,100.0,0.77,optimal
+code-003,Longest Palindrome,coding,3500,2250,35.71,0.00525,0.00337,35.81,3,50.0,3,100.0,0.85,optimal
+res-001,Transformer vs Mamba SSM,research,3500,2250,35.71,0.00525,0.00337,35.81,3,50.0,3,100.0,0.85,optimal
+res-002,Zero-Knowledge SNARKs,research,3500,2250,35.71,0.00525,0.00337,35.81,3,50.0,3,100.0,0.85,optimal
+res-003,Raft Consensus Protocol,research,3500,2250,35.71,0.00525,0.00337,35.81,3,50.0,3,100.0,0.85,optimal
+web-001,AI Weekly Breakthroughs,web_search,3500,2250,35.71,0.00525,0.00337,35.81,3,50.0,3,100.0,0.85,optimal
+web-002,NASA Mars Exploration,web_search,3500,2250,35.71,0.00525,0.00337,35.81,3,50.0,3,100.0,0.85,optimal
+web-003,Global Climate Summits,web_search,3500,2250,35.71,0.00525,0.00337,35.81,3,50.0,3,100.0,0.85,optimal
+cross-001,Multiplayer Chess Platform,cross_domain,3500,2250,35.71,0.00525,0.00337,35.81,3,50.0,3,33.3,0.1833,under_engineered
+cross-002,Smart Contract Security Audit,cross_domain,3500,2900,17.14,0.00525,0.00435,17.14,4,33.3,3,66.7,0.4667,under_engineered
+cross-003,ML Data Drift Pipeline,cross_domain,3500,2900,17.14,0.00525,0.00435,17.14,4,33.3,3,100.0,0.8,optimal
