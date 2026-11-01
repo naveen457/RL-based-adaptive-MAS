@@ -1,0 +1,17 @@
+\begin{table*}[!t]
+\centering
+\caption{Ablation and Structural Action Space Actionability Analysis}
+\label{tab:action_space_ablation}
+\footnotesize
+\begin{tabular}{lp{3.5cm}p{4.2cm}p{4.5cm}}
+\toprule
+\textbf{Task Category} & \textbf{Required Target Capability} & \textbf{Permitted Action Space $\mathcal{A}_{\mathrm{valid}}$} & \textbf{Observed Empirical Effect \& Diagnosis} \\
+\midrule
+\texttt{task-analysis-001} & \texttt{analysis, planning} & \texttt{role\_options=['analysis', 'planning']} & Valid actions reachable; agent configuration pre-optimized at initialization ($Q=0.60$), yielding $\Delta Q = 0.00$. \\
+\texttt{task-coding-001} & \texttt{code, verification} & \texttt{role\_options=['analysis', 'planning']} & \textbf{Action mismatch:} Coder role cannot be restored via change\_role; $\epsilon$-exploration deactivated critical coding nodes ($1.00 \to 0.60$). \\
+\texttt{task-research-001} & \texttt{research, synthesis} & \texttt{role\_options=['analysis', 'planning']} & \textbf{Severe structural ceiling:} Researcher role completely absent from permitted roles, locking score at $0.00$ ($\Delta Q = 0.00$). \\
+\texttt{task-research-002} & \texttt{research, synthesis} & \texttt{role\_options=['analysis', 'planning']} & \textbf{Role missing:} Planner active ($0.60$) but Researcher cannot be reassigned; no valid mutation increases reward ($\Delta Q = 0.00$). \\
+\texttt{task-summarization-001} & \texttt{synthesis, context} & \texttt{role\_options=['analysis', 'planning']} & Shared policy learned protective inertia ($0.60$), while fresh policy randomly mutated finalizer in 20\% of seeds ($0.48$). \\
+\bottomrule
+\end{tabular}
+\end{table*}

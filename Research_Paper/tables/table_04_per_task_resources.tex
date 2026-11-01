@@ -1,0 +1,32 @@
+\begin{table*}[!t]
+\centering
+\caption{Per-Task Resource Consumption and Efficiency Comparison (Canonical Episode 2)}
+\label{tab:per_task_resources}
+\footnotesize
+\begin{tabular}{llcccccc}
+\toprule
+\textbf{Task ID} & \textbf{Category} & \textbf{Base Tokens} & \textbf{Adapted Tokens} & \textbf{Token Savings} & \textbf{Base Cost (\$) } & \textbf{Adapted Cost (\$) } & \textbf{Selection Engine} \\
+\midrule
+\texttt{greet-001} & Greeting & 3,500 & 1,450 & $+58.57\%$ & \$0.00525 & \$0.00218 & LLM Fallback \\
+\texttt{greet-002} & Greeting & 3,500 & 1,450 & $+58.57\%$ & \$0.00525 & \$0.00218 & Active RL Hit \\
+\texttt{greet-003} & Greeting & 3,500 & 1,450 & $+58.57\%$ & \$0.00525 & \$0.00218 & Active RL Hit \\
+\texttt{math-001} & Mathematics & 3,500 & 2,250 & $+35.71\%$ & \$0.00525 & \$0.00338 & Active RL Hit \\
+\texttt{math-002} & Mathematics & 3,500 & 2,250 & $+35.71\%$ & \$0.00525 & \$0.00338 & Active RL Hit \\
+\texttt{math-003} & Mathematics & 3,500 & 2,250 & $+35.71\%$ & \$0.00525 & \$0.00338 & Active RL Hit \\
+\texttt{code-001} & Coding & 3,500 & 2,250 & $+35.71\%$ & \$0.00525 & \$0.00338 & Active RL Hit \\
+\texttt{code-002} & Coding & 3,500 & 3,050 & $+12.86\%$ & \$0.00525 & \$0.00458 & LLM Fallback \\
+\texttt{code-003} & Coding & 3,500 & 2,250 & $+35.71\%$ & \$0.00525 & \$0.00338 & Active RL Hit \\
+\texttt{res-001} & Research & 3,500 & 2,250 & $+35.71\%$ & \$0.00525 & \$0.00338 & Active RL Hit \\
+\texttt{res-002} & Research & 3,500 & 2,250 & $+35.71\%$ & \$0.00525 & \$0.00338 & Active RL Hit \\
+\texttt{res-003} & Research & 3,500 & 2,250 & $+35.71\%$ & \$0.00525 & \$0.00338 & Active RL Hit \\
+\texttt{web-001} & Web Search & 3,500 & 2,250 & $+35.71\%$ & \$0.00525 & \$0.00338 & Active RL Hit \\
+\texttt{web-002} & Web Search & 3,500 & 2,250 & $+35.71\%$ & \$0.00525 & \$0.00338 & Active RL Hit \\
+\texttt{web-003} & Web Search & 3,500 & 2,250 & $+35.71\%$ & \$0.00525 & \$0.00338 & Active RL Hit \\
+\texttt{cross-001} & Cross-Domain & 3,500 & 2,250 & $+35.71\%$ & \$0.00525 & \$0.00338 & LLM Fallback \\
+\texttt{cross-002} & Cross-Domain & 3,500 & 2,900 & $+17.14\%$ & \$0.00525 & \$0.00435 & LLM Fallback \\
+\texttt{cross-003} & Cross-Domain & 3,500 & 2,900 & $+17.14\%$ & \$0.00525 & \$0.00435 & LLM Fallback \\
+\midrule
+\textbf{Total / Summary} & --- & \textbf{63,000} & \textbf{40,200} & $\mathbf{+36.19\%}$ & \textbf{\$0.09450} & \textbf{\$0.06023} & \textbf{72.2\% Active RL Hit Rate} \\
+\bottomrule
+\end{tabular}
+\end{table*}

@@ -1,0 +1,41 @@
+\begin{table*}[!t]
+\centering
+\caption{Task-Conditioned Neural Cross-Task Fast Adaptation Across 5 Held-Out Tasks (5 Random Seeds)}
+\label{tab:neural_adaptation}
+\footnotesize
+\begin{tabular}{llcccc}
+\toprule
+\textbf{Held-Out Task} & \textbf{Policy Architecture} & \textbf{Initial Perf. $Q_{\mathrm{before}}$} & \textbf{Final Perf. $Q_{\mathrm{after}}$} & \textbf{Adaptation Gain $\Delta Q$} & \textbf{Destructive Rate} \\
+\midrule
+\multirow{4}{*}{\texttt{task-analysis-001}} 
+& Shared Meta-Policy (Pretrained) & $0.6000$ & $0.6000 \pm 0.0000$ & $+0.0000 \pm 0.0000$ & $0.0\%$ \\
+& Fresh Scratch Policy & $0.6000$ & $0.6000 \pm 0.0000$ & $+0.0000 \pm 0.0000$ & $0.0\%$ \\
+& Deterministic Baseline & $0.6000$ & $0.6000 \pm 0.0000$ & $+0.0000 \pm 0.0000$ & $0.0\%$ \\
+& Random Policy & $0.6000$ & $0.6000 \pm 0.0000$ & $+0.0000 \pm 0.0000$ & $0.0\%$ \\
+\midrule
+\multirow{4}{*}{\texttt{task-coding-001}} 
+& Shared Meta-Policy (Pretrained) & $1.0000$ & $0.6000 \pm 0.0000$ & $-0.4000 \pm 0.0000$ & $100.0\%$ \\
+& Fresh Scratch Policy & $1.0000$ & $0.9200 \pm 0.1789$ & $-0.0800 \pm 0.1789$ & $20.0\%$ \\
+& Deterministic Baseline & $1.0000$ & $1.0000 \pm 0.0000$ & $+0.0000 \pm 0.0000$ & $0.0\%$ \\
+& Random Policy & $1.0000$ & $0.7600 \pm 0.2191$ & $-0.2400 \pm 0.2191$ & $60.0\%$ \\
+\midrule
+\multirow{4}{*}{\texttt{task-research-001}} 
+& Shared Meta-Policy (Pretrained) & $0.0000$ & $0.0000 \pm 0.0000$ & $+0.0000 \pm 0.0000$ & $0.0\%$ \\
+& Fresh Scratch Policy & $0.0000$ & $0.0000 \pm 0.0000$ & $+0.0000 \pm 0.0000$ & $0.0\%$ \\
+& Deterministic Baseline & $1.0000$ & $1.0000 \pm 0.0000$ & $+0.0000 \pm 0.0000$ & $0.0\%$ \\
+& Random Policy & $0.0000$ & $0.0000 \pm 0.0000$ & $+0.0000 \pm 0.0000$ & $0.0\%$ \\
+\midrule
+\multirow{4}{*}{\texttt{task-research-002}} 
+& Shared Meta-Policy (Pretrained) & $0.6000$ & $0.6000 \pm 0.0000$ & $+0.0000 \pm 0.0000$ & $0.0\%$ \\
+& Fresh Scratch Policy & $0.6000$ & $0.6000 \pm 0.0000$ & $+0.0000 \pm 0.0000$ & $0.0\%$ \\
+& Deterministic Baseline & $1.0000$ & $1.0000 \pm 0.0000$ & $+0.0000 \pm 0.0000$ & $0.0\%$ \\
+& Random Policy & $0.6000$ & $0.6000 \pm 0.0000$ & $+0.0000 \pm 0.0000$ & $0.0\%$ \\
+\midrule
+\multirow{4}{*}{\texttt{task-summarization-001}} 
+& Shared Meta-Policy (Pretrained) & $0.6000$ & $0.6000 \pm 0.0000$ & $+0.0000 \pm 0.0000$ & $0.0\%$ \\
+& Fresh Scratch Policy & $0.6000$ & $0.4800 \pm 0.2683$ & $-0.1200 \pm 0.2683$ & $20.0\%$ \\
+& Deterministic Baseline & $1.0000$ & $1.0000 \pm 0.0000$ & $+0.0000 \pm 0.0000$ & $0.0\%$ \\
+& Random Policy & $0.6000$ & $0.6000 \pm 0.0000$ & $+0.0000 \pm 0.0000$ & $0.0\%$ \\
+\bottomrule
+\end{tabular}
+\end{table*}

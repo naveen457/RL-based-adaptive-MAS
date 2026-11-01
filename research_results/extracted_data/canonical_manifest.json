@@ -1,0 +1,54 @@
+{
+  "canonical_experiments": [
+    {
+      "name": "Contribution 2: Dynamic Multi-Agent Architecture Adaptation (Runtime Q-Learning)",
+      "session_id": "session_20261101_115443",
+      "source_path": "runs/benchmark/session_20261101_115443/metrics.jsonl",
+      "sha256": "6d7c722bd1d191eabc4f7280f1df9c6cd757c7b1f27441bb7e35e448f6d201b1",
+      "tasks": 18,
+      "episodes": 2,
+      "seeds": 42,
+      "mode": "mock_proxy",
+      "measurement_status": "simulated_dag_token_proxy",
+      "key_metrics": {
+        "token_savings_pct": 36.19,
+        "cost_savings_pct": 36.26,
+        "active_agents_mean": 3.0,
+        "apr_pool6_active_pct": 50.0,
+        "apr_base5_active_pct": 40.0,
+        "apr_pool6_invoked_pct": 40.74,
+        "critical_path_hops": 2.89,
+        "capability_coverage_pct": 94.44,
+        "pareto_net_utility": 0.798,
+        "active_rl_hit_rate_pct": 72.22
+      }
+    },
+    {
+      "name": "Contribution 1: Task-Conditioned Neural Cross-Task Fast Adaptation",
+      "source_path": "data/multi_task_baseline_results.json",
+      "sha256": "5c64f964367d7875797f29bf295e339091800226c6ea2dfe73b3a2721019bbf3",
+      "held_out_tasks": 5,
+      "seeds": [
+        42,
+        101,
+        202,
+        303,
+        404
+      ],
+      "policies": [
+        "shared_meta_policy",
+        "fresh_scratch_policy",
+        "deterministic_baseline",
+        "random_policy"
+      ],
+      "adaptation_steps": 2,
+      "mode": "mock_neural_evaluator",
+      "measurement_status": "deterministic_jaccard_compatibility_proxy",
+      "key_findings": {
+        "mean_adaptation_gain": 0.0,
+        "cause": "Discrete action space restriction on role_options=['analysis', 'planning']",
+        "transfer_stability": "Shared policy maintained 0.60 on summarization while fresh policy had 20% destructive mutation rate (0.48)"
+      }
+    }
+  ]
+}

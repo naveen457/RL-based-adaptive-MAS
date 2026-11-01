@@ -1,0 +1,357 @@
+{
+  "manifest_metadata": {
+    "title": "Task-Adaptive Architecture Optimization for LLM MAS",
+    "generated_by": "scripts/recalculate_all_metrics.py",
+    "canonical_benchmark_session": "session_20261101_115443",
+    "canonical_neural_dataset": "data/multi_task_baseline_results.json",
+    "reproducibility_status": "fully_verified_offline"
+  },
+  "runtime_benchmark": {
+    "session_id": "session_20261101_115443",
+    "raw_metrics_file": "runs\\benchmark\\session_20261101_115443\\metrics.jsonl",
+    "sha256": "6d7c722bd1d191eabc4f7280f1df9c6cd757c7b1f27441bb7e35e448f6d201b1",
+    "episodes": 2,
+    "total_benchmark_tasks": 18,
+    "total_executions": 36,
+    "evaluation_mode": "mock_proxy",
+    "is_proxy": true,
+    "tokens": {
+      "baseline_total": 63000,
+      "adapted_total": 40200,
+      "reduction_pct": 36.19,
+      "mean_baseline": 3500.0,
+      "std_baseline": 0.0,
+      "mean_adapted": 2233.3333333333335,
+      "std_adapted": 447.21359549995793,
+      "paired_t_statistic": 12.016655108639842,
+      "degrees_of_freedom": 17,
+      "p_value": 9.851029575755065e-10
+    },
+    "cost_usd": {
+      "baseline_total": 0.0945,
+      "adapted_total": 0.0603,
+      "reduction_pct": 36.19
+    },
+    "architecture": {
+      "active_agents": {
+        "mean": 3.0,
+        "std": 0.5940885257860046,
+        "min": 2,
+        "max": 4
+      },
+      "invoked_agents": {
+        "mean": 3.5555555555555554,
+        "std": 1.0966377611066325,
+        "min": 2,
+        "max": 6
+      },
+      "agent_pruning_rate_pct": {
+        "active_vs_pool6_mean": 50.0,
+        "active_vs_pool6_std": 9.90147542976674,
+        "active_vs_base5_mean": 40.0,
+        "active_vs_base5_std": 11.881770515720092,
+        "invoked_vs_pool6_mean": 40.74074074074073,
+        "invoked_vs_pool6_std": 18.277296018443874,
+        "summary_json_reported_pct": 40.74
+      },
+      "critical_path_length": {
+        "mean": 2.888888888888889,
+        "std": 0.47140452079103173,
+        "baseline_hops": 5.0
+      },
+      "capability_coverage_pct": {
+        "mean": 94.44444444444444,
+        "std": 17.15023965609338,
+        "optimal_tasks_count": 16,
+        "optimal_tasks_pct": 88.89,
+        "under_engineered_tasks": [
+          "cross-001 (33.3%)",
+          "cross-002 (66.7%)"
+        ]
+      },
+      "pareto_net_utility": {
+        "mean": 0.6532,
+        "std": 0.11575107673238243,
+        "pareto_optimal_rate_pct": 88.89
+      },
+      "adaptation_engine": {
+        "active_rl_hits": 13,
+        "active_rl_hit_rate_pct": 72.22222222222221,
+        "adapter_fallbacks": 5,
+        "heuristic_bypass": 0
+      }
+    }
+  },
+  "neural_adaptation": {
+    "task-analysis-001": {
+      "shared_meta_policy": {
+        "sample_count": 5,
+        "initial_performance": 0.6,
+        "final_performance_mean": 0.6,
+        "final_performance_std": 0.0,
+        "adaptation_gain_mean": 0.0,
+        "adaptation_gain_std": 0.0,
+        "curve": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      },
+      "fresh_scratch_policy": {
+        "sample_count": 5,
+        "initial_performance": 0.6,
+        "final_performance_mean": 0.6,
+        "final_performance_std": 0.0,
+        "adaptation_gain_mean": 0.0,
+        "adaptation_gain_std": 0.0,
+        "curve": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      },
+      "deterministic_baseline": {
+        "sample_count": 5,
+        "initial_performance": 0.6,
+        "final_performance_mean": 0.6,
+        "final_performance_std": 0.0,
+        "adaptation_gain_mean": 0.0,
+        "adaptation_gain_std": 0.0,
+        "curve": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      },
+      "random_policy": {
+        "sample_count": 5,
+        "initial_performance": 0.6,
+        "final_performance_mean": 0.6,
+        "final_performance_std": 0.0,
+        "adaptation_gain_mean": 0.0,
+        "adaptation_gain_std": 0.0,
+        "curve": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      }
+    },
+    "task-coding-001": {
+      "shared_meta_policy": {
+        "sample_count": 5,
+        "initial_performance": 1.0,
+        "final_performance_mean": 0.6,
+        "final_performance_std": 0.0,
+        "adaptation_gain_mean": -0.4,
+        "adaptation_gain_std": 0.0,
+        "curve": [
+          1.0,
+          1.0,
+          0.6
+        ]
+      },
+      "fresh_scratch_policy": {
+        "sample_count": 5,
+        "initial_performance": 1.0,
+        "final_performance_mean": 0.92,
+        "final_performance_std": 0.178885,
+        "adaptation_gain_mean": -0.08,
+        "adaptation_gain_std": 0.178885,
+        "curve": [
+          1.0,
+          1.0,
+          0.92
+        ]
+      },
+      "deterministic_baseline": {
+        "sample_count": 5,
+        "initial_performance": 1.0,
+        "final_performance_mean": 1.0,
+        "final_performance_std": 0.0,
+        "adaptation_gain_mean": 0.0,
+        "adaptation_gain_std": 0.0,
+        "curve": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "random_policy": {
+        "sample_count": 5,
+        "initial_performance": 1.0,
+        "final_performance_mean": 0.76,
+        "final_performance_std": 0.219089,
+        "adaptation_gain_mean": -0.24,
+        "adaptation_gain_std": 0.219089,
+        "curve": [
+          1.0,
+          0.92,
+          0.76
+        ]
+      }
+    },
+    "task-research-001": {
+      "shared_meta_policy": {
+        "sample_count": 5,
+        "initial_performance": 0.0,
+        "final_performance_mean": 0.0,
+        "final_performance_std": 0.0,
+        "adaptation_gain_mean": 0.0,
+        "adaptation_gain_std": 0.0,
+        "curve": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "fresh_scratch_policy": {
+        "sample_count": 5,
+        "initial_performance": 0.0,
+        "final_performance_mean": 0.0,
+        "final_performance_std": 0.0,
+        "adaptation_gain_mean": 0.0,
+        "adaptation_gain_std": 0.0,
+        "curve": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "deterministic_baseline": {
+        "sample_count": 5,
+        "initial_performance": 1.0,
+        "final_performance_mean": 1.0,
+        "final_performance_std": 0.0,
+        "adaptation_gain_mean": 0.0,
+        "adaptation_gain_std": 0.0,
+        "curve": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "random_policy": {
+        "sample_count": 5,
+        "initial_performance": 0.0,
+        "final_performance_mean": 0.0,
+        "final_performance_std": 0.0,
+        "adaptation_gain_mean": 0.0,
+        "adaptation_gain_std": 0.0,
+        "curve": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "task-research-002": {
+      "shared_meta_policy": {
+        "sample_count": 5,
+        "initial_performance": 0.6,
+        "final_performance_mean": 0.6,
+        "final_performance_std": 0.0,
+        "adaptation_gain_mean": 0.0,
+        "adaptation_gain_std": 0.0,
+        "curve": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      },
+      "fresh_scratch_policy": {
+        "sample_count": 5,
+        "initial_performance": 0.6,
+        "final_performance_mean": 0.6,
+        "final_performance_std": 0.0,
+        "adaptation_gain_mean": 0.0,
+        "adaptation_gain_std": 0.0,
+        "curve": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      },
+      "deterministic_baseline": {
+        "sample_count": 5,
+        "initial_performance": 1.0,
+        "final_performance_mean": 1.0,
+        "final_performance_std": 0.0,
+        "adaptation_gain_mean": 0.0,
+        "adaptation_gain_std": 0.0,
+        "curve": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "random_policy": {
+        "sample_count": 5,
+        "initial_performance": 0.6,
+        "final_performance_mean": 0.6,
+        "final_performance_std": 0.0,
+        "adaptation_gain_mean": 0.0,
+        "adaptation_gain_std": 0.0,
+        "curve": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      }
+    },
+    "task-summarization-001": {
+      "shared_meta_policy": {
+        "sample_count": 5,
+        "initial_performance": 0.6,
+        "final_performance_mean": 0.6,
+        "final_performance_std": 0.0,
+        "adaptation_gain_mean": 0.0,
+        "adaptation_gain_std": 0.0,
+        "curve": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      },
+      "fresh_scratch_policy": {
+        "sample_count": 5,
+        "initial_performance": 0.6,
+        "final_performance_mean": 0.48,
+        "final_performance_std": 0.268328,
+        "adaptation_gain_mean": -0.12,
+        "adaptation_gain_std": 0.268328,
+        "curve": [
+          0.6,
+          0.6,
+          0.48
+        ]
+      },
+      "deterministic_baseline": {
+        "sample_count": 5,
+        "initial_performance": 1.0,
+        "final_performance_mean": 1.0,
+        "final_performance_std": 0.0,
+        "adaptation_gain_mean": 0.0,
+        "adaptation_gain_std": 0.0,
+        "curve": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "random_policy": {
+        "sample_count": 5,
+        "initial_performance": 0.6,
+        "final_performance_mean": 0.6,
+        "final_performance_std": 0.0,
+        "adaptation_gain_mean": 0.0,
+        "adaptation_gain_std": 0.0,
+        "curve": [
+          0.6,
+          0.6,
+          0.6
+        ]
+      }
+    }
+  }
+}

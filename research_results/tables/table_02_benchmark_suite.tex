@@ -1,0 +1,41 @@
+\begin{table*}[!t]
+\centering
+\caption{Evaluation Benchmark Suite: 18 Tasks Across Six Functional Domains}
+\label{tab:benchmark_suite}
+\footnotesize
+\begin{tabular}{llccclp{4.5cm}}
+\toprule
+\textbf{Domain / Category} & \textbf{Task ID} & \textbf{Diff.} & \textbf{Base Tok.} & \textbf{Base Hops} & \textbf{Required Capabilities} & \textbf{Functional Description} \\
+\midrule
+\multirow{3}{*}{Greeting / Chit-Chat} 
+& \texttt{greet-001} & 1 & 3500 & 5 & \texttt{conversational} & Casual greeting and tone calibration \\
+& \texttt{greet-002} & 1 & 3500 & 5 & \texttt{conversational} & System identity and persona query \\
+& \texttt{greet-003} & 1 & 3500 & 5 & \texttt{conversational} & Simple assistance readiness query \\
+\midrule
+\multirow{3}{*}{Mathematical Reasoning} 
+& \texttt{math-001} & 2 & 3500 & 5 & \texttt{calculation, reasoning} & Multi-step modular arithmetic computation \\
+& \texttt{math-002} & 3 & 3500 & 5 & \texttt{calculation, reasoning} & Symbolic algebraic equation solving \\
+& \texttt{math-003} & 2 & 3500 & 5 & \texttt{calculation, reasoning} & Discrete probability and combinatorics \\
+\midrule
+\multirow{3}{*}{Coding \& Data Structures} 
+& \texttt{code-001} & 2 & 3500 & 5 & \texttt{coding, planning} & Binary search tree balancing implementation \\
+& \texttt{code-002} & 4 & 3500 & 5 & \texttt{coding, verification} & Concurrent asynchronous task queue \\
+& \texttt{code-003} & 3 & 3500 & 5 & \texttt{coding, planning} & LRU cache with $\mathcal{O}(1)$ operations \\
+\midrule
+\multirow{3}{*}{Information Research} 
+& \texttt{res-001} & 3 & 3500 & 5 & \texttt{research, synthesis} & Comparative survey of transformer architectures \\
+& \texttt{res-002} & 3 & 3500 & 5 & \texttt{research, synthesis} & Quantum computing hardware platforms analysis \\
+& \texttt{res-003} & 4 & 3500 & 5 & \texttt{research, synthesis} & Post-quantum cryptographic algorithms survey \\
+\midrule
+\multirow{3}{*}{Live Web Retrieval} 
+& \texttt{web-001} & 2 & 3500 & 5 & \texttt{retrieval, summary} & Current international space mission updates \\
+& \texttt{web-002} & 3 & 3500 & 5 & \texttt{retrieval, summary} & Recent global economic indicators and trends \\
+& \texttt{web-003} & 2 & 3500 & 5 & \texttt{retrieval, summary} & Renewable energy adoption statistics \\
+\midrule
+\multirow{3}{*}{Cross-Domain Multi-Stage} 
+& \texttt{cross-001} & 4 & 3500 & 5 & \texttt{research, code, verify} & Cryptographic hashing benchmark and report \\
+& \texttt{cross-002} & 5 & 3500 & 5 & \texttt{research, code, verify} & High-frequency arbitrage trading model \\
+& \texttt{cross-003} & 5 & 3500 & 5 & \texttt{research, code, verify} & Genomic sequence alignment pipeline in Rust \\
+\bottomrule
+\end{tabular}
+\end{table*}

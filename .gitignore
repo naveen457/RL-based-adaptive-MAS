@@ -1,24 +1,61 @@
+# Python & Virtual Environments
 .venv/
 .env
-runs/
+.env.local
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
 .pytest_cache/
-.vscode/
-.idea/
-*.pptx
-docs
-# Logs & coverage
-*.log
 .coverage
 htmlcov/
-# Build & packaging
+
+# Build & Packaging
 dist/
 build/
 *.egg-info/
-# OS metadata
+*.egg
+
+# IDE & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS Metadata
 Thumbs.db
+Desktop.ini
 .DS_Store
-ROADMAP.md
+
+# Dynamic Runtime Logs & Telemetry
+runs/
 data/threads/
-scripts/
+*.log
+
+# Caches
+scratch/mpl_cache/
+.cache/
+
+# LaTeX Intermediate Build Artifacts
+*.aux
+*.bbl
+*.blg
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.toc
+*.lof
+*.lot
+*.out
+*.nav
+*.snm
+*.vrb
+*.bcf
+*.run.xml
+
+# Presentation drafts & docs
+*.pptx
+docs/
+ROADMAP.md
+
+# Downloaded reference survey papers (102 MB of external PDFs)
+Research/Research_Paper/*.pdf
