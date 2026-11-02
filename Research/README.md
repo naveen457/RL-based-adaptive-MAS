@@ -23,7 +23,11 @@
   - `figure_07_neural_stability_seeds`: 25 individual seed observations & stability.
   - `figure_08_action_distribution`: Adaptation decision breakdown & mutation families.
   - `figure_09_runtime_overhead`: Dynamic LangGraph compilation & construction latency.
-- `tables/`: 7 modular LaTeX table files (`table_01_*.tex` through `table_07_*.tex`).
+- `tables/`: 4 focused, consolidated LaTeX table files:
+  - `table_01_literature_comparison.tex`: Comparative analysis across frameworks (dimensions in rows).
+  - `table_02_domain_performance.tex`: Domain-level architectural metrics and empirical live NIM results.
+  - `table_03_per_task_resources.tex`: Granular per-task live token and cost measurements.
+  - `table_04_action_space_ablation.tex`: Diagnostic action space ablation analysis.
 - `supplementary/`: Canonical benchmark episode 2 CSV and source-of-truth manifest JSON.
 
 ---

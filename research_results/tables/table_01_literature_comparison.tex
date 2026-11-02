@@ -1,19 +1,21 @@
 \begin{table*}[!t]
 \centering
-\caption{Systematic Comparison with Related Dynamic Multi-Agent Architectures}
+\caption{Systematic Comparison with Related Dynamic Multi-Agent Architectures (Features in Rows, Frameworks in Columns)}
 \label{tab:literature_comparison}
 \footnotesize
-\begin{tabular}{lp{3.2cm}p{2.8cm}p{2.8cm}cp{3.0cm}}
+\begin{tabular}{lp{2.1cm}p{2.1cm}p{2.1cm}p{2.1cm}p{2.1cm}p{3.2cm}}
 \toprule
-\textbf{System / Framework} & \textbf{Adaptation Mechanism} & \textbf{Search / Decision Overhead} & \textbf{Graph Topology Representation} & \textbf{Cross-Task Transfer} & \textbf{Primary Published Metric} \\
+\textbf{Feature / Dimension} & \textbf{DyLAN}~\cite{liu2024dylan} & \textbf{GPTSwarm}~\cite{zhuge2024gptswarm} & \textbf{AFlow}~\cite{zhang2024aflow} & \textbf{MaAS}~\cite{Zhang2025MaAS} & \textbf{CARD}~\cite{Li2025AdaptiveGraphPruning} & \textbf{AMAS (Ours)} \\
 \midrule
-\textbf{DyLAN}~\cite{liu2026llm} & Unsupervised peer rating & Multi-round deliberation ($\mathcal{O}(N^2)$ LLM calls) & Layered feed-forward agent stack & No & 25.0--40.0\% agent pruning, 15--25\% token reduction \\
-\textbf{GPTSwarm}~\cite{qiu2025reinforcement} & Policy gradient on graph weights & High iterative prompts per edge update & Adjacency matrix with learned edge weights & Limited & +12.4\% utility improvement on GAIA / GSM8K \\
-\textbf{AFlow}~\cite{wang2026neuralfsm} & Monte Carlo Tree Search (MCTS) & Very high (15--30 exploratory rollouts) & Executable Python code workflow & No & +5.7\% accuracy across 6 reasoning benchmarks \\
-\textbf{MaAS}~\cite{Zhang2025MaAS} & Multi-objective evolutionary search & Offline multi-generation population search & Role DAG with specialist assignments & Offline & 18.0--32.0\% token reduction vs full-team baseline \\
-\textbf{CARD}~\cite{Li2025AdaptiveGraphPruning} & Contextual bandit dynamic routing & Low ($<10$\,ms routing computation) & Dynamic routing DAG & Tabular & Critical path $5.0 \to 2.8$ hops ($-44\%$ latency) \\
+\textbf{Adaptation Method} & Peer rating & Graph policy grad. & MCTS rollout & Genetic search & Contextual bandit & \textbf{Q-Learning + Neural Policy} \\
+\textbf{Decision Latency} & $\mathcal{O}(N^2)$ LLM calls & Iterative LLM prompts & 15--30 rollouts & Offline evolution & $<10$\,ms routing & \textbf{$<1$\,ms Q-hit (0 tokens)} \\
+\textbf{Workflow Compilation} & Layered agent stack & Continuous edge weights & Python code scripts & Static specialist DAG & Routing DAG & \textbf{LangGraph StateGraph DAG} \\
+\textbf{Active Agent Pruning} & 25--40\% & None (fixed team) & None (fixed team) & 18--32\% & None (full team) & \textbf{50.0\% (Pool 6) / 40.0\% (Base 5)} \\
+\textbf{Critical Path Reduction} & None & None & Variable & None & 44.0\% ($5.0 \to 2.8$) & \textbf{42.2\% ($5.0 \to 2.89$ hops)} \\
+\textbf{Empirical Token Savings} & 15--25\% & Negative (utility focus) & Negative (MCTS cost) & 18--32\% & Not reported & \textbf{+60.46\% (Live NIM)} \\
+\textbf{Cross-Task Transfer} & No & Task-specific & No & No & Tabular only & \textbf{Evaluated on 5 held-out tasks} \\
 \midrule
-\textbf{AMAS (Ours)} & \textbf{Active Tabular Q-Learning + Task-Conditioned Neural Meta-Policy} & \textbf{Zero LLM overhead ($<1$\,ms, 0 tokens)} for Q-hits; sub-15\,ms LangGraph compilation & \textbf{Dynamic LangGraph StateGraph DAG} with cycle validation & \textbf{Evaluated on 5 held-out tasks} & \textbf{50.0\% active APR, 2.89 $L_{\mathrm{crit}}$ hops, 36.19\% token savings} ($p = 9.85 \times 10^{-10}$) \\
+\textbf{Primary Limitation} & Deliberation token blowup & High training sample cost & Search latency per query & Static offline deployment & Heuristic bandit only & \textbf{Restricted action space ($\Delta Q = 0$ on 3 tasks); under-engineering on cross-domain} \\
 \bottomrule
 \end{tabular}
 \end{table*}

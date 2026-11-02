@@ -1,5 +1,5 @@
 """
-Package Overleaf Paper Bundle and synchronize Research/ and Research_Paper/.
+Package Overleaf Paper Bundle from Research/.
 """
 
 import shutil
@@ -7,37 +7,21 @@ import zipfile
 from pathlib import Path
 
 res_dir = Path("Research")
-paper_dir = Path("Research_Paper")
 
 # Ensure subdirectories
-for d in [res_dir, paper_dir]:
-    (d / "figures").mkdir(parents=True, exist_ok=True)
-    (d / "tables").mkdir(parents=True, exist_ok=True)
-    (d / "sections").mkdir(parents=True, exist_ok=True)
-    (d / "supplementary").mkdir(parents=True, exist_ok=True)
+(res_dir / "figures").mkdir(parents=True, exist_ok=True)
+(res_dir / "tables").mkdir(parents=True, exist_ok=True)
+(res_dir / "sections").mkdir(parents=True, exist_ok=True)
+(res_dir / "supplementary").mkdir(parents=True, exist_ok=True)
 
-# Copy references.bib to both
-bib_src = res_dir / "references.bib"
-shutil.copy2(bib_src, paper_dir / "references.bib")
-
-# Copy all figures to Research_Paper/figures
-for fig_f in (res_dir / "figures").glob("*.*"):
-    shutil.copy2(fig_f, paper_dir / "figures" / fig_f.name)
-
-# Copy all tables to Research_Paper/tables
-for tab_f in (res_dir / "tables").glob("*.tex"):
-    shutil.copy2(tab_f, paper_dir / "tables" / tab_f.name)
-
-# Copy canonical CSVs to supplementary in both
+# Copy canonical CSVs to supplementary
 sup_src = Path("research_results/extracted_data/canonical_benchmark_episode2.csv")
 if sup_src.exists():
     shutil.copy2(sup_src, res_dir / "supplementary" / "canonical_benchmark_episode2.csv")
-    shutil.copy2(sup_src, paper_dir / "supplementary" / "canonical_benchmark_episode2.csv")
 
 manifest_src = Path("research_results/extracted_data/canonical_manifest.json")
 if manifest_src.exists():
     shutil.copy2(manifest_src, res_dir / "supplementary" / "canonical_manifest.json")
-    shutil.copy2(manifest_src, paper_dir / "supplementary" / "canonical_manifest.json")
 
 # Create README.md in both
 readme_content = """# Task-Adaptive Architecture Optimization for LLM Multi-Agent Systems
@@ -65,7 +49,11 @@ readme_content = """# Task-Adaptive Architecture Optimization for LLM Multi-Agen
   - `figure_07_neural_stability_seeds`: 25 individual seed observations & stability.
   - `figure_08_action_distribution`: Adaptation decision breakdown & mutation families.
   - `figure_09_runtime_overhead`: Dynamic LangGraph compilation & construction latency.
-- `tables/`: 7 modular LaTeX table files (`table_01_*.tex` through `table_07_*.tex`).
+- `tables/`: 4 focused, consolidated LaTeX table files:
+  - `table_01_literature_comparison.tex`: Comparative analysis across frameworks (dimensions in rows).
+  - `table_02_domain_performance.tex`: Domain-level architectural metrics and empirical live NIM results.
+  - `table_03_per_task_resources.tex`: Granular per-task live token and cost measurements.
+  - `table_04_action_space_ablation.tex`: Diagnostic action space ablation analysis.
 - `supplementary/`: Canonical benchmark episode 2 CSV and source-of-truth manifest JSON.
 
 ---
@@ -98,7 +86,6 @@ python scripts/build_complete_paper.py
 """
 
 (res_dir / "README.md").write_text(readme_content.strip() + "\n", encoding="utf-8")
-(paper_dir / "README.md").write_text(readme_content.strip() + "\n", encoding="utf-8")
 
 # Create Overleaf Zip Bundle
 zip_path = res_dir / "Overleaf_Paper_Bundle.zip"
@@ -119,8 +106,5 @@ with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
     for f in (res_dir / "supplementary").glob("*.*"):
         zipf.write(f, arcname=f"supplementary/{f.name}")
 
-# Also copy zip to Research_Paper
-shutil.copy2(zip_path, paper_dir / "Overleaf_Paper_Bundle.zip")
-
-print(f"Created {zip_path} and synced Research/ and Research_Paper/ successfully!")
+print(f"Created {zip_path} successfully!")
 
