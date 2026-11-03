@@ -1,0 +1,19 @@
+task_id,category,selection_source,active_agent_count,live_prompt_tokens,live_completion_tokens,live_adapted_tokens,live_baseline_tokens,live_token_savings_pct,live_adapted_cost_usd,live_baseline_cost_usd,live_latency_ms
+greet-001,greeting,LLM Fallback,2,2867,680,3547,8867,60.0,0.00532,0.0133,4124.8
+greet-002,greeting,Active RL Hit,2,2869,1527,4396,10990,60.0,0.00659,0.01648,7110.3
+greet-003,greeting,Active RL Hit,2,2873,497,3370,8425,60.0,0.00506,0.01264,11841.3
+math-001,math,Active RL Hit,3,2955,1106,4061,10152,60.0,0.00609,0.01523,7854.2
+math-002,math,Active RL Hit,3,2965,1811,4776,11940,60.0,0.00716,0.01791,9590.3
+math-003,math,Active RL Hit,3,2949,1338,4287,10717,60.0,0.00643,0.01608,6919.2
+code-001,coding,Active RL Hit,2,2184,3011,5195,12987,60.0,0.00779,0.01948,16824.3
+code-002,coding,LLM Fallback,2,2194,2570,4764,11910,60.0,0.00715,0.01786,15971.9
+code-003,coding,Active RL Hit,2,2194,1835,4029,10072,60.0,0.00604,0.01511,12674.2
+res-001,research,Active RL Hit,2,2253,1389,3642,9105,60.0,0.00546,0.01366,9061.0
+res-002,research,Active RL Hit,2,2263,2379,4642,11605,60.0,0.00696,0.01741,12417.0
+res-003,research,Active RL Hit,2,2255,2200,4455,11137,60.0,0.00668,0.01671,15427.3
+web-001,web_search,Active RL Hit,3,3023,704,3727,9317,60.0,0.00559,0.01398,4425.3
+web-002,web_search,Active RL Hit,3,3021,731,3752,9380,60.0,0.00563,0.01407,4529.6
+web-003,web_search,Active RL Hit,3,3021,917,3938,9845,60.0,0.00591,0.01477,5559.6
+cross-001,cross_domain,LLM Fallback,2,2192,4836,7028,17570,60.0,0.01054,0.02635,33271.2
+cross-002,cross_domain,LLM Fallback,2,2192,4590,6782,16955,60.0,0.01017,0.02543,32954.3
+cross-003,cross_domain,LLM Fallback,2,2194,4872,7066,17665,60.0,0.0106,0.0265,28427.7

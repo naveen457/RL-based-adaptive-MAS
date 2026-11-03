@@ -1,0 +1,292 @@
+{
+  "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+  "base_url": "https://integrate.api.nvidia.com/v1",
+  "pricing_per_1k": 0.0015,
+  "tasks": [
+    {
+      "task_id": "greet-001",
+      "task_name": "Simple Greeting",
+      "category": "greeting",
+      "static_nodes_invoked": [
+        "planner",
+        "finalizer"
+      ],
+      "static_node_count": 2,
+      "static_prompt_tokens": 2863,
+      "static_completion_tokens": 919,
+      "static_total_tokens": 3782,
+      "static_cost_usd": 0.00567,
+      "static_latency_ms": 7033.2,
+      "answer_preview": "final_answer=\"Hello! I'm here to help you with a wide range of tasks. I'm part of an adaptive multi-"
+    },
+    {
+      "task_id": "greet-002",
+      "task_name": "System Introduction",
+      "category": "greeting",
+      "static_nodes_invoked": [
+        "planner",
+        "finalizer"
+      ],
+      "static_node_count": 2,
+      "static_prompt_tokens": 2865,
+      "static_completion_tokens": 1447,
+      "static_total_tokens": 4312,
+      "static_cost_usd": 0.00647,
+      "static_latency_ms": 8282.2,
+      "answer_preview": "final_answer=\"# Good Morning! Welcome to the Multi-Agent System\\n\\nI'm pleased to introduce our adap"
+    },
+    {
+      "task_id": "greet-003",
+      "task_name": "Inspirational Quote",
+      "category": "greeting",
+      "static_nodes_invoked": [
+        "planner",
+        "finalizer"
+      ],
+      "static_node_count": 2,
+      "static_prompt_tokens": 2869,
+      "static_completion_tokens": 526,
+      "static_total_tokens": 3395,
+      "static_cost_usd": 0.00509,
+      "static_latency_ms": 5313.8,
+      "answer_preview": "final_answer='\"Pure mathematics is, in its way, the poetry of logical ideas.\" \u2014 Albert Einstein' key"
+    },
+    {
+      "task_id": "math-001",
+      "task_name": "Compound Interest",
+      "category": "math",
+      "static_nodes_invoked": [
+        "planner",
+        "finalizer"
+      ],
+      "static_node_count": 2,
+      "static_prompt_tokens": 2887,
+      "static_completion_tokens": 2357,
+      "static_total_tokens": 5244,
+      "static_cost_usd": 0.00787,
+      "static_latency_ms": 10731.7,
+      "answer_preview": "final_answer='# Compound Interest Calculation\\n\\n## Parameters\\n- **Principal (P):** $10,000\\n- **An"
+    },
+    {
+      "task_id": "math-002",
+      "task_name": "Quadratic Roots",
+      "category": "math",
+      "static_nodes_invoked": [
+        "planner",
+        "critic",
+        "finalizer"
+      ],
+      "static_node_count": 3,
+      "static_prompt_tokens": 4256,
+      "static_completion_tokens": 2971,
+      "static_total_tokens": 7227,
+      "static_cost_usd": 0.01084,
+      "static_latency_ms": 15637.7,
+      "answer_preview": "final_answer='# Roots and Vertex of 3x\u00b2 - 12x + 5 = 0\\n\\n## Given Quadratic Equation\\n\\n**3x\u00b2 - 12x "
+    },
+    {
+      "task_id": "math-003",
+      "task_name": "Probability Analysis",
+      "category": "math",
+      "static_nodes_invoked": [
+        "planner",
+        "finalizer"
+      ],
+      "static_node_count": 2,
+      "static_prompt_tokens": 2881,
+      "static_completion_tokens": 1555,
+      "static_total_tokens": 4436,
+      "static_cost_usd": 0.00665,
+      "static_latency_ms": 10882.6,
+      "answer_preview": "final_answer='# Probability of Getting at Least 3 Heads in 5 Fair Coin Tosses\\n\\n## Solution\\n\\nThis"
+    },
+    {
+      "task_id": "code-001",
+      "task_name": "IPv4 Address Validator",
+      "category": "coding",
+      "static_nodes_invoked": [
+        "planner",
+        "coder",
+        "finalizer"
+      ],
+      "static_node_count": 3,
+      "static_prompt_tokens": 5634,
+      "static_completion_tokens": 5486,
+      "static_total_tokens": 11120,
+      "static_cost_usd": 0.01668,
+      "static_latency_ms": 27116.7,
+      "answer_preview": "final_answer='# IPv4 Address Validator\\n\\nHere is a complete, self-contained Python function that va"
+    },
+    {
+      "task_id": "code-003",
+      "task_name": "Longest Palindrome",
+      "category": "coding",
+      "static_nodes_invoked": [
+        "planner",
+        "coder",
+        "critic",
+        "finalizer"
+      ],
+      "static_node_count": 4,
+      "static_prompt_tokens": 8958,
+      "static_completion_tokens": 6272,
+      "static_total_tokens": 15230,
+      "static_cost_usd": 0.02285,
+      "static_latency_ms": 42759.1,
+      "answer_preview": "final_answer='# Longest Palindromic Substring \u2014 O(n\u00b2) Solution\\n\\n## Implementation\\n\\n```python\\nde"
+    },
+    {
+      "task_id": "res-001",
+      "task_name": "Transformer vs Mamba SSM",
+      "category": "research",
+      "static_nodes_invoked": [
+        "planner",
+        "researcher",
+        "finalizer"
+      ],
+      "static_node_count": 3,
+      "static_prompt_tokens": 5457,
+      "static_completion_tokens": 4199,
+      "static_total_tokens": 9656,
+      "static_cost_usd": 0.01448,
+      "static_latency_ms": 65785.7,
+      "answer_preview": "final_answer=\"# Architectural Differences Between Transformer and Mamba SSM Models\\n\\n## Core Mechan"
+    },
+    {
+      "task_id": "res-002",
+      "task_name": "Zero-Knowledge SNARKs",
+      "category": "research",
+      "static_nodes_invoked": [
+        "planner",
+        "researcher",
+        "critic",
+        "finalizer"
+      ],
+      "static_node_count": 4,
+      "static_prompt_tokens": 8686,
+      "static_completion_tokens": 8824,
+      "static_total_tokens": 17510,
+      "static_cost_usd": 0.02627,
+      "static_latency_ms": 55447.8,
+      "answer_preview": "final_answer='# Zero-Knowledge SNARKs in Blockchain Rollups\\n\\n## How zk-SNARKs Work\\n\\nA zk-SNARK ("
+    },
+    {
+      "task_id": "res-003",
+      "task_name": "Raft Consensus Protocol",
+      "category": "research",
+      "static_nodes_invoked": [
+        "planner",
+        "researcher",
+        "finalizer"
+      ],
+      "static_node_count": 3,
+      "static_prompt_tokens": 5333,
+      "static_completion_tokens": 3665,
+      "static_total_tokens": 8998,
+      "static_cost_usd": 0.0135,
+      "static_latency_ms": 33676.0,
+      "answer_preview": "final_answer=\"# Raft Consensus: Leader Election and Log Replication Guarantees\\n\\nRaft is a consensu"
+    },
+    {
+      "task_id": "web-001",
+      "task_name": "AI Weekly Breakthroughs",
+      "category": "web_search",
+      "static_nodes_invoked": [
+        "planner",
+        "researcher",
+        "finalizer"
+      ],
+      "static_node_count": 3,
+      "static_prompt_tokens": 4973,
+      "static_completion_tokens": 2328,
+      "static_total_tokens": 7301,
+      "static_cost_usd": 0.01095,
+      "static_latency_ms": 14681.3,
+      "answer_preview": "final_answer='I don\\'t have access to live web search or real-time news in this conversation context"
+    },
+    {
+      "task_id": "web-002",
+      "task_name": "NASA Mars Exploration",
+      "category": "web_search",
+      "static_nodes_invoked": [
+        "planner",
+        "finalizer"
+      ],
+      "static_node_count": 2,
+      "static_prompt_tokens": 2871,
+      "static_completion_tokens": 710,
+      "static_total_tokens": 3581,
+      "static_cost_usd": 0.00537,
+      "static_latency_ms": 6013.2,
+      "answer_preview": "final_answer='I need to search for recent NASA Mars rover discoveries and mission milestones. Let me"
+    },
+    {
+      "task_id": "web-003",
+      "task_name": "Global Climate Summits",
+      "category": "web_search",
+      "static_nodes_invoked": [
+        "planner",
+        "finalizer"
+      ],
+      "static_node_count": 2,
+      "static_prompt_tokens": 2871,
+      "static_completion_tokens": 466,
+      "static_total_tokens": 3337,
+      "static_cost_usd": 0.00501,
+      "static_latency_ms": 2875.0,
+      "answer_preview": "final_answer=\"I need to gather current information about today's date, global events, and climate su"
+    },
+    {
+      "task_id": "cross-001",
+      "task_name": "Multiplayer Chess Platform",
+      "category": "cross_domain",
+      "static_nodes_invoked": [
+        "planner",
+        "critic",
+        "finalizer"
+      ],
+      "static_node_count": 3,
+      "static_prompt_tokens": 8525,
+      "static_completion_tokens": 21880,
+      "static_total_tokens": 30405,
+      "static_cost_usd": 0.04561,
+      "static_latency_ms": 112844.8,
+      "answer_preview": "final_answer='Critic review:\\nNo output was provided for review. The task requires designing a micro"
+    },
+    {
+      "task_id": "cross-002",
+      "task_name": "Smart Contract Security Audit",
+      "category": "cross_domain",
+      "static_nodes_invoked": [
+        "planner",
+        "researcher",
+        "critic",
+        "finalizer"
+      ],
+      "static_node_count": 4,
+      "static_prompt_tokens": 10463,
+      "static_completion_tokens": 21230,
+      "static_total_tokens": 31693,
+      "static_cost_usd": 0.04754,
+      "static_latency_ms": 98168.5,
+      "answer_preview": "final_answer='Research findings:\\nReentrancy (well-established): External calls before state updates"
+    },
+    {
+      "task_id": "cross-003",
+      "task_name": "ML Data Drift Pipeline",
+      "category": "cross_domain",
+      "static_nodes_invoked": [
+        "planner",
+        "critic",
+        "finalizer"
+      ],
+      "static_node_count": 3,
+      "static_prompt_tokens": 8400,
+      "static_completion_tokens": 22276,
+      "static_total_tokens": 30676,
+      "static_cost_usd": 0.04601,
+      "static_latency_ms": 104972.1,
+      "answer_preview": "final_answer='Critic review:\\nNo output was provided to review. The task requires both a CI/CD pipel"
+    }
+  ]
+}

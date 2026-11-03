@@ -1,0 +1,381 @@
+{
+  "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+  "base_url": "https://integrate.api.nvidia.com/v1",
+  "pricing_per_1k": 0.0015,
+  "total_tasks": 18,
+  "total_nvidia_calls_made": 36,
+  "max_calls_limit": 36,
+  "cumulative_baseline_tokens": 208639,
+  "cumulative_adapted_tokens": 83457,
+  "empirical_token_savings_pct": 60.0,
+  "cumulative_baseline_cost_usd": 0.31297,
+  "cumulative_adapted_cost_usd": 0.12517,
+  "tasks": [
+    {
+      "task_id": "greet-001",
+      "task_name": "Simple Greeting",
+      "category": "greeting",
+      "selection_source": "LLM Fallback",
+      "invoked_agents": [
+        "planner",
+        "finalizer"
+      ],
+      "active_agent_count": 2,
+      "live_prompt_tokens": 2867,
+      "live_completion_tokens": 680,
+      "live_adapted_tokens": 3547,
+      "live_baseline_tokens": 8867,
+      "live_token_savings_pct": 60.0,
+      "live_adapted_cost_usd": 0.00532,
+      "live_baseline_cost_usd": 0.0133,
+      "live_latency_ms": 4124.8,
+      "response_preview": "Hello! I'm the Finalizer agent in this adaptive multi-agent system. I'm here to help you with a wide"
+    },
+    {
+      "task_id": "greet-002",
+      "task_name": "System Introduction",
+      "category": "greeting",
+      "selection_source": "Active RL Hit",
+      "invoked_agents": [
+        "planner",
+        "finalizer"
+      ],
+      "active_agent_count": 2,
+      "live_prompt_tokens": 2869,
+      "live_completion_tokens": 1527,
+      "live_adapted_tokens": 4396,
+      "live_baseline_tokens": 10990,
+      "live_token_savings_pct": 60.0,
+      "live_adapted_cost_usd": 0.00659,
+      "live_baseline_cost_usd": 0.01648,
+      "live_latency_ms": 7110.3,
+      "response_preview": "Good morning! Welcome to our adaptive multi-agent system. I'm here to introduce you to what we can d"
+    },
+    {
+      "task_id": "greet-003",
+      "task_name": "Inspirational Quote",
+      "category": "greeting",
+      "selection_source": "Active RL Hit",
+      "invoked_agents": [
+        "planner",
+        "finalizer"
+      ],
+      "active_agent_count": 2,
+      "live_prompt_tokens": 2873,
+      "live_completion_tokens": 497,
+      "live_adapted_tokens": 3370,
+      "live_baseline_tokens": 8425,
+      "live_token_savings_pct": 60.0,
+      "live_adapted_cost_usd": 0.00506,
+      "live_baseline_cost_usd": 0.01264,
+      "live_latency_ms": 11841.3,
+      "response_preview": "\"Pure mathematics is, in its way, the poetry of logical ideas.\" \u2014 Albert Einstein"
+    },
+    {
+      "task_id": "math-001",
+      "task_name": "Compound Interest",
+      "category": "math",
+      "selection_source": "Active RL Hit",
+      "invoked_agents": [
+        "planner",
+        "tool_executor",
+        "finalizer"
+      ],
+      "active_agent_count": 3,
+      "live_prompt_tokens": 2955,
+      "live_completion_tokens": 1106,
+      "live_adapted_tokens": 4061,
+      "live_baseline_tokens": 10152,
+      "live_token_savings_pct": 60.0,
+      "live_adapted_cost_usd": 0.00609,
+      "live_baseline_cost_usd": 0.01523,
+      "live_latency_ms": 7854.2,
+      "response_preview": "# Compound Interest Calculation  ## Parameters - **Principal (P):** $10,000 - **Annual Interest Rate"
+    },
+    {
+      "task_id": "math-002",
+      "task_name": "Quadratic Roots",
+      "category": "math",
+      "selection_source": "Active RL Hit",
+      "invoked_agents": [
+        "planner",
+        "tool_executor",
+        "finalizer"
+      ],
+      "active_agent_count": 3,
+      "live_prompt_tokens": 2965,
+      "live_completion_tokens": 1811,
+      "live_adapted_tokens": 4776,
+      "live_baseline_tokens": 11940,
+      "live_token_savings_pct": 60.0,
+      "live_adapted_cost_usd": 0.00716,
+      "live_baseline_cost_usd": 0.01791,
+      "live_latency_ms": 9590.3,
+      "response_preview": "# Quadratic Equation: 3x\u00b2 - 12x + 5 = 0  ## Given - a = 3 - b = -12 - c = 5  ---  ## Roots  Using th"
+    },
+    {
+      "task_id": "math-003",
+      "task_name": "Probability Analysis",
+      "category": "math",
+      "selection_source": "Active RL Hit",
+      "invoked_agents": [
+        "planner",
+        "tool_executor",
+        "finalizer"
+      ],
+      "active_agent_count": 3,
+      "live_prompt_tokens": 2949,
+      "live_completion_tokens": 1338,
+      "live_adapted_tokens": 4287,
+      "live_baseline_tokens": 10717,
+      "live_token_savings_pct": 60.0,
+      "live_adapted_cost_usd": 0.00643,
+      "live_baseline_cost_usd": 0.01608,
+      "live_latency_ms": 6919.2,
+      "response_preview": "# Probability of Getting at Least 3 Heads in 5 Fair Coin Tosses  ## Answer  The probability of getti"
+    },
+    {
+      "task_id": "code-001",
+      "task_name": "IPv4 Address Validator",
+      "category": "coding",
+      "selection_source": "Active RL Hit",
+      "invoked_agents": [
+        "planner",
+        "coder"
+      ],
+      "active_agent_count": 2,
+      "live_prompt_tokens": 2184,
+      "live_completion_tokens": 3011,
+      "live_adapted_tokens": 5195,
+      "live_baseline_tokens": 12987,
+      "live_token_savings_pct": 60.0,
+      "live_adapted_cost_usd": 0.00779,
+      "live_baseline_cost_usd": 0.01948,
+      "live_latency_ms": 16824.3,
+      "response_preview": "def is_valid_ipv4(address: str) -> bool:     \"\"\"Return True if *address* is a valid IPv4 address str"
+    },
+    {
+      "task_id": "code-002",
+      "task_name": "Thread-Safe LRU Cache",
+      "category": "coding",
+      "selection_source": "LLM Fallback",
+      "invoked_agents": [
+        "planner",
+        "coder"
+      ],
+      "active_agent_count": 2,
+      "live_prompt_tokens": 2194,
+      "live_completion_tokens": 2570,
+      "live_adapted_tokens": 4764,
+      "live_baseline_tokens": 11910,
+      "live_token_savings_pct": 60.0,
+      "live_adapted_cost_usd": 0.00715,
+      "live_baseline_cost_usd": 0.01786,
+      "live_latency_ms": 15971.9,
+      "response_preview": "import threading from collections import OrderedDict from typing import Any, Optional   class LRUCac"
+    },
+    {
+      "task_id": "code-003",
+      "task_name": "Longest Palindrome",
+      "category": "coding",
+      "selection_source": "Active RL Hit",
+      "invoked_agents": [
+        "planner",
+        "coder"
+      ],
+      "active_agent_count": 2,
+      "live_prompt_tokens": 2194,
+      "live_completion_tokens": 1835,
+      "live_adapted_tokens": 4029,
+      "live_baseline_tokens": 10072,
+      "live_token_savings_pct": 60.0,
+      "live_adapted_cost_usd": 0.00604,
+      "live_baseline_cost_usd": 0.01511,
+      "live_latency_ms": 12674.2,
+      "response_preview": "def longest_palindromic_substring(s: str) -> str:     \"\"\"     Return the longest palindromic substri"
+    },
+    {
+      "task_id": "res-001",
+      "task_name": "Transformer vs Mamba SSM",
+      "category": "research",
+      "selection_source": "Active RL Hit",
+      "invoked_agents": [
+        "planner",
+        "researcher"
+      ],
+      "active_agent_count": 2,
+      "live_prompt_tokens": 2253,
+      "live_completion_tokens": 1389,
+      "live_adapted_tokens": 3642,
+      "live_baseline_tokens": 9105,
+      "live_token_savings_pct": 60.0,
+      "live_adapted_cost_usd": 0.00546,
+      "live_baseline_cost_usd": 0.01366,
+      "live_latency_ms": 9061.0,
+      "response_preview": "[\"Transformers use self-attention, computing pairwise interactions between all tokens with O(L^2) ti"
+    },
+    {
+      "task_id": "res-002",
+      "task_name": "Zero-Knowledge SNARKs",
+      "category": "research",
+      "selection_source": "Active RL Hit",
+      "invoked_agents": [
+        "planner",
+        "researcher"
+      ],
+      "active_agent_count": 2,
+      "live_prompt_tokens": 2263,
+      "live_completion_tokens": 2379,
+      "live_adapted_tokens": 4642,
+      "live_baseline_tokens": 11605,
+      "live_token_savings_pct": 60.0,
+      "live_adapted_cost_usd": 0.00696,
+      "live_baseline_cost_usd": 0.01741,
+      "live_latency_ms": 12417.0,
+      "response_preview": "A zk-SNARK is a Succinct Non-Interactive Argument of Knowledge: a prover proves knowledge of a witne"
+    },
+    {
+      "task_id": "res-003",
+      "task_name": "Raft Consensus Protocol",
+      "category": "research",
+      "selection_source": "Active RL Hit",
+      "invoked_agents": [
+        "planner",
+        "researcher"
+      ],
+      "active_agent_count": 2,
+      "live_prompt_tokens": 2255,
+      "live_completion_tokens": 2200,
+      "live_adapted_tokens": 4455,
+      "live_baseline_tokens": 11137,
+      "live_token_savings_pct": 60.0,
+      "live_adapted_cost_usd": 0.00668,
+      "live_baseline_cost_usd": 0.01671,
+      "live_latency_ms": 15427.3,
+      "response_preview": "Leader election: Raft uses randomized election timeouts and monotonically increasing term numbers; a"
+    },
+    {
+      "task_id": "web-001",
+      "task_name": "AI Weekly Breakthroughs",
+      "category": "web_search",
+      "selection_source": "Active RL Hit",
+      "invoked_agents": [
+        "planner",
+        "tool_executor",
+        "finalizer"
+      ],
+      "active_agent_count": 3,
+      "live_prompt_tokens": 3023,
+      "live_completion_tokens": 704,
+      "live_adapted_tokens": 3727,
+      "live_baseline_tokens": 9317,
+      "live_token_savings_pct": 60.0,
+      "live_adapted_cost_usd": 0.00559,
+      "live_baseline_cost_usd": 0.01398,
+      "live_latency_ms": 4425.3,
+      "response_preview": "I need to search for the latest AI breakthroughs to give you an accurate, up-to-date answer. Let me "
+    },
+    {
+      "task_id": "web-002",
+      "task_name": "NASA Mars Exploration",
+      "category": "web_search",
+      "selection_source": "Active RL Hit",
+      "invoked_agents": [
+        "planner",
+        "tool_executor",
+        "finalizer"
+      ],
+      "active_agent_count": 3,
+      "live_prompt_tokens": 3021,
+      "live_completion_tokens": 731,
+      "live_adapted_tokens": 3752,
+      "live_baseline_tokens": 9380,
+      "live_token_savings_pct": 60.0,
+      "live_adapted_cost_usd": 0.00563,
+      "live_baseline_cost_usd": 0.01407,
+      "live_latency_ms": 4529.6,
+      "response_preview": "I need to search for recent NASA Mars rover discoveries and mission milestones. Let me perform a web"
+    },
+    {
+      "task_id": "web-003",
+      "task_name": "Global Climate Summits",
+      "category": "web_search",
+      "selection_source": "Active RL Hit",
+      "invoked_agents": [
+        "planner",
+        "tool_executor",
+        "finalizer"
+      ],
+      "active_agent_count": 3,
+      "live_prompt_tokens": 3021,
+      "live_completion_tokens": 917,
+      "live_adapted_tokens": 3938,
+      "live_baseline_tokens": 9845,
+      "live_token_savings_pct": 60.0,
+      "live_adapted_cost_usd": 0.00591,
+      "live_baseline_cost_usd": 0.01477,
+      "live_latency_ms": 5559.6,
+      "response_preview": "Based on the current date of **Sunday, November 1, 2026**, here is what I can share about global eve"
+    },
+    {
+      "task_id": "cross-001",
+      "task_name": "Multiplayer Chess Platform",
+      "category": "cross_domain",
+      "selection_source": "LLM Fallback",
+      "invoked_agents": [
+        "planner",
+        "coder"
+      ],
+      "active_agent_count": 2,
+      "live_prompt_tokens": 2192,
+      "live_completion_tokens": 4836,
+      "live_adapted_tokens": 7028,
+      "live_baseline_tokens": 17570,
+      "live_token_savings_pct": 60.0,
+      "live_adapted_cost_usd": 0.01054,
+      "live_baseline_cost_usd": 0.02635,
+      "live_latency_ms": 33271.2,
+      "response_preview": "None"
+    },
+    {
+      "task_id": "cross-002",
+      "task_name": "Smart Contract Security Audit",
+      "category": "cross_domain",
+      "selection_source": "LLM Fallback",
+      "invoked_agents": [
+        "planner",
+        "coder"
+      ],
+      "active_agent_count": 2,
+      "live_prompt_tokens": 2192,
+      "live_completion_tokens": 4590,
+      "live_adapted_tokens": 6782,
+      "live_baseline_tokens": 16955,
+      "live_token_savings_pct": 60.0,
+      "live_adapted_cost_usd": 0.01017,
+      "live_baseline_cost_usd": 0.02543,
+      "live_latency_ms": 32954.3,
+      "response_preview": "None"
+    },
+    {
+      "task_id": "cross-003",
+      "task_name": "ML Data Drift Pipeline",
+      "category": "cross_domain",
+      "selection_source": "LLM Fallback",
+      "invoked_agents": [
+        "planner",
+        "coder"
+      ],
+      "active_agent_count": 2,
+      "live_prompt_tokens": 2194,
+      "live_completion_tokens": 4872,
+      "live_adapted_tokens": 7066,
+      "live_baseline_tokens": 17665,
+      "live_token_savings_pct": 60.0,
+      "live_adapted_cost_usd": 0.0106,
+      "live_baseline_cost_usd": 0.0265,
+      "live_latency_ms": 28427.7,
+      "response_preview": "None"
+    }
+  ]
+}

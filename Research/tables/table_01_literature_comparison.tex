@@ -3,19 +3,81 @@
 \caption{Systematic Comparison with Related Dynamic Multi-Agent Architectures (Features in Rows, Frameworks in Columns)}
 \label{tab:literature_comparison}
 \footnotesize
-\begin{tabular}{lp{2.1cm}p{2.1cm}p{2.1cm}p{2.1cm}p{2.1cm}p{3.2cm}}
+\setlength{\tabcolsep}{3.2pt}
+\renewcommand{\arraystretch}{1.22}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash\bfseries}p{2.85cm} *{5}{>{\raggedright\arraybackslash\hyphenpenalty=10000\hsize=0.86\hsize}X} >{\raggedright\arraybackslash\hyphenpenalty=10000\hsize=1.70\hsize\bfseries}X}
 \toprule
-\textbf{Feature / Dimension} & \textbf{DyLAN}~\cite{liu2024dylan} & \textbf{GPTSwarm}~\cite{zhuge2024gptswarm} & \textbf{AFlow}~\cite{zhang2024aflow} & \textbf{MaAS}~\cite{Zhang2025MaAS} & \textbf{CARD}~\cite{Li2025AdaptiveGraphPruning} & \textbf{AMAS (Ours)} \\
+\makecell[c]{\textbf{Feature /}\\\textbf{Dimension}} & 
+\makecell[c]{\textbf{DyLAN}\\\cite{liu2024dylan}} & 
+\makecell[c]{\textbf{GPTSwarm}\\\cite{zhuge2024gptswarm}} & 
+\makecell[c]{\textbf{AFlow}\\\cite{zhang2024aflow}} & 
+\makecell[c]{\textbf{MaAS}\\\cite{Zhang2025MaAS}} & 
+\makecell[c]{\textbf{CARD}\\\cite{Li2025AdaptiveGraphPruning}} & 
+\makecell[c]{\textbf{AMAS}\\\textbf{(Ours)}} \\
 \midrule
-\textbf{Adaptation Method} & Peer rating & Graph policy grad. & MCTS rollout & Genetic search & Contextual bandit & \textbf{Q-Learning + Neural Policy} \\
-\textbf{Decision Latency} & $\mathcal{O}(N^2)$ LLM calls & Iterative LLM prompts & 15--30 rollouts & Offline evolution & $<10$\,ms routing & \textbf{$<1$\,ms Q-hit (0 tokens)} \\
-\textbf{Workflow Compilation} & Layered agent stack & Continuous edge weights & Python code scripts & Static specialist DAG & Routing DAG & \textbf{LangGraph StateGraph DAG} \\
-\textbf{Active Agent Pruning} & 25--40\% & None (fixed team) & None (fixed team) & 18--32\% & None (full team) & \textbf{50.0\% (Pool 6) / 40.0\% (Base 5)} \\
-\textbf{Critical Path Reduction} & None & None & Variable & None & 44.0\% ($5.0 \to 2.8$) & \textbf{42.2\% ($5.0 \to 2.89$ hops)} \\
-\textbf{Empirical Token Savings} & 15--25\% & Negative (utility focus) & Negative (MCTS cost) & 18--32\% & Not reported & \textbf{+60.46\% (Live NIM)} \\
-\textbf{Cross-Task Transfer} & No & Task-specific & No & No & Tabular only & \textbf{Evaluated on 5 held-out tasks} \\
+Adaptation Method & 
+\textbf{Unsupervised peer rating} & 
+\textbf{Graph policy grad.} & 
+MCTS code rollout & 
+Genetic search & 
+Contextual bandit & 
+Q-Learning + Neural Policy \\
+
+Decision Latency & 
+$\mathcal{O}(N^2)$ LLM calls & 
+Iterative LLM prompts & 
+15--30 rollouts & 
+Offline evolution & 
+\textbf{$<10$\,ms routing} & 
+$<1$\,ms lookup (0 tokens) \\
+
+Workflow Compilation & 
+Layered agent stack & 
+\textbf{Continuous edge weights} & 
+\textbf{Python code synthesis} & 
+Static specialist DAG & 
+Routing DAG & 
+Executable State-Graph DAG \\
+
+Active Agent Pruning & 
+25--40\% & 
+None (fixed team) & 
+None (fixed team) & 
+18--32\% & 
+None (full team) & 
+50.0\% (Pool) / 40.0\% (Base) \\
+
+Critical Path Reduction & 
+None & 
+None & 
+Variable & 
+None & 
+\textbf{44.0\% ($5.0 \to 2.8$ hops)} & 
+42.2\% ($5.0 \to 2.89$ hops) \\
+
+Empirical Token Savings & 
+15--25\% & 
+Negative (utility focus) & 
+Negative (MCTS cost) & 
+18--32\% & 
+Not reported & 
++60.46\% (Production LLM) \\
+
+Cross-Task Transfer & 
+No & 
+Task-specific & 
+No & 
+No & 
+Tabular only & 
+Evaluated on 5 held-out tasks \\
 \midrule
-\textbf{Primary Limitation} & Deliberation token blowup & High training sample cost & Search latency per query & Static offline deployment & Heuristic bandit only & \textbf{Restricted action space ($\Delta Q = 0$ on 3 tasks); under-engineering on cross-domain} \\
+Primary Limitation & 
+Deliberation token blowup & 
+High training sample cost & 
+Search latency per query & 
+Static offline deployment & 
+Heuristic bandit only & 
+Restricted action space ($\Delta Q = 0$ on 3 tasks); composite task under-engineering \\
 \bottomrule
-\end{tabular}
+\end{tabularx}
 \end{table*}

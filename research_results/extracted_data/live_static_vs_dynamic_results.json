@@ -1,0 +1,447 @@
+{
+  "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+  "total_tasks": 18,
+  "macro_token_savings_pct": 60.46,
+  "macro_cost_savings_pct": 60.47,
+  "total_static_tokens": 211078,
+  "total_dynamic_tokens": 83457,
+  "total_static_cost_usd": 0.31662,
+  "total_dynamic_cost_usd": 0.12517,
+  "tasks": [
+    {
+      "task_id": "greet-001",
+      "task_name": "Simple Greeting",
+      "category": "greeting",
+      "selection_source": "LLM Fallback",
+      "static_nodes": [
+        "planner",
+        "finalizer"
+      ],
+      "dynamic_nodes": [
+        "planner",
+        "finalizer"
+      ],
+      "static_tokens": 3782,
+      "dynamic_tokens": 3547,
+      "token_savings_pct": 6.21,
+      "static_cost_usd": 0.00567,
+      "dynamic_cost_usd": 0.00532,
+      "cost_savings_pct": 6.17,
+      "static_latency_ms": 7033.2,
+      "dynamic_latency_ms": 4124.8,
+      "latency_reduction_pct": 41.35
+    },
+    {
+      "task_id": "greet-002",
+      "task_name": "System Introduction",
+      "category": "greeting",
+      "selection_source": "Active RL Hit",
+      "static_nodes": [
+        "planner",
+        "finalizer"
+      ],
+      "dynamic_nodes": [
+        "planner",
+        "finalizer"
+      ],
+      "static_tokens": 4312,
+      "dynamic_tokens": 4396,
+      "token_savings_pct": -1.95,
+      "static_cost_usd": 0.00647,
+      "dynamic_cost_usd": 0.00659,
+      "cost_savings_pct": -1.85,
+      "static_latency_ms": 8282.2,
+      "dynamic_latency_ms": 7110.3,
+      "latency_reduction_pct": 14.15
+    },
+    {
+      "task_id": "greet-003",
+      "task_name": "Inspirational Quote",
+      "category": "greeting",
+      "selection_source": "Active RL Hit",
+      "static_nodes": [
+        "planner",
+        "finalizer"
+      ],
+      "dynamic_nodes": [
+        "planner",
+        "finalizer"
+      ],
+      "static_tokens": 3395,
+      "dynamic_tokens": 3370,
+      "token_savings_pct": 0.74,
+      "static_cost_usd": 0.00509,
+      "dynamic_cost_usd": 0.00506,
+      "cost_savings_pct": 0.59,
+      "static_latency_ms": 5313.8,
+      "dynamic_latency_ms": 11841.3,
+      "latency_reduction_pct": -122.84
+    },
+    {
+      "task_id": "math-001",
+      "task_name": "Compound Interest",
+      "category": "math",
+      "selection_source": "Active RL Hit",
+      "static_nodes": [
+        "planner",
+        "finalizer"
+      ],
+      "dynamic_nodes": [
+        "planner",
+        "tool_executor",
+        "finalizer"
+      ],
+      "static_tokens": 5244,
+      "dynamic_tokens": 4061,
+      "token_savings_pct": 22.56,
+      "static_cost_usd": 0.00787,
+      "dynamic_cost_usd": 0.00609,
+      "cost_savings_pct": 22.62,
+      "static_latency_ms": 10731.7,
+      "dynamic_latency_ms": 7854.2,
+      "latency_reduction_pct": 26.81
+    },
+    {
+      "task_id": "math-002",
+      "task_name": "Quadratic Roots",
+      "category": "math",
+      "selection_source": "Active RL Hit",
+      "static_nodes": [
+        "planner",
+        "critic",
+        "finalizer"
+      ],
+      "dynamic_nodes": [
+        "planner",
+        "tool_executor",
+        "finalizer"
+      ],
+      "static_tokens": 7227,
+      "dynamic_tokens": 4776,
+      "token_savings_pct": 33.91,
+      "static_cost_usd": 0.01084,
+      "dynamic_cost_usd": 0.00716,
+      "cost_savings_pct": 33.95,
+      "static_latency_ms": 15637.7,
+      "dynamic_latency_ms": 9590.3,
+      "latency_reduction_pct": 38.67
+    },
+    {
+      "task_id": "math-003",
+      "task_name": "Probability Analysis",
+      "category": "math",
+      "selection_source": "Active RL Hit",
+      "static_nodes": [
+        "planner",
+        "finalizer"
+      ],
+      "dynamic_nodes": [
+        "planner",
+        "tool_executor",
+        "finalizer"
+      ],
+      "static_tokens": 4436,
+      "dynamic_tokens": 4287,
+      "token_savings_pct": 3.36,
+      "static_cost_usd": 0.00665,
+      "dynamic_cost_usd": 0.00643,
+      "cost_savings_pct": 3.31,
+      "static_latency_ms": 10882.6,
+      "dynamic_latency_ms": 6919.2,
+      "latency_reduction_pct": 36.42
+    },
+    {
+      "task_id": "code-001",
+      "task_name": "IPv4 Address Validator",
+      "category": "coding",
+      "selection_source": "Active RL Hit",
+      "static_nodes": [
+        "planner",
+        "coder",
+        "finalizer"
+      ],
+      "dynamic_nodes": [
+        "planner",
+        "coder"
+      ],
+      "static_tokens": 11120,
+      "dynamic_tokens": 5195,
+      "token_savings_pct": 53.28,
+      "static_cost_usd": 0.01668,
+      "dynamic_cost_usd": 0.00779,
+      "cost_savings_pct": 53.3,
+      "static_latency_ms": 27116.7,
+      "dynamic_latency_ms": 16824.3,
+      "latency_reduction_pct": 37.96
+    },
+    {
+      "task_id": "code-002",
+      "task_name": "Thread-Safe LRU Cache",
+      "category": "coding",
+      "selection_source": "LLM Fallback",
+      "static_nodes": [
+        "planner",
+        "coder",
+        "critic",
+        "finalizer"
+      ],
+      "dynamic_nodes": [
+        "planner",
+        "coder"
+      ],
+      "static_tokens": 13175,
+      "dynamic_tokens": 4764,
+      "token_savings_pct": 63.84,
+      "static_cost_usd": 0.01976,
+      "dynamic_cost_usd": 0.00715,
+      "cost_savings_pct": 63.84,
+      "static_latency_ms": 34940.0,
+      "dynamic_latency_ms": 15971.9,
+      "latency_reduction_pct": 54.29
+    },
+    {
+      "task_id": "code-003",
+      "task_name": "Longest Palindrome",
+      "category": "coding",
+      "selection_source": "Active RL Hit",
+      "static_nodes": [
+        "planner",
+        "coder",
+        "critic",
+        "finalizer"
+      ],
+      "dynamic_nodes": [
+        "planner",
+        "coder"
+      ],
+      "static_tokens": 15230,
+      "dynamic_tokens": 4029,
+      "token_savings_pct": 73.55,
+      "static_cost_usd": 0.02285,
+      "dynamic_cost_usd": 0.00604,
+      "cost_savings_pct": 73.57,
+      "static_latency_ms": 42759.1,
+      "dynamic_latency_ms": 12674.2,
+      "latency_reduction_pct": 70.36
+    },
+    {
+      "task_id": "res-001",
+      "task_name": "Transformer vs Mamba SSM",
+      "category": "research",
+      "selection_source": "Active RL Hit",
+      "static_nodes": [
+        "planner",
+        "researcher",
+        "finalizer"
+      ],
+      "dynamic_nodes": [
+        "planner",
+        "researcher"
+      ],
+      "static_tokens": 9656,
+      "dynamic_tokens": 3642,
+      "token_savings_pct": 62.28,
+      "static_cost_usd": 0.01448,
+      "dynamic_cost_usd": 0.00546,
+      "cost_savings_pct": 62.29,
+      "static_latency_ms": 65785.7,
+      "dynamic_latency_ms": 9061.0,
+      "latency_reduction_pct": 86.23
+    },
+    {
+      "task_id": "res-002",
+      "task_name": "Zero-Knowledge SNARKs",
+      "category": "research",
+      "selection_source": "Active RL Hit",
+      "static_nodes": [
+        "planner",
+        "researcher",
+        "critic",
+        "finalizer"
+      ],
+      "dynamic_nodes": [
+        "planner",
+        "researcher"
+      ],
+      "static_tokens": 17510,
+      "dynamic_tokens": 4642,
+      "token_savings_pct": 73.49,
+      "static_cost_usd": 0.02627,
+      "dynamic_cost_usd": 0.00696,
+      "cost_savings_pct": 73.51,
+      "static_latency_ms": 55447.8,
+      "dynamic_latency_ms": 12417.0,
+      "latency_reduction_pct": 77.61
+    },
+    {
+      "task_id": "res-003",
+      "task_name": "Raft Consensus Protocol",
+      "category": "research",
+      "selection_source": "Active RL Hit",
+      "static_nodes": [
+        "planner",
+        "researcher",
+        "finalizer"
+      ],
+      "dynamic_nodes": [
+        "planner",
+        "researcher"
+      ],
+      "static_tokens": 8998,
+      "dynamic_tokens": 4455,
+      "token_savings_pct": 50.49,
+      "static_cost_usd": 0.0135,
+      "dynamic_cost_usd": 0.00668,
+      "cost_savings_pct": 50.52,
+      "static_latency_ms": 33676.0,
+      "dynamic_latency_ms": 15427.3,
+      "latency_reduction_pct": 54.19
+    },
+    {
+      "task_id": "web-001",
+      "task_name": "AI Weekly Breakthroughs",
+      "category": "web_search",
+      "selection_source": "Active RL Hit",
+      "static_nodes": [
+        "planner",
+        "researcher",
+        "finalizer"
+      ],
+      "dynamic_nodes": [
+        "planner",
+        "tool_executor",
+        "finalizer"
+      ],
+      "static_tokens": 7301,
+      "dynamic_tokens": 3727,
+      "token_savings_pct": 48.95,
+      "static_cost_usd": 0.01095,
+      "dynamic_cost_usd": 0.00559,
+      "cost_savings_pct": 48.95,
+      "static_latency_ms": 14681.3,
+      "dynamic_latency_ms": 4425.3,
+      "latency_reduction_pct": 69.86
+    },
+    {
+      "task_id": "web-002",
+      "task_name": "NASA Mars Exploration",
+      "category": "web_search",
+      "selection_source": "Active RL Hit",
+      "static_nodes": [
+        "planner",
+        "finalizer"
+      ],
+      "dynamic_nodes": [
+        "planner",
+        "tool_executor",
+        "finalizer"
+      ],
+      "static_tokens": 3581,
+      "dynamic_tokens": 3752,
+      "token_savings_pct": -4.78,
+      "static_cost_usd": 0.00537,
+      "dynamic_cost_usd": 0.00563,
+      "cost_savings_pct": -4.84,
+      "static_latency_ms": 6013.2,
+      "dynamic_latency_ms": 4529.6,
+      "latency_reduction_pct": 24.67
+    },
+    {
+      "task_id": "web-003",
+      "task_name": "Global Climate Summits",
+      "category": "web_search",
+      "selection_source": "Active RL Hit",
+      "static_nodes": [
+        "planner",
+        "finalizer"
+      ],
+      "dynamic_nodes": [
+        "planner",
+        "tool_executor",
+        "finalizer"
+      ],
+      "static_tokens": 3337,
+      "dynamic_tokens": 3938,
+      "token_savings_pct": -18.01,
+      "static_cost_usd": 0.00501,
+      "dynamic_cost_usd": 0.00591,
+      "cost_savings_pct": -17.96,
+      "static_latency_ms": 2875.0,
+      "dynamic_latency_ms": 5559.6,
+      "latency_reduction_pct": -93.38
+    },
+    {
+      "task_id": "cross-001",
+      "task_name": "Multiplayer Chess Platform",
+      "category": "cross_domain",
+      "selection_source": "LLM Fallback",
+      "static_nodes": [
+        "planner",
+        "critic",
+        "finalizer"
+      ],
+      "dynamic_nodes": [
+        "planner",
+        "coder"
+      ],
+      "static_tokens": 30405,
+      "dynamic_tokens": 7028,
+      "token_savings_pct": 76.89,
+      "static_cost_usd": 0.04561,
+      "dynamic_cost_usd": 0.01054,
+      "cost_savings_pct": 76.89,
+      "static_latency_ms": 112844.8,
+      "dynamic_latency_ms": 33271.2,
+      "latency_reduction_pct": 70.52
+    },
+    {
+      "task_id": "cross-002",
+      "task_name": "Smart Contract Security Audit",
+      "category": "cross_domain",
+      "selection_source": "LLM Fallback",
+      "static_nodes": [
+        "planner",
+        "researcher",
+        "critic",
+        "finalizer"
+      ],
+      "dynamic_nodes": [
+        "planner",
+        "coder"
+      ],
+      "static_tokens": 31693,
+      "dynamic_tokens": 6782,
+      "token_savings_pct": 78.6,
+      "static_cost_usd": 0.04754,
+      "dynamic_cost_usd": 0.01017,
+      "cost_savings_pct": 78.61,
+      "static_latency_ms": 98168.5,
+      "dynamic_latency_ms": 32954.3,
+      "latency_reduction_pct": 66.43
+    },
+    {
+      "task_id": "cross-003",
+      "task_name": "ML Data Drift Pipeline",
+      "category": "cross_domain",
+      "selection_source": "LLM Fallback",
+      "static_nodes": [
+        "planner",
+        "critic",
+        "finalizer"
+      ],
+      "dynamic_nodes": [
+        "planner",
+        "coder"
+      ],
+      "static_tokens": 30676,
+      "dynamic_tokens": 7066,
+      "token_savings_pct": 76.97,
+      "static_cost_usd": 0.04601,
+      "dynamic_cost_usd": 0.0106,
+      "cost_savings_pct": 76.96,
+      "static_latency_ms": 104972.1,
+      "dynamic_latency_ms": 28427.7,
+      "latency_reduction_pct": 72.92
+    }
+  ]
+}

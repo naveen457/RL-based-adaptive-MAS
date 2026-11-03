@@ -1,0 +1,22 @@
+\begin{table*}[!t]
+\centering
+\caption{Task-Adaptive Architecture and Empirical Performance across Functional Domains (Live NVIDIA NIM Benchmarking)}
+\label{tab:domain_performance}
+\footnotesize
+\begin{tabular}{lcccccccc}
+\toprule
+\textbf{Functional Domain} & \textbf{Active Agents $|V_{\mathrm{act}}|$} & \textbf{APR [\%]} & \textbf{Critical Path $L_{\mathrm{crit}}$} & \textbf{Live Base Tok.} & \textbf{Live Adapt Tok.} & \textbf{Token Savings} & \textbf{Live Cost (\$) [Base $\to$ Adapt]} & \textbf{Capability Cov. [\%]} \\
+\midrule
+Greeting & $2.00 \pm 0.00$ & $60.00 \pm 0.00$ & $2.00 \pm 0.00$ & 11,489 & 11,313 & $+1.53\%$ & \$0.01723 $\to$ \$0.01697 & $100.00 \pm 0.00$ \\
+Mathematics & $3.00 \pm 0.00$ & $40.00 \pm 0.00$ & $3.00 \pm 0.00$ & 16,907 & 13,124 & $+22.38\%$ & \$0.02536 $\to$ \$0.01968 & $100.00 \pm 0.00$ \\
+Coding & $3.33 \pm 0.58$ & $33.33 \pm 11.55$ & $3.33 \pm 0.58$ & 39,525 & 13,988 & $+64.61\%$ & \$0.05929 $\to$ \$0.02098 & $100.00 \pm 0.00$ \\
+Research & $3.00 \pm 0.00$ & $40.00 \pm 0.00$ & $3.00 \pm 0.00$ & 36,164 & 12,739 & $+64.77\%$ & \$0.05425 $\to$ \$0.01910 & $100.00 \pm 0.00$ \\
+Web Search & $3.00 \pm 0.00$ & $40.00 \pm 0.00$ & $3.00 \pm 0.00$ & 14,219 & 11,417 & $+19.71\%$ & \$0.02133 $\to$ \$0.01713 & $100.00 \pm 0.00$ \\
+Cross-Domain & $3.67 \pm 0.58$ & $26.67 \pm 11.55$ & $3.00 \pm 0.00$ & 92,774 & 20,876 & $+77.50\%$ & \$0.13916 $\to$ \$0.03131 & $66.67 \pm 33.33$ \\
+\midrule
+\textbf{Macro Mean / Total} & $\mathbf{3.00 \pm 0.59}$ & $\mathbf{40.00 \pm 11.88}$ & $\mathbf{2.89 \pm 0.47}$ & \textbf{211,078} & \textbf{83,457} & $\mathbf{+60.46\%}$ & \textbf{\$0.31662 $\to$ \$0.12517} & $\mathbf{94.44 \pm 17.15}$ \\
+\textbf{Static Full Baseline} & $5.00 \pm 0.00$ & $0.00 \pm 0.00$ & $5.00 \pm 0.00$ & 211,078 & 211,078 & $0.00\%$ & \$0.31662 $\to$ \$0.31662 & $100.00 \pm 0.00$ \\
+\bottomrule
+\end{tabular}
+\end{table*}
+

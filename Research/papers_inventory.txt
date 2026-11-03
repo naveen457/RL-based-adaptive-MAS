@@ -1,0 +1,158 @@
+Total PDFs found: 38
+
+FILE: 085713-4225open.pdf
+Size: 4.60 MB | SHA256: de6ef32ab325d514...
+Header: ReMA: Learning to Meta-think for LLMs with // Multi-agent Reinforcement Learning // Ziyu Wan1,2∗†, Yunxiang Li3∗ // , Xiaoyu Wen1,2∗ // , Yan Song4 //
+--------------------------------------------------------------------------------
+FILE: 1-s2.0-S0925231226005898-main.pdf
+Size: 3.24 MB | SHA256: 3a9262c779ff8c96...
+Header: Contents lists available at ScienceDirect // Neurocomputing // journal homepage: www.elsevier.com/locate/neucom // Adaptive agentic meta-controller (A
+--------------------------------------------------------------------------------
+FILE: 2026.acl-long.1543.pdf
+Size: 3.69 MB | SHA256: 0df81492e8ddbd6f...
+Header: Proceedings of the 64th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers), pages 33414–33436 // July 2-7, 2026 ©
+--------------------------------------------------------------------------------
+FILE: 2026.acl-long.1764.pdf
+Size: 4.22 MB | SHA256: 880f4e60d3938616...
+Header: Proceedings of the 64th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers), pages 38042–38060 // July 2-7, 2026 ©
+--------------------------------------------------------------------------------
+FILE: 21184-AAAI26.LiuS-NLP (1).pdf
+Size: 0.37 MB | SHA256: 48e36e8ebf7d17c1...
+Header: LLM Collaboration with Multi-Agent Reinforcement Learning // Shuo Liu, Zeyu Liang, Xueguang Lyu, Christopher Amato // Khoury College of Computer Scien
+--------------------------------------------------------------------------------
+FILE: 21184-AAAI26.LiuS-NLP.pdf
+Size: 0.37 MB | SHA256: 48e36e8ebf7d17c1...
+Header: LLM Collaboration with Multi-Agent Reinforcement Learning // Shuo Liu, Zeyu Liang, Xueguang Lyu, Christopher Amato // Khoury College of Computer Scien
+--------------------------------------------------------------------------------
+FILE: 24048-AAAI26.YangL-MS.pdf
+Size: 0.97 MB | SHA256: fb5311f4809a24fa...
+Header: BAMAS: Structuring Budget-Aware Multi-Agent Systems // Liming Yang1 // , Junyu Luo1 // , Xuanzhe Liu1 // , Yiling Lou2 // , Zhenpeng Chen3,4*
+--------------------------------------------------------------------------------
+FILE: 2405.11106v1.pdf
+Size: 0.75 MB | SHA256: 512e1ed73619dda1...
+Header: LLM-based Multi-Agent Reinforcement Learning: // Current and Future Directions // Chuanneng Sun, Student Member, IEEE, Songjun Huang, Student Member, 
+--------------------------------------------------------------------------------
+FILE: 2601.17152v1.pdf
+Size: 0.98 MB | SHA256: 3d7a889a428eedb3...
+Header: Dynamic Role Assignment for Multi-Agent Debate // Miao Zhang1,2* // miaozhng@amazon.com // Junsik Kim2† // jskimcv@amazon.com // Siyuan Xiang2†
+--------------------------------------------------------------------------------
+FILE: 2602.17100v1.pdf
+Size: 3.40 MB | SHA256: ec81f81ab9e975ac...
+Header: AgentConductor: Topology Evolution for Multi-Agent Competition-Level Code // Generation // Siyu Wang 1 Ruotian Lu 1 Zhihao Yang 1 Yuchao Wang 1 Yanzho
+--------------------------------------------------------------------------------
+FILE: 2604.00344v1.pdf
+Size: 6.18 MB | SHA256: 0cb816f8e35efbf2...
+Header: Preprint. // Agent Q-Mix: Selecting the Right Action for LLM Multi-Agent // Systems through Reinforcement Learning // Eric Hanchen Jiang1*, Levina Li1
+--------------------------------------------------------------------------------
+FILE: 2605.02801v1.pdf
+Size: 0.98 MB | SHA256: 3cf3b45d5c29e39a...
+Header: Preprint — May 2026 1 // Reinforcement Learning for LLM-based // Multi-Agent Systems // through Orchestration Traces // Chenchen Zhang // Independent 
+--------------------------------------------------------------------------------
+FILE: 2605.14212v1.pdf
+Size: 23.53 MB | SHA256: bc57599bc4235f64...
+Header: MetaAgent-X : Breaking the Ceiling of Automatic // Multi-Agent Systems via End-to-End Reinforcement // Learning // Yaolun Zhang1,5,∗ // , Yujie Zhao2,
+--------------------------------------------------------------------------------
+FILE: 28430-AAAI26.YangW-MS.pdf
+Size: 2.11 MB | SHA256: 43ed8fa75269d168...
+Header: Learning to Deliberate: Meta-policy Collaboration // for Agentic LLMs with Multi-agent Reinforcement Learning // Wei Yang and Jesse Thomason // Univer
+--------------------------------------------------------------------------------
+FILE: 30196-AAAI26.ZhouZ-NLP.pdf
+Size: 0.73 MB | SHA256: cd5d6562cbe8ff22...
+Header: ResMAS: Resilience Optimization in LLM-based Multi-agent Systems // Zhilun Zhou1 // , Zihan Liu1 // , Jiahe Liu1 // , Qingyu Shao1 // , Yihan Wang1
+--------------------------------------------------------------------------------
+FILE: 4584_Stronger_MAS_Multi_Agent_.pdf
+Size: 2.84 MB | SHA256: dc09307771b1bb8f...
+Header: Published as a conference paper at ICLR 2026 // STRONGER-MAS: MULTI-AGENT REINFORCEMENT // LEARNING FOR COLLABORATIVE LLMS // Yujie Zhao1 Lanxiang Hu1
+--------------------------------------------------------------------------------
+FILE: A_Large_Language_Model_based_Multi-agent_Framework_for_Goal_Oriented_Controller_Design_in_Power_Electronics.pdf
+Size: 2.31 MB | SHA256: 1fad56647e0fae3d...
+Header: A Large Language Model based Multi-agent // Framework for Goal Oriented Controller Design in // Power Electronics // Jiaming Liu // Shanghai Universit
+--------------------------------------------------------------------------------
+FILE: A_Survey_on_LLM_Agents_Architecture_Applications_and_Challenges.pdf
+Size: 0.20 MB | SHA256: 8bca3683220f0dc9...
+Header: A survey on LLM Agents: Architecture, // Applications, and Challenges // Donghun Lee // Computer Science and Engineering // Chung-Ang University // Se
+--------------------------------------------------------------------------------
+FILE: Adaptive_Domain_Modeling_with_Language_Models_A_Multi-Agent_Approach_to_Task_Planning.pdf
+Size: 2.27 MB | SHA256: 9b40bbd8a784036c...
+Header: Adaptive Domain Modeling with Language Models: // A Multi-Agent Approach to Task Planning // Harisankar Babu1,2 // , Philipp Schillinger1 // , and Tam
+--------------------------------------------------------------------------------
+FILE: Adaptive_Learning_A_New_Decentralized_Reinforcement_Learning_Approach_for_Cooperative_Multiagent_Systems.pdf
+Size: 2.70 MB | SHA256: ebe1826fe17f4961...
+Header: Received May 5, 2020, accepted May 23, 2020, date of publication May 27, 2020, date of current version June 8, 2020. // Digital Object Identifier 10.1
+--------------------------------------------------------------------------------
+FILE: Adaptive_Multi-Agent_Coordination_among_Different_Team_Attribute_Tasks_via_Contextual_Meta-Reinforcement_Learning.pdf
+Size: 6.31 MB | SHA256: b2859fca869251bd...
+Header: 2024 IEEE 13th Data Driven Control and Learning Systems Conference // May 17-19,2024, Kaifeng, China // Adaptive Multi-Agent Coordination among Differ
+--------------------------------------------------------------------------------
+FILE: AgentDropout_Dynamic_Redundancy_Elimination_for_Multi-Agent_Collaboration_Efficiency.pdf
+Size: 1.88 MB | SHA256: 81feef208e2ccd42...
+Header: AgentDropout: Dynamic Redundancy Elimination for // Multi-Agent Collaboration Efficiency // Zhengxi Xiao† // University of Southern California // Los 
+--------------------------------------------------------------------------------
+FILE: CAPSTONE_Research_paper_final.pdf
+Size: 0.26 MB | SHA256: 55334de1a0b8163a...
+Header: Meta-Reinforcement Learning-Based Adaptive // Architecture for Large Language Model // Multi-Agent Systems // Naveen Tanikonda // Vellore Institute Of
+--------------------------------------------------------------------------------
+FILE: Enhancing_Multi-Agent_Systems_via_Reinforcement_Learning_with_LLM-Based_Planner_and_Graph-Based_Policy.pdf
+Size: 1.27 MB | SHA256: df7e8cbeed3f6b3d...
+Header: Enhancing Multi-Agent Systems via Reinforcement Learning with // LLM-based Planner and Graph-based Policy // Ziqi Jia1,2 // , Junjie Li1,3 // , Xiaoya
+--------------------------------------------------------------------------------
+FILE: FAIA251326.pdf
+Size: 1.22 MB | SHA256: bfab215e10f63b8f...
+Header: Adaptive Graph Pruning for Multi-Agent // Communication // Boyi Lia, Zhonghan Zhaob,1, Der-Horng Leea,∗ and Gaoang Wanga, b,* // aZhejiang University 
+--------------------------------------------------------------------------------
+FILE: ICLR-2024-metagpt-meta-programming-for-a-multi-agent-collaborative-framework-Paper-Conference.pdf
+Size: 16.13 MB | SHA256: 76d733b2c9e04ea0...
+Header: Preprint // METAGPT: META PROGRAMMING FOR A // MULTI-AGENT COLLABORATIVE FRAMEWORK // Sirui Hong1∗ // , Mingchen Zhuge2∗ // , Jonathan Chen1
+--------------------------------------------------------------------------------
+FILE: Meta-Reinforcement_Learning_for_Emergent_Multi-Agent_Languages_in_Zero-Shot_Coordination_Tasks.pdf
+Size: 0.78 MB | SHA256: e22afc8c490d9574...
+Header: Meta-Reinforcement Learning for Emergent // Multi-Agent Languages in Zero-Shot Coordination // Tasks // Raj Kashikar // Department of Computer Science
+--------------------------------------------------------------------------------
+FILE: Multi-Agent_Reinforcement_Learning_With_Spatial_Structure_Awareness_for_Topological_Map-Based_Path-Finding.pdf
+Size: 1.16 MB | SHA256: 2ef742b938981762...
+Header: 618 IEEE ROBOTICS AND AUTOMATION LETTERS, VOL. 11, NO. 1, JANUARY 2026 // Multi-Agent Reinforcement Learning With Spatial // Structure Awareness for T
+--------------------------------------------------------------------------------
+FILE: NeurIPS-2025-bi-level-knowledge-transfer-for-multi-task-multi-agent-reinforcement-learning-Paper-Conference.pdf
+Size: 11.15 MB | SHA256: 2bbd182bd7a702b7...
+Header: Bi-Level Knowledge Transfer for Multi-Task // Multi-Agent Reinforcement Learning // Junkai Zhang1,2, Jinmin He1,2, Yifan Zhang1,2,3∗ // , Yifan Zang4 
+--------------------------------------------------------------------------------
+FILE: NeurIPS-2025-multi-agent-collaboration-via-evolving-orchestration-Paper-Conference (1).pdf
+Size: 6.85 MB | SHA256: 773759c31179a1dc...
+Header: Multi-Agent Collaboration via Evolving Orchestration // Yufan Dang⋆† Chen Qian♣† Xueheng Luo⋆ Jingru Fan⋆ Zihao Xie⋆ // Ruijie Shi⋆ Weize Chen⋆ Cheng 
+--------------------------------------------------------------------------------
+FILE: NeurIPS-2025-multi-agent-collaboration-via-evolving-orchestration-Paper-Conference.pdf
+Size: 6.85 MB | SHA256: 773759c31179a1dc...
+Header: Multi-Agent Collaboration via Evolving Orchestration // Yufan Dang⋆† Chen Qian♣† Xueheng Luo⋆ Jingru Fan⋆ Zihao Xie⋆ // Ruijie Shi⋆ Weize Chen⋆ Cheng 
+--------------------------------------------------------------------------------
+FILE: NeurIPS-2025-rema-learning-to-meta-think-for-llms-with-multi-agent-reinforcement-learning-Paper-Conference.pdf
+Size: 2.79 MB | SHA256: 024a6be51b90eede...
+Header: ReMA: Learning to Meta-think for LLMs with // Multi-agent Reinforcement Learning // Ziyu Wan1,2∗†, Yunxiang Li3∗ // , Xiaoyu Wen1,2∗ // , Yan Song4 //
+--------------------------------------------------------------------------------
+FILE: Reinforcement_Learning-Augmented_LLM_Agents_for_Collaborative_Decision_Making_and_Performance_Optimization.pdf
+Size: 1.78 MB | SHA256: 7ee3f331a816db66...
+Header: Reinforcement Learning-Augmented LLM Agents for // Collaborative Decision Making and Performance // Optimization // Dong Qiu1,*, Duo Xu2a, Limengxi Yu
+--------------------------------------------------------------------------------
+FILE: Retrieval-Augmented_LLM-Driven_Multi-Agent_Optimization_Framework_for_Intelligent_Manufacturing_Scheduling.pdf
+Size: 0.38 MB | SHA256: 5134c76e862a1fd0...
+Header: Retrieval-Augmented LLM-Driven Multi-Agent // Optimization Framework for Intelligent // Manufacturing Scheduling // Xiang Li // China Unicom Research 
+--------------------------------------------------------------------------------
+FILE: s40747-026-02331-2.pdf
+Size: 1.99 MB | SHA256: 5cc3859ae87e01d0...
+Header: Complex & Intelligent Systems (2026) 12:216 // https://doi.org/10.1007/s40747-026-02331-2 // ORIGINAL ARTICLE // Mixture of orthogonal experts: a nove
+--------------------------------------------------------------------------------
+FILE: s44427-026-00021-y.pdf
+Size: 1.20 MB | SHA256: 5ae711228d734022...
+Header: Acta Universitatis Sapientiae, Informatica (2026) 18:5 // https://doi.org/10.1007/s44427-026-00021-y // ARTICLE // Self-Play Meta-Reinforcement Learni
+--------------------------------------------------------------------------------
+FILE: Survey_on_Large_Language_Model-Enhanced_Reinforcement_Learning_Concept_Taxonomy_and_Methods.pdf
+Size: 2.44 MB | SHA256: 37827984cbcf89cc...
+Header: IEEE TRANSACTIONS ON NEURAL NETWORKS AND LEARNING SYSTEMS, VOL. 36, NO. 6, JUNE 2025 9737 // Survey on Large Language Model-Enhanced // Reinforcement 
+--------------------------------------------------------------------------------
+FILE: zhang25bi.pdf
+Size: 8.14 MB | SHA256: dff46ffd15633333...
+Header: Multi-agent Architecture Search via Agentic Supernet // Guibin Zhang * 1 Luyang Niu * 2 Junfeng Fang 1 Kun Wang 3 Lei Bai 4 Xiang Wang 5 // Abstract /
+--------------------------------------------------------------------------------
+
+EXACT DUPLICATES:
+  REMOVE: 21184-AAAI26.LiuS-NLP.pdf (duplicate of 21184-AAAI26.LiuS-NLP (1).pdf) [Exact Hash Match]
+  REMOVE: NeurIPS-2025-multi-agent-collaboration-via-evolving-orchestration-Paper-Conference.pdf (duplicate of NeurIPS-2025-multi-agent-collaboration-via-evolving-orchestration-Paper-Conference (1).pdf) [Exact Hash Match]

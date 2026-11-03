@@ -1,0 +1,17 @@
+\begin{table*}[!t]
+\centering
+\caption{Structural Action Space Ablation and Topological Diagnoses on Held-Out Evaluation Tasks}
+\label{tab:action_space_ablation}
+\footnotesize
+\begin{tabular}{lp{3.5cm}p{3.8cm}p{5.5cm}}
+\toprule
+\textbf{Held-Out Task} & \textbf{Target Required Capability} & \textbf{Permitted Action Space $\mathcal{R}_{\mathrm{valid}}$} & \textbf{Observed Topological Effect \& Diagnosis} \\
+\midrule
+$\mathcal{T}_1$ (Analysis) & Analysis, Planning & $\{\text{Analysis}, \text{Planning}\}$ & Valid actions reachable; agent configuration pre-optimized at initialization; no mutation required. \\
+$\mathcal{T}_2$ (Coding) & Code Generation, Verification & $\{\text{Analysis}, \text{Planning}\}$ & \textbf{Action mismatch:} The Coder role cannot be restored via mutation; exploratory perturbations deactivated critical coding specialists. \\
+$\mathcal{T}_3$ (Research A) & Research, Synthesis & $\{\text{Analysis}, \text{Planning}\}$ & \textbf{Severe structural ceiling:} The Researcher role is completely absent from permitted mutations, preventing capability acquisition. \\
+$\mathcal{T}_4$ (Research B) & Research, Synthesis & $\{\text{Analysis}, \text{Planning}\}$ & \textbf{Role missing:} Planner active, but Researcher cannot be reassigned; no valid mutation satisfies target capability. \\
+$\mathcal{T}_5$ (Summarization) & Synthesis, Context Aggregation & $\{\text{Analysis}, \text{Planning}\}$ & Shared policy learns protective inertia against destructive mutations, whereas scratch policy suffers architectural drift. \\
+\bottomrule
+\end{tabular}
+\end{table*}

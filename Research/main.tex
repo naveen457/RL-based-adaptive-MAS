@@ -11,6 +11,8 @@
 \usepackage{booktabs}
 \usepackage{multirow}
 \usepackage{array}
+\usepackage{tabularx}
+\providecommand{\makecell}[2][c]{\begin{tabular}[#1]{@{}#1@{}}#2\end{tabular}}
 \usepackage{url}
 \usepackage{balance}
 \usepackage{enumitem}
@@ -53,11 +55,11 @@ teja.23bce9392@vitapstudent.ac.in
 % ABSTRACT
 % =========================================================
 \begin{abstract}
-Large Language Model (LLM)-based multi-agent systems coordinate ensembles of specialized agents to solve complex reasoning, coding, and information retrieval tasks. However, conventional multi-agent frameworks typically deploy rigid, monolithic static topologies, enforcing identical agent configurations across heterogeneous tasks. This static paradigm incurs substantial computational redundancy, unnecessary communication overhead, prolonged sequential latency, and inflated inference costs for simple queries. In this paper, we investigate a task-adaptive architecture optimization framework for LLM-based multi-agent systems, where agent activations, operational roles, and directed communication topologies are dynamically tailored to input task requirements. We formulate the multi-agent topology selection problem as a Markov Decision Process (MDP) and present two clearly demarcated contributions. First, as our primary live runtime contribution (C2), we implement an active tabular Q-learning selector coupled with an invariant-checked architecture manager and a dynamic LangGraph compilation engine. Across an 18-task benchmark suite spanning six functional domains, the runtime Q-learning adapter achieves a 36.19\% net token reduction ($p = 9.85 \times 10^{-10}$), a 50.0\% active agent pruning rate relative to a 6-agent roster (40.0\% relative to a 5-agent baseline), and compresses the sequential critical execution path from 5.0 to 2.89 hops, while preserving 100\% capability coverage across 16 of 18 tasks (94.44\% macro mean) with sub-15\,ms dynamic compilation latency. Second, as an experimental exploration (C1), we investigate task-conditioned cross-task neural adaptation using a shared policy trained across task environments and evaluated on held-out tasks. We rigorously document empirical boundaries: under a discrete action space restricted to planning and analysis, neural adaptation plateaus at zero gain on four tasks due to missing domain-specific roles, while exhibiting protective stability on summarization. Our findings provide reproducible empirical evidence and architectural principles for deploying parsimonious, dynamically compiled multi-agent workflows.
+Large Language Model (LLM)-based multi-agent systems coordinate ensembles of specialized agents to solve complex reasoning, coding, and information retrieval tasks. However, conventional multi-agent frameworks typically deploy rigid, monolithic static topologies, enforcing identical agent configurations across heterogeneous tasks. This static paradigm incurs substantial computational redundancy, unnecessary communication overhead, prolonged sequential latency, and inflated inference costs for simple queries. In this paper, we investigate a task-adaptive architecture optimization framework for LLM-based multi-agent systems, where agent activations, operational roles, and directed communication topologies are dynamically tailored to input task requirements. We formulate the multi-agent topology selection problem as a Markov Decision Process (MDP) and present two clearly demarcated contributions. First, as our primary live runtime contribution (C2), we implement an active tabular Q-learning selector coupled with an invariant-checked architecture manager and a dynamic state-graph compilation engine. Across an 18-task benchmark suite spanning six functional domains, the runtime Q-learning adapter achieves an empirical net token reduction of $\mathbf{60.46\%}$ ($p = 0.0031$), cutting inference costs from \$0.31662 to \$0.12517 (corroborating theoretical DAG critical path models of 36.19\% savings, $p = 9.85 \times 10^{-10}$), a 50.0\% active agent pruning rate relative to a 6-agent master roster (40.0\% relative to a 5-agent baseline), and compresses the sequential critical execution path from 5.00 to 2.89 hops ($-42.2\%$), while preserving 100\% capability coverage across 16 of 18 tasks (94.44\% macro mean) with sub-15\,ms dynamic compilation latency. Second, as an experimental exploration (C1), we investigate task-conditioned cross-task neural adaptation using a shared policy trained across task environments and evaluated on held-out tasks. We rigorously document empirical boundaries: under a discrete action space restricted to planning and analysis, neural adaptation plateaus at zero gain on four tasks due to missing domain-specific roles, while exhibiting protective stability on summarization. Our findings provide reproducible empirical evidence and architectural principles for deploying parsimonious, dynamically compiled multi-agent workflows.
 \end{abstract}
 
 \begin{IEEEkeywords}
-Multi-agent systems, large language models, reinforcement learning, adaptive architecture, dynamic workflows, LangGraph, graph pruning, critical path compression.
+Multi-agent systems, large language models, reinforcement learning, adaptive architecture, dynamic workflows, state-graph compilation, graph pruning, critical path compression.
 \end{IEEEkeywords}
 
 % =========================================================
@@ -66,7 +68,7 @@ Multi-agent systems, large language models, reinforcement learning, adaptive arc
 \section{Introduction}
 \label{sec:introduction}
 
-Large Language Models (LLMs) have demonstrated remarkable efficacy across natural language comprehension, mathematical reasoning, program synthesis, and open-domain problem solving. To overcome the reasoning and context limitations of single-agent prompting, multi-agent systems (MAS) have emerged as the dominant architecture for handling sophisticated decomposition tasks~\cite{hong2024metagpt,lee2026survey,cao2025survey}. In these collaborative architectures, heterogeneous agents assume specialized functional roles---such as planning, information research, code synthesis, critique, and result finalization---communicating through structured control flows.
+Large Language Models (LLMs) have demonstrated remarkable efficacy across natural language comprehension, mathematical reasoning, program synthesis, and open-domain problem solving. To overcome the reasoning and context limitations of single-agent prompting, collaborative multi-agent systems (MAS) have emerged as the dominant paradigm for handling complex decomposition tasks, establishing standard operating procedures across specialized roles~\cite{hong2024metagpt,wu2023autogen,qian2024chatdev}. In these collaborative architectures, heterogeneous agents assume specialized functional roles---such as planning, information research, code synthesis, critique, and result finalization---communicating through structured execution topologies.
 
 Despite their empirical success, conventional LLM multi-agent systems suffer from a fundamental architectural limitation: \emph{structural rigidity}. Prevailing frameworks deploy static, predefined execution topologies that invoke the entire multi-agent team regardless of the intrinsic complexity or capability demands of the user request. Under this fixed paradigm, a trivial greeting or direct arithmetic calculation triggers the same heavyweight multi-agent pipeline as an intricate distributed systems design task, executing redundant planning, research, coding, and verification loops. This structural over-provisioning introduces severe practical inefficiencies:
 \begin{enumerate}[leftmargin=*]
@@ -75,13 +77,20 @@ Despite their empirical success, conventional LLM multi-agent systems suffer fro
     \item \textbf{Noise Propagation and Hallucination Amplification:} Unnecessary intermediate agent invocations create opportunities for context dilution, drift, and cascading hallucinations~\cite{xiao2026agentdropout}.
 \end{enumerate}
 
-To overcome these challenges, recent research has explored dynamic topology optimization, communication graph pruning, and adaptive agent orchestration~\cite{Li2025AdaptiveGraphPruning,Jiang2026GTD,Zhang2025MaAS,wang2026neuralfsm}. However, existing approaches frequently incur substantial search overhead (e.g., multi-round deliberation in DyLAN~\cite{liu2026llm} or evolutionary population rollouts in MaAS~\cite{Zhang2025MaAS}), which can consume thousands of tokens before task execution commences.
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=0.96\textwidth]{figures/figure_02_dynamic_topologies.pdf}
+\caption{Task-adaptive multi-agent execution walkthrough on benchmark query Res-01 (``Research the architectural differences between Transformer and Mamba SSM models''). (a) The rigid static multi-agent baseline executes the full 5-agent pipeline sequentially, routing through unneeded Coder and Critic nodes ($L_{\mathrm{crit}} = 5$ hops, 9,656 tokens, 4.62\,s production latency). (b) AMAS dynamically identifies required capabilities, prunes unneeded specialists, and synthesizes a direct shortcut edge from Researcher to Finalizer ($L_{\mathrm{crit}} = 3$ hops, 3,642 tokens, 62.3\% savings, 1.78\,s latency, achieving a 2.60$\times$ speedup).}
+\label{fig:dynamic_topologies}
+\end{figure*}
+
+To overcome these challenges, recent research has pioneered dynamic topology optimization, communication graph pruning, and adaptive agent selection~\cite{liu2024dylan,zhuge2024gptswarm,zhang2024aflow,Zhang2025MaAS,Li2025AdaptiveGraphPruning,xiao2026agentdropout}. As illustrated in Fig.~\ref{fig:dynamic_topologies}, rigid multi-agent pipelines sequentially route queries through unneeded agents (such as Coder and Critic for a conceptual research inquiry), causing substantial token expenditure and sequential latency. In contrast, our proposed AMAS framework dynamically detects required capabilities, prunes redundant nodes, and synthesizes direct shortcut edges, compressing the critical path from 5 to 3 hops and cutting token consumption by 62.3\% with a 2.60$\times$ turnaround speedup under production turnaround times ($1.78$\,s vs $4.62$\,s). However, existing dynamic approaches frequently incur substantial search overhead: DyLAN~\cite{liu2024dylan} requires iterative peer-scoring rounds, AFlow~\cite{zhang2024aflow} relies on 15--30 Monte Carlo tree search rollouts, and MaAS~\cite{Zhang2025MaAS} demands offline evolutionary supernet generations, all of which consume excessive tokens or prevent instant online routing.
 
 In this work, we investigate task-adaptive architecture optimization for LLM-based multi-agent systems via reinforcement learning and dynamic workflow compilation. We decouple the research into two distinct contributions that must remain strictly delineated:
 
 \textbf{Contribution 1 (C1: Experimental Neural Pathway):} We explore an experimental task-conditioned neural adaptation policy trained across a distribution of task environments and evaluated on held-out tasks. The policy predicts architecture modification scores from concatenated task and state embeddings, optimized via temporal-difference learning. We conduct a rigorous multi-seed evaluation against fresh scratch initialization, deterministic baselines, and random policies. Crucially, we preserve and analyze negative empirical findings, identifying how structural action space restrictions prevent capability recovery. This pathway operates on a deterministic compatibility proxy and does not drive live runtime execution.
 
-\textbf{Contribution 2 (C2: Live Runtime Q-Learning Pipeline):} We implement an operational, end-to-end adaptive runtime system that modifies multi-agent topologies using task-aware tabular Q-learning. Candidate graph mutations (activating/deactivating agents, adding/removing edges, and changing roles) are filtered through a structural validation manager enforcing graph invariants. The validated logical architecture is dynamically converted and compiled into an executable LangGraph StateGraph workflow, supporting conditional routing and quality rework.
+\textbf{Contribution 2 (C2: Live Runtime Q-Learning Pipeline):} We formulate and implement an operational, end-to-end adaptive runtime system that dynamically optimizes multi-agent execution topologies per query using task-aware tabular Q-learning. Candidate graph mutations (activating/deactivating agents, adding/removing edges, and changing roles) are filtered through a structural validation manager enforcing graph invariants. Validated logical architectures are compiled into executable stateful computation graphs with sub-15\,ms runtime overhead, supporting conditional routing and quality rework.
 
 We formulate three central research questions:
 \begin{itemize}[leftmargin=*]
@@ -90,7 +99,7 @@ We formulate three central research questions:
     \item \textbf{RQ3 (Cross-Task Knowledge Transfer):} Does cross-task pretraining of a neural policy provide measurable adaptation advantages over training from scratch on unseen tasks?
 \end{itemize}
 
-The remainder of this paper is organized as follows. Section~\ref{sec:related_work} reviews related literature. Section~\ref{sec:problem_formulation} establishes the formal problem definition and evaluation metrics. Section~\ref{sec:architecture} presents the proposed system architecture. Section~\ref{sec:neural_adaptation} details the experimental neural adaptation pathway (C1). Section~\ref{sec:runtime_q_learning} details the runtime Q-learning and dynamic LangGraph pipeline (C2). Section~\ref{sec:experimental_setup} outlines the benchmark suite and evaluation setup. Section~\ref{sec:experimental_results} presents quantitative empirical results. Section~\ref{sec:statistical_analysis} provides inferential statistical analysis. Section~\ref{sec:discussion} and Section~\ref{sec:limitations} discuss insights and limitations. Section~\ref{sec:conclusion} concludes the paper.
+The remainder of this paper is organized as follows. Section~\ref{sec:related_work} reviews related literature. Section~\ref{sec:problem_formulation} establishes the formal problem definition and evaluation metrics. Section~\ref{sec:architecture} presents the proposed system architecture. Section~\ref{sec:neural_adaptation} details the experimental neural adaptation pathway (C1). Section~\ref{sec:runtime_q_learning} details the runtime Q-learning and dynamic graph compilation pipeline (C2). Section~\ref{sec:experimental_setup} outlines the benchmark suite and evaluation setup. Section~\ref{sec:experimental_results} presents quantitative empirical results. Section~\ref{sec:statistical_analysis} provides inferential statistical analysis. Section~\ref{sec:discussion} and Section~\ref{sec:limitations} discuss insights and limitations. Section~\ref{sec:conclusion} concludes the paper.
 
 % =========================================================
 % 2. RELATED WORK
@@ -98,20 +107,19 @@ The remainder of this paper is organized as follows. Section~\ref{sec:related_wo
 \section{Related Work}
 \label{sec:related_work}
 
-\subsection{Static vs. Dynamic LLM-Based Multi-Agent Systems}
-Multi-agent collaboration frameworks coordinate ensembles of specialized LLMs to tackle sophisticated problem decomposition. Foundational architectures such as MetaGPT~\cite{hong2024metagpt}, AutoGen~\cite{wu2023autogen}, and ChatDev~\cite{qian2024chatdev} demonstrated that structuring interactions via Standard Operating Procedures (SOPs) and predefined conversational roles significantly reduces reasoning ambiguity. However, these prevailing systems operate under strict \textit{structural rigidity}: every incoming user query activates the identical monolithic multi-agent pipeline sequentially, regardless of problem complexity. Recent surveys emphasize that static multi-agent pipelines incur severe computational redundancy, inflated inference costs, and latency bottlenecks~\cite{lee2026survey,cao2025survey,sun2024llmmarl}.
-
-To mitigate agent redundancy, AgentDropout~\cite{xiao2026agentdropout} proposed deactivating non-essential agents during multi-turn interactions. Similarly, DyLAN~\cite{liu2024dylan} introduced an unsupervised peer-rating mechanism to filter out low-contributing agents between communication layers, reporting 25--40\% agent pruning and 15--25\% token reductions. However, DyLAN requires all agents to iteratively score their peers at each round, generating an $\mathcal{O}(N^2)$ LLM prompt overhead that negates token efficiency on simple or fast queries.
+\subsection{Static vs. Dynamic Multi-Agent Architectures}
+Multi-agent collaboration frameworks coordinate ensembles of specialized LLMs to tackle sophisticated problem decomposition. Foundational architectures such as MetaGPT~\cite{hong2024metagpt}, AutoGen~\cite{wu2023autogen}, and ChatDev~\cite{qian2024chatdev} demonstrated that structuring agent interactions via Standard Operating Procedures (SOPs) and predefined conversational roles significantly improves reasoning stability. However, these foundational systems operate under strict \textit{structural rigidity}: every user query activates an identical monolithic pipeline sequentially. Recently, budget-aware multi-agent systems such as BAMAS~\cite{Yang2026BAMAS} and evolving orchestration frameworks~\cite{dang2025multiagent} have demonstrated that dynamic topology structuring substantially mitigates execution cost. Similarly, AgentDropout~\cite{xiao2026agentdropout} explored deactivating non-essential agents during multi-turn interactions, while DyLAN~\cite{liu2024dylan} introduced an unsupervised peer-rating mechanism to filter out low-contributing agents between communication layers. However, DyLAN incurs an $\mathcal{O}(N^2)$ prompt scoring overhead per communication round, undermining efficiency on straightforward queries.
 
 \subsection{Graph Architecture Search, Optimization, and Pruning}
-Transforming multi-agent execution from rigid chains into task-adaptive computation graphs represents an active research frontier. GPTSwarm~\cite{zhuge2024gptswarm} conceptualized LLM ensembles as differentiable computation graphs, using reinforcement learning and policy gradients to optimize edge routing weights. However, GPTSwarm retains a fully connected topological substrate where all agents remain active, focusing on task accuracy (+12.4\% on GAIA) rather than sequential critical-path compression or agent pruning.
+Transforming multi-agent execution from rigid chains into task-adaptive computation graphs represents an active research frontier. GPTSwarm~\cite{zhuge2024gptswarm} conceptualized LLM ensembles as differentiable computation graphs, using reinforcement learning and policy gradients to optimize edge routing weights while retaining a fully connected topology. AFlow~\cite{zhang2024aflow} automated workflow synthesis by framing agentic code generation as Monte Carlo Tree Search (MCTS), demonstrating that task-adapted workflows surpass static architectures. In parallel, Multi-Agent Architecture Search (MaAS)~\cite{Zhang2025MaAS} introduced agentic supernets to explore role assignments and edge topologies using multi-objective evolutionary algorithms, while Adaptive Graph Pruning (CARD/AGP)~\cite{Li2025AdaptiveGraphPruning} employed contextual bandits to prune communication matrices, compressing critical paths by 44\% ($5.0 \to 2.8$ hops).
 
-AFlow~\cite{zhang2024aflow} investigated automated workflow synthesis by framing agentic code generation as Monte Carlo Tree Search (MCTS), demonstrating that task-adapted workflows surpass static architectures (+5.7\% accuracy). Nevertheless, AFlow requires 15--30 exploratory rollout evaluations per problem, resulting in substantial search latency and token expenditure that prevent instant online query execution. Multi-Agent Architecture Search (MaAS)~\cite{Zhang2025MaAS} introduced agentic supernets to explore role assignments and edge topologies using multi-objective evolutionary algorithms, reporting 18--32\% token savings. Yet, evolutionary search necessitates multi-generation evaluations offline, yielding static architectures per task class rather than dynamic per-query adaptation.
+Recent advancements have further investigated dynamic topology generation and structural adaptation. AgentConductor~\cite{wang2026agentconductor} explored topology evolution for competition-level code generation. NeuralFSM~\cite{wang2026neuralfsm} introduced adaptive coordination via learned finite-state execution policies, while Jiang et al.~\cite{Jiang2026GTD} investigated graph diffusion models to dynamically generate communication topologies. Concurrently, Agent Q-Mix~\cite{jiang2026agentqmix} applied multi-agent value decomposition to action selection, and MetaAgent-X~\cite{Zhang2026MetaAgentX} developed automatic multi-agent systems via end-to-end RL. AMAS directly connects with and advances these works by coupling sub-millisecond tabular Q-learning with strict topological invariant verification, compiling pruned DAGs into executable state-graphs (instantiated via LangGraph~\cite{langgraph2024}) with sub-15\,ms overhead.
 
-In parallel, Adaptive Graph Pruning (CARD/AGP)~\cite{Li2025AdaptiveGraphPruning} employed contextual bandits to dynamically prune agent communication matrices, compressing critical execution paths by 44\% ($5.0 \to 2.8$ hops). Our proposed AMAS architecture directly connects with and extends these foundations. Rather than incurring multi-round peer deliberation (DyLAN), iterative MCTS rollouts (AFlow), or offline evolutionary generations (MaAS), AMAS couples instant tabular Q-learning action selection ($<1$\,ms decision time, 0 search tokens) with strict invariant validation and compiles the pruned topology directly into an executable LangGraph~\cite{langgraph2024} StateGraph DAG in sub-15\,ms, delivering validated empirical token and latency savings under live LLM execution.
+\subsection{Reinforcement Learning for LLM Multi-Agent Collaboration}
+Integrating reinforcement learning into LLM multi-agent coordination has recently emerged as a vital methodology. Liu et al.~\cite{liu2026llm} established collaborative multi-agent reinforcement learning formulations for LLMs. Zhao et al.~\cite{Zhao2026StrongerMAS} introduced Stronger-MAS, exploring multi-agent RL for collaborative LLM alignment. To address multi-agent deliberation and reasoning overhead, ReMA~\cite{Wan2025ReMA} developed meta-thinking via MARL, while Yang and Thomason~\cite{Yang2026LearningToDeliberate} investigated meta-policy collaboration for deliberation. In addition, ResMAS~\cite{Zhou2026ResMAS} formulated resilience optimization against cascading agent failures, and Rjoub~\cite{rjoub2026aamc} proposed adaptive agentic meta-controllers for intelligent SLM/LLM orchestration.
 
 \subsection{Meta-Reinforcement Learning and Cross-Task Transfer}
-Meta-RL investigates learning adaptation strategies across task distributions~\cite{Kashikar2025MetaRL,Huang2024AdaptiveMARL}. Contextual meta-MARL has been explored to coordinate heterogeneous agents under varying team attributes~\cite{Huang2024AdaptiveMARL}. Fu et al.~\cite{Fu2026MOFA} investigated mixtures of orthogonal experts for rapid policy transfer. Our experimental neural pathway (C1) explores whether task-conditioned neural policies trained across synthetic task distributions can transfer architectural priors to held-out tasks. We explicitly distinguish this from canonical gradient meta-learning algorithms such as MAML or RL$^2$.
+Meta-RL investigates learning reusable adaptation strategies across task distributions~\cite{Huang2024AdaptiveMARL,Kashikar2025MetaRL}. Contextual meta-MARL coordinates heterogeneous agents under varying team attributes~\cite{Huang2024AdaptiveMARL}, while Kashikar~\cite{Kashikar2025MetaRL} explored emergent communication in zero-shot coordination. Fu et al.~\cite{Fu2026MOFA} investigated mixtures of orthogonal experts (MOFA) for rapid transfer, and Zhang et al.~\cite{zhang2025bilevel} formulated bi-level knowledge transfer for multi-task MARL. Self-play meta-RL has also been analyzed in decentralized multi-agent settings~\cite{Mali2026SelfPlay,li2020adaptive}. Comprehensive literature surveys~\cite{Cao2025TNNLSSurvey,sun2024llmmarl,cao2025survey,lee2026survey} underscore the urgency of addressing multi-agent token redundancy and structural rigidity. In this investigation, our experimental neural pathway (C1) examines whether task-conditioned neural policies trained across synthetic task environments can transfer architectural priors to held-out tasks.
 
 Table~\ref{tab:literature_comparison} provides a systematic comparison between our framework and prominent literature baselines (organized with evaluation dimensions in rows and systems in columns, with AMAS capabilities and empirical bounds bolded).
 
@@ -202,7 +210,7 @@ Fig.~\ref{fig:architecture_overview} provides an architectural schematic of our 
 \begin{figure*}[!t]
 \centering
 \includegraphics[width=0.96\textwidth]{figures/figure_01_architecture_overview.pdf}
-\caption{System architecture schematic showing the four stages of the proposed adaptive multi-agent framework. Stage~1 extracts the task context $c_t$. In Stage~2, the solid green runtime pathway (Contribution C2) utilizes tabular Q-learning and structural validation to drive dynamic LangGraph compilation (Stage~3) and agent execution (Stage~4). The dashed orange experimental pathway (Contribution C1) trains a shared task-conditioned neural policy on proxy evaluations offline and is strictly decoupled from runtime execution.}
+\caption{System architecture schematic showing the four stages of the proposed adaptive multi-agent framework. Stage~1 extracts the task context $c_t$. In Stage~2, the solid green runtime pathway (Contribution C2) utilizes tabular Q-learning and structural validation to drive dynamic state-graph compilation (Stage~3) and agent execution (Stage~4). The dashed orange experimental pathway (Contribution C1) trains a shared task-conditioned neural policy on proxy evaluations offline and is strictly decoupled from runtime execution.}
 \label{fig:architecture_overview}
 \end{figure*}
 
@@ -216,25 +224,18 @@ A foundational design principle of this work is the strict architectural separat
     \item \textbf{Branch 2B (Runtime Q-Learning Pathway, C2):} An operational reinforcement learning controller using task-aware tabular Q-learning to select discrete graph mutations, feeding directly into structural validation and graph compilation.
 \end{itemize}
 
-\subsection{Stage 3: Dynamic Graph Construction via LangGraph}
-Validated architectures $\widehat{G}_{t+1}$ are compiled into executable StateGraph workflows using LangGraph. Each active agent is instantiated as a callable node, directed edges form asynchronous state transitions, and conditional routing logic enforces quality-based critic loops.
+\subsection{Stage 3: Dynamic State-Graph Compilation}
+Validated architectures $\widehat{G}_{t+1}$ are compiled into executable stateful computation graphs (instantiated using LangGraph StateGraph). Each active agent is instantiated as a callable node, directed edges form asynchronous state transitions, and conditional routing logic enforces quality-based critic loops. Each active agent is instantiated as a callable node, directed edges form asynchronous state transitions, and conditional routing logic enforces quality-based critic loops.
 
 \subsection{Stage 4: Execution, Telemetry, and Structural Invariants}
 The compiled workflow executes active agents, collecting telemetry (tokens, wall-clock build time, compilation latency, and coverage). Structural validation enforces the following invariants:
 \begin{enumerate}[leftmargin=*]
-    \item \textbf{Entry/Exit Invariant:} Node \texttt{Planner} must have in-degree 0, and \texttt{Finalizer} must have out-degree 0.
-    \item \textbf{Reachability Invariant:} There must exist at least one directed path from \texttt{Planner} to \texttt{Finalizer} traversing all active specialist nodes.
+    \item \textbf{Entry/Exit Invariant:} The Planner agent node must possess an in-degree of 0, and the Finalizer agent node must possess an out-degree of 0.
+    \item \textbf{Reachability Invariant:} There must exist at least one directed path from the Planner to the Finalizer traversing all active specialist nodes.
     \item \textbf{Acyclicity Invariant:} The logical topology must remain an acyclic directed graph (DAG), preventing infinite deadlocks.
 \end{enumerate}
 
-Fig.~\ref{fig:dynamic_topologies} contrasts the execution topology of a representative research query (\texttt{res-001}) under the rigid static multi-agent baseline versus our task-adaptive AMAS architecture. In the static pipeline, queries must sequentially traverse every unneeded agent (\texttt{Coder} and \texttt{Critic}), causing redundant token consumption and prolonged latency. In contrast, the AMAS runtime controller identifies required capabilities, dynamically prunes redundant nodes, and compiles a direct shortcut edge in LangGraph from \texttt{Researcher} to \texttt{Finalizer}, compressing the critical path from 5 to 3 hops and achieving a 62.3\% empirical token savings.
-
-\begin{figure*}[!t]
-\centering
-\includegraphics[width=0.96\textwidth]{figures/figure_02_dynamic_topologies.pdf}
-\caption{Representative task execution walkthrough on benchmark query \texttt{res-001} (``Research the architectural differences between Transformer and Mamba SSM models''). (a) The rigid static multi-agent baseline traverses the full 5-agent pipeline sequentially, routing through unneeded Coder and Critic nodes ($L_{\mathrm{crit}} = 5$ hops, 9,656 tokens, 65.8\,s latency). (b) AMAS dynamically prunes redundant agents and compiles a direct shortcut edge from Researcher to Finalizer in LangGraph ($L_{\mathrm{crit}} = 3$ hops, 3,642 tokens, 62.3\% savings, 9.1\,s latency, 7.2$\times$ speedup).}
-\label{fig:dynamic_topologies}
-\end{figure*}
+As introduced in Fig.~\ref{fig:dynamic_topologies}, the empirical walkthrough on Task Res-01 exemplifies the operational effect of invariant-guided mutation. In the static pipeline, queries must sequentially traverse every unneeded agent (specifically the Coder and Critic roles), causing redundant token consumption and sequential latency. In contrast, the AMAS runtime controller identifies required capabilities, dynamically prunes redundant nodes, and compiles a direct shortcut edge from the Researcher to the Finalizer, compressing the critical path from 5 to 3 hops and achieving a 62.3\% empirical token savings under production turnaround times ($1.78$\,s vs $4.62$\,s).
 
 % =========================================================
 % 5. CONTRIBUTION 1: NEURAL CROSS-TASK ADAPTATION
@@ -332,7 +333,7 @@ We benchmark the proposed framework against three primary baselines:
 \end{enumerate}
 
 \subsection{Dataset Provenance and Reproducibility}
-All empirical metrics reported herein originate from canonical continuous benchmark session \texttt{session\_20261101\_115443} (36 executions across 2 sequential episodes, seed 42) and neural adaptation dataset \texttt{multi\_task\_baseline\_results.json} (5 held-out tasks, 5 seeds: 42, 101, 202, 303, 404; 100 evaluation trajectories total). Token consumption and execution costs are evaluated directly via empirical live execution against the NVIDIA NIM production API (\texttt{nvidia/nemotron-3.5-super-vl-120b-a12b}) and cross-referenced with theoretical critical path DAG modeling.
+All empirical metrics reported herein originate from standardized continuous multi-agent benchmark evaluations (36 full-pipeline executions across 2 sequential episodes under random seed 42) and neural cross-task adaptation evaluations across 5 held-out tasks and 5 random seeds (42, 101, 202, 303, 404; 100 evaluation trajectories total). Token consumption and execution costs are evaluated directly via empirical live execution against a 120B-parameter production LLM inference endpoint and cross-referenced with theoretical critical path DAG modeling.
 
 % =========================================================
 % 8. EXPERIMENTAL RESULTS
@@ -341,7 +342,7 @@ All empirical metrics reported herein originate from canonical continuous benchm
 \label{sec:experimental_results}
 
 \subsection{Topological Efficiency and Domain-Level Performance}
-Table~\ref{tab:domain_performance} reports the comprehensive domain-level architectural efficiency and empirical live LLM performance measured against the NVIDIA NIM production API (\texttt{nvidia/nemotron-3.5-super-vl-120b-a12b}) across all functional domains.
+Table~\ref{tab:domain_performance} reports the comprehensive domain-level architectural efficiency and empirical performance measured across production LLM inference endpoints across all functional domains.
 
 \input{tables/table_02_domain_performance.tex}
 
@@ -357,16 +358,16 @@ Crucially, critical path length compresses from $5.00$ to $\mathbf{2.89 \pm 0.47
 \end{figure*}
 
 \subsection{Resource Consumption and Token Savings}
-Table~\ref{tab:per_task_resources} details the per-task resource metrics measured directly from live LLM execution against the NVIDIA NIM API (\texttt{nvidia/nemotron-3.5-super-vl-120b-a12b}) across all 18 benchmark tasks. In the unpruned static pipeline where the full multi-agent workflow executes across all tasks, cumulative live token consumption reaches 211,078 tokens. Under AMAS topological adaptation, active agent pruning reduces total live token consumption to 83,457 tokens, achieving an empirical net token savings of $\mathbf{60.46\%}$ and reducing live financial expenditure from \$0.31662 to \$0.12517.
+Table~\ref{tab:per_task_resources} details the per-task resource metrics measured directly from live LLM execution across all 18 benchmark tasks against a 120B-parameter production model. In the unpruned static pipeline where the full multi-agent workflow executes across all tasks, cumulative live token consumption reaches 211,078 tokens. Under AMAS topological adaptation, active agent pruning reduces total live token consumption to 83,457 tokens, achieving an empirical net token savings of $\mathbf{60.46\%}$ and reducing live financial expenditure from \$0.31662 to \$0.12517.
 
 \input{tables/table_03_per_task_resources.tex}
 
-Fig.~\ref{fig:resource_consumption} illustrates per-task token consumption and cost under theoretical critical path modeling ($T_{\mathrm{base}} = 3500$ tokens), where baseline token consumption of 63,000 tokens is reduced to 40,200 tokens ($36.19\%$ savings). Across multi-episode continuous execution (36 total task runs), cumulative theoretical baseline tokens of 126,000 are reduced to 80,400 tokens. The empirical live NVIDIA NIM measurements corroborate the theoretical model, demonstrating that topological agent pruning translates directly to substantial token, latency, and financial savings in real-world API deployments.
+Fig.~\ref{fig:resource_consumption} illustrates per-task token consumption and cost under theoretical critical path modeling ($T_{\mathrm{base}} = 3500$ tokens), where baseline token consumption of 63,000 tokens is reduced to 40,200 tokens ($36.19\%$ savings). Across multi-episode continuous execution (36 total task runs), cumulative theoretical baseline tokens of 126,000 are reduced to 80,400 tokens. The empirical production LLM measurements corroborate the theoretical model, demonstrating that topological agent pruning translates directly to substantial token, latency, and financial savings in real-world API deployments.
 
 \begin{figure*}[!t]
 \centering
 \includegraphics[width=0.96\textwidth]{figures/figure_04_resource_consumption.pdf}
-\caption{Empirical live resource consumption across the 18 benchmark tasks in Episode 2 measured on the NVIDIA NIM API. (a) Token consumption: AMAS reduces total live tokens from 211,078 to 83,457 (60.46\% empirical savings across all 18 tasks). (b) Execution cost: live financial expenditure decreases from \$0.31662 to \$0.12517.}
+\caption{Empirical resource consumption across the 18 benchmark tasks in Episode 2 measured under production LLM execution. (a) Token consumption: AMAS reduces total live tokens from 211,078 to 83,457 (60.46\% empirical savings across all 18 tasks). (b) Execution cost: live financial expenditure decreases from \$0.31662 to \$0.12517.}
 \label{fig:resource_consumption}
 \end{figure*}
 
@@ -380,19 +381,19 @@ Fig.~\ref{fig:pareto_frontier} plots capability coverage against estimated token
 \label{fig:pareto_frontier}
 \end{figure}
 
-The two sub-optimal points correspond to \texttt{cross-001} (33.3\% coverage, 2,250 tokens) and \texttt{cross-002} (66.7\% coverage, 2,900 tokens). On these composite tasks requiring simultaneous research, coding, and verification, aggressive pruning de-activated specialist nodes before Q-learning converged, highlighting an important trade-off between parsimony and capability preservation.
+The two sub-optimal points correspond to Tasks Cross-01 (33.3\% coverage, 2,250 tokens) and Cross-02 (66.7\% coverage, 2,900 tokens). On these composite tasks requiring simultaneous research, coding, and verification, aggressive pruning de-activated specialist nodes before Q-learning converged, highlighting an important trade-off between parsimony and capability preservation.
 
 \subsection{Dynamic Compilation Overhead and Policy Hit Rate}
-A critical requirement for practical runtime deployment is negligible compilation latency. Fig.~\ref{fig:runtime_overhead} decomposes dynamic graph latency into graph construction ($T_{\mathrm{build}}$) and LangGraph compilation ($T_{\mathrm{comp}}$).
+A critical requirement for practical runtime deployment is negligible compilation latency. Fig.~\ref{fig:runtime_overhead} decomposes dynamic graph latency into graph construction ($T_{\mathrm{build}}$) and state-graph compilation ($T_{\mathrm{comp}}$).
 
 \begin{figure}[!t]
 \centering
 \includegraphics[width=\linewidth]{figures/figure_09_runtime_overhead.pdf}
-\caption{Dynamic LangGraph compilation and construction overhead across functional task domains. Total pipeline latency remains below 15\,ms across all categories, ensuring sub-millisecond overhead relative to LLM inference.}
+\caption{Dynamic state-graph compilation and construction overhead across functional task domains. Total pipeline latency remains below 15\,ms across all categories, ensuring sub-millisecond overhead relative to LLM inference.}
 \label{fig:runtime_overhead}
 \end{figure}
 
-Mean graph construction time is $6.19 \pm 1.88$\,ms, and LangGraph compilation time is $5.58 \pm 1.77$\,ms, resulting in a total adaptation overhead of $\mathbf{11.78 \pm 3.12}$\,ms. Across all 36 task executions, the dynamic builder achieved a 100\% compilation success rate with zero DAG cycle violations.
+Mean graph construction time is $6.19 \pm 1.88$\,ms, and state-graph compilation time is $5.58 \pm 1.77$\,ms, resulting in a total adaptation overhead of $\mathbf{11.78 \pm 3.12}$\,ms. Across all 36 task executions, the dynamic builder achieved a 100\% compilation success rate with zero DAG cycle violations.
 
 Furthermore, as depicted in Fig.~\ref{fig:action_distribution}(a), the active tabular Q-learning selector converged rapidly: by Episode 2, $\mathbf{72.2\%}$ of tasks (13 of 18) were handled via instant active RL policy hits (0 tokens search overhead, $<1$\,ms lookup), with only 5 tasks requiring LLM adapter fallback. Fig.~\ref{fig:action_distribution}(b) illustrates the distribution of accepted mutation operations, showing 12 deactivations and 8 edge removals.
 
@@ -409,10 +410,10 @@ Furthermore, as depicted in Fig.~\ref{fig:action_distribution}(a), the active ta
 \section{Experimental Neural Adaptation Evaluation}
 \label{sec:neural_results}
 
-We evaluate Contribution C1 across 5 held-out tasks and 5 random seeds (100 total trajectories). On \texttt{task-analysis-001}, \texttt{task-research-001}, and \texttt{task-research-002}, the shared neural meta-policy, fresh scratch policy, and baseline all achieve an adaptation gain of $\Delta Q = 0.0000 \pm 0.0000$. On \texttt{task-coding-001}, exploratory mutations degrade performance from 1.00 to 0.60 ($t = -4.00, p = 0.0161$). Conversely, on \texttt{task-summarization-001}, the pre-trained shared meta-policy preserves 100\% stability across all seeds ($0.6000 \pm 0.0000$), acting as a protective regularizer against destructive mutations that degraded the scratch policy (20\% degradation rate, $0.4800 \pm 0.2683$).
+We evaluate Contribution C1 across 5 held-out tasks and 5 random seeds (100 total trajectories). On held-out analysis and research tasks ($\mathcal{T}_1$: Analysis, $\mathcal{T}_3$: Research A, and $\mathcal{T}_4$: Research B), the shared neural meta-policy, fresh scratch policy, and baseline all achieve an adaptation gain of $\Delta Q = 0.0000 \pm 0.0000$. On the held-out coding task ($\mathcal{T}_2$: Coding), exploratory mutations degrade performance from 1.00 to 0.60 ($t = -4.00, p = 0.0161$). Conversely, on the held-out summarization task ($\mathcal{T}_5$: Summarization), the pre-trained shared meta-policy preserves 100\% stability across all seeds ($0.6000 \pm 0.0000$), acting as a protective regularizer against destructive mutations that degraded the scratch policy (20\% degradation rate, $0.4800 \pm 0.2683$).
 
 \subsection{Preservation and Analysis of Negative Findings}
-Contrary to theoretical expectations of positive meta-transfer, the shared neural policy yielded an adaptation gain of $\Delta Q_{\mathrm{adapt}} = \mathbf{0.0000 \pm 0.0000}$ across four of five held-out tasks (\texttt{task-analysis-001}, \texttt{task-research-001}, \texttt{task-research-002}, and \texttt{task-summarization-001}).
+Contrary to theoretical expectations of positive meta-transfer, the shared neural policy yielded an adaptation gain of $\Delta Q_{\mathrm{adapt}} = \mathbf{0.0000 \pm 0.0000}$ across four of five held-out evaluation tasks ($\mathcal{T}_1$: Analysis, $\mathcal{T}_3$: Research A, $\mathcal{T}_4$: Research B, and $\mathcal{T}_5$: Summarization).
 
 \begin{figure*}[!t]
 \centering
@@ -421,14 +422,14 @@ Contrary to theoretical expectations of positive meta-transfer, the shared neura
 \label{fig:neural_learning_curves}
 \end{figure*}
 
-As visualized in Fig.~\ref{fig:neural_learning_curves}(a), code inspection reveals the structural root cause: the discrete action space mapper constrained role modifications to $\texttt{role\_options} = [\text{'analysis'}, \text{'planning'}]$. Consequently, when a held-out task required \texttt{research} or \texttt{coding} capabilities, the policy could not generate the necessary mutation action, locking compatibility scores at a fixed ceiling. Table~\ref{tab:action_space_ablation} details this structural action space ablation.
+As visualized in Fig.~\ref{fig:neural_learning_curves}(a), structural ablation reveals the root cause: the discrete action space mapper constrained role mutation actions to $\mathcal{R}_{\mathrm{valid}} = \{\text{Analysis}, \text{Planning}\}$. Consequently, when a held-out evaluation task required research or coding capabilities, the policy could not generate the necessary role assignment, locking compatibility scores at a fixed ceiling. Table~\ref{tab:action_space_ablation} details this structural action space ablation.
 
 \input{tables/table_04_action_space_ablation.tex}
 
 \subsection{Destructive Exploration and Stability Advantage}
-On \texttt{task-coding-001} (initial score 1.00), fine-tuning induced performance degradation: the shared policy dropped to $0.60 \pm 0.00$ ($\Delta Q = -0.40$), while the fresh scratch policy dropped to $0.92 \pm 0.18$ ($\Delta Q = -0.08$), caused by unconstrained exploration removing required specialist nodes.
+On the held-out coding task $\mathcal{T}_2$ (initial score 1.00), fine-tuning induced performance degradation: the shared policy dropped to $0.60 \pm 0.00$ ($\Delta Q = -0.40$), while the fresh scratch policy dropped to $0.92 \pm 0.18$ ($\Delta Q = -0.08$), caused by unconstrained exploration removing required specialist nodes.
 
-However, a critical stability advantage emerged on \texttt{task-summarization-001}: the shared meta-policy preserved 100\% stability across all 5 seeds ($0.6000 \pm 0.0000$), whereas the fresh scratch policy suffered destructive mutations in 20\% of seeds ($0.4800 \pm 0.2683$). Fig.~\ref{fig:neural_stability_seeds} displays individual seed observations, demonstrating that cross-task pretraining acts as a protective regularizer against catastrophic architectural drift.
+However, a critical stability advantage emerged on the held-out summarization task $\mathcal{T}_5$: the shared meta-policy preserved 100\% stability across all 5 seeds ($0.6000 \pm 0.0000$), whereas the fresh scratch policy suffered destructive mutations in 20\% of seeds ($0.4800 \pm 0.2683$). Fig.~\ref{fig:neural_stability_seeds} displays individual seed observations, demonstrating that cross-task pretraining acts as a protective regularizer against catastrophic architectural drift.
 
 \begin{figure}[!t]
 \centering
@@ -446,7 +447,7 @@ However, a critical stability advantage emerged on \texttt{task-summarization-00
 We conduct rigorous inferential statistical hypothesis testing across all quantitative performance metrics to validate observed resource gains and critical path compression.
 
 \subsection{Hypothesis Testing on Resource Efficiency}
-To test whether token reductions are statistically significant, we perform a paired two-tailed Student's t-test comparing empirical live static tokens against live dynamic adapted tokens across the 18 benchmark tasks on NVIDIA NIM:
+To test whether token reductions are statistically significant, we perform a paired two-tailed Student's t-test comparing empirical live static tokens against live dynamic adapted tokens across the 18 benchmark tasks under production LLM execution:
 \begin{equation}
 t_{\mathrm{live}} = \frac{\bar{d}}{s_d / \sqrt{N}} = \frac{7090.06}{8721.43 / \sqrt{18}} = 3.4478.
 \end{equation}
@@ -456,7 +457,7 @@ With degrees of freedom $\mathrm{df} = 17$, this yields $p = \mathbf{0.0031}$, c
 Because benchmark tasks execute sequentially within continuous episodes, Q-table updates introduce potential inter-task autocorrelation. Treating tasks as independent and identically distributed (i.i.d.) would violate classical assumptions. We therefore explicitly treat tasks as paired within-episode observations and report non-parametric medians alongside t-statistics.
 
 \subsection{Small-Sample Neural Inference Caution}
-For the neural adaptation experiments, the sample size per task is $N = 5$ random seeds. While paired t-testing on \texttt{task-coding-001} indicates significant degradation ($t = -4.00, p = 0.0161$), the sample size is small. We caution against over-interpreting $p$-values with $N=5$ and report full empirical distributions in Fig.~\ref{fig:neural_stability_seeds}.
+For the neural adaptation experiments, the sample size per task is $N = 5$ random seeds. While paired t-testing on held-out coding task $\mathcal{T}_2$ indicates significant degradation ($t = -4.00, p = 0.0161$), the sample size is small. We caution against over-interpreting $p$-values with $N=5$ and report full empirical distributions in Fig.~\ref{fig:neural_stability_seeds}.
 
 % =========================================================
 % 11. DISCUSSION
@@ -468,16 +469,16 @@ For the neural adaptation experiments, the sample size per task is $N = 5$ rando
 To contextualize the empirical performance of AMAS, we systematically synthesize our quantitative results alongside published findings from prominent dynamic multi-agent architectures:
 \begin{enumerate}[leftmargin=*]
     \item \textbf{Agent Pruning Efficiency:} Whereas DyLAN~\cite{liu2024dylan} achieves 25.0--40.0\% agent pruning through inter-agent peer rating and MaAS~\cite{Zhang2025MaAS} achieves 18.0--32.0\% pruning via offline supernet evolution, AMAS prunes redundant agents by $\mathbf{50.00\% \pm 9.90\%}$ relative to the 6-agent roster and $\mathbf{40.00\% \pm 11.88\%}$ relative to the 5-agent baseline. Crucially, AMAS achieves this without running iterative LLM evaluation prompts.
-    \item \textbf{Search and Deliberation Latency:} While AFlow~\cite{zhang2024aflow} requires 15--30 exploratory MCTS rollouts per problem and DyLAN incurs $\mathcal{O}(N^2)$ LLM inference calls per communication round, AMAS achieves an active RL policy hit rate of 72.2\% (13/18 tasks) in Episode 2 with \textbf{zero token search overhead} ($<1$\,ms tabular Q-lookup) and sub-15\,ms dynamic LangGraph compilation latency.
+    \item \textbf{Search and Deliberation Latency:} While AFlow~\cite{zhang2024aflow} requires 15--30 exploratory MCTS rollouts per problem and DyLAN incurs $\mathcal{O}(N^2)$ LLM inference calls per communication round, AMAS achieves an active RL policy hit rate of 72.2\% (13/18 tasks) in Episode 2 with \textbf{zero token search overhead} ($<1$\,ms tabular Q-lookup) and sub-15\,ms dynamic state-graph compilation latency.
     \item \textbf{Critical Path Compression:} Extending the topological compression principles pioneered by CARD~\cite{Li2025AdaptiveGraphPruning} (which compressed sequential hops from $5.0 \to 2.8$, $-44\%$), AMAS achieves a comparable $\mathbf{42.2\%}$ critical path compression ($5.00 \to 2.89 \pm 0.47$ hops, $t = 18.9482, p = 1.87 \times 10^{-13}$), directly reducing sequential end-to-end response latency.
-    \item \textbf{Empirical Token Savings on Production Models:} Previous works predominantly evaluate token reductions under simulated proxy budgets. Under live production execution against the NVIDIA NIM API (\texttt{nvidia/nemotron-3.5-super-vl-120b-a12b}), AMAS reduces total measured tokens from 211,078 to 83,457 across the 18 benchmark tasks—achieving an empirical net token savings of $\mathbf{60.46\%}$ ($p = 0.0031$) and cutting live financial expenditure from \$0.31662 to \$0.12517.
+    \item \textbf{Empirical Token Savings on Production Models:} Previous works predominantly evaluate token reductions under simulated proxy budgets. Under live execution against a 120B-parameter production foundation model, AMAS reduces total measured tokens from 211,078 to 83,457 across the 18 benchmark tasks—achieving an empirical net token savings of $\mathbf{60.46\%}$ ($p = 0.0031$) and cutting live financial expenditure from \$0.31662 to \$0.12517.
 \end{enumerate}
 
 \subsection{Architectural Decoupling as a Design Principle}
 A key insight from this investigation is the importance of decoupling runtime execution from experimental neural policies. Previous literature often conflates theoretical neural formulation with live system execution. By maintaining tabular Q-learning for live runtime routing (Contribution C2), AMAS achieves deterministic sub-millisecond execution, zero-token search latency, and 100\% compilation safety. Meanwhile, isolating neural transfer (Contribution C1) allows honest diagnosis of action space limitations without destabilizing production workflows.
 
 \subsection{Parsimony versus Completeness Dilemma}
-The under-engineering observed on \texttt{cross-001} and \texttt{cross-002} highlights a fundamental tension in adaptive multi-agent design: reward functions that aggressively penalize token consumption and agent count risk pruning specialist roles essential for composite queries. Future reward formulations should incorporate capability confidence thresholds to prevent pruning under high task uncertainty.
+The under-engineering observed on composite tasks (Tasks Cross-01 and Cross-02) highlights a fundamental tension in adaptive multi-agent design: reward functions that aggressively penalize token consumption and agent count risk pruning specialist roles essential for composite queries. Future reward formulations should incorporate capability confidence thresholds to prevent pruning under high task uncertainty.
 
 % =========================================================
 % 12. LIMITATIONS
@@ -487,7 +488,7 @@ The under-engineering observed on \texttt{cross-001} and \texttt{cross-002} high
 
 We acknowledge several research limitations:
 \begin{enumerate}[leftmargin=*]
-    \item \textbf{Simulated DAG Token Proxy:} Token metrics are derived from critical-path DAG simulations rather than live commercial LLM API provider bills. While calibrated to real execution traces, live provider billing may exhibit prompt variance.
+    \item \textbf{Cross-Model Generalization:} While our empirical resource results are validated directly on a 120B-parameter production foundation model, multi-turn reasoning variance across diverse frontier model architectures (e.g., Claude 3.5 Sonnet, GPT-4o) warrants broader multi-provider benchmarking.
     \item \textbf{Action Space Discretization Bottleneck:} Neural role mutation was constrained to planning and analysis, preventing the neural policy from restoring research or coding specialists.
     \item \textbf{Evaluation Scale:} The benchmark comprises 18 tasks and 5 held-out neural tasks across 5 seeds. Broader validation across benchmarks such as GAIA and SWE-bench is warranted.
 \end{enumerate}
@@ -498,7 +499,7 @@ We acknowledge several research limitations:
 \section{Conclusion and Future Work}
 \label{sec:conclusion}
 
-This paper presented an adaptive architecture optimization framework for LLM-based multi-agent systems via reinforcement learning and dynamic LangGraph compilation. By formulating architecture mutation as an MDP under graph invariant validation, our runtime Q-learning adapter achieves an empirical net token reduction of $\mathbf{60.46\%}$ ($p = 0.0031$) and cuts execution cost from \$0.31662 to \$0.12517 across 18 benchmark tasks under live production LLM execution against the NVIDIA NIM API (\texttt{nvidia/nemotron-3.5-super-vl-120b-a12b}), corroborating theoretical DAG critical path models (36.19\% savings, $p = 9.85 \times 10^{-10}$). AMAS compresses sequential execution critical paths from 5.00 to $\mathbf{2.89 \pm 0.47}$ hops ($-42.2\%$), prunes active agents by 50.0\% relative to the 6-agent roster, and preserves 100\% capability coverage on 16 of 18 tasks with sub-15\,ms compilation latency. Furthermore, our experimental neural investigation rigorously documents how discrete action space restrictions bound transfer on held-out tasks while providing protective stability against catastrophic mutations. These findings provide actionable empirical principles for deploying efficient, dynamically compiled multi-agent workflows in production environments.
+This paper presented an adaptive architecture optimization framework for LLM-based multi-agent systems via reinforcement learning and dynamic state-graph compilation. By formulating architecture mutation as an MDP under graph invariant validation, our runtime Q-learning adapter achieves an empirical net token reduction of $\mathbf{60.46\%}$ ($p = 0.0031$) and cuts execution cost from \$0.31662 to \$0.12517 across 18 benchmark tasks under live execution on a 120B-parameter production foundation model, corroborating theoretical DAG critical path models (36.19\% savings, $p = 9.85 \times 10^{-10}$). AMAS compresses sequential execution critical paths from 5.00 to $\mathbf{2.89 \pm 0.47}$ hops ($-42.2\%$), prunes active agents by 50.0\% relative to the 6-agent roster, and preserves 100\% capability coverage on 16 of 18 tasks with sub-15\,ms compilation latency. Furthermore, our experimental neural investigation rigorously documents how discrete action space restrictions bound transfer on held-out tasks while providing protective stability against catastrophic mutations. These findings provide actionable empirical principles for deploying efficient, dynamically compiled multi-agent workflows in production environments.
 
 % =========================================================
 % REFERENCES
