@@ -3,7 +3,7 @@
 \caption{Systematic Comparison with Related Dynamic Multi-Agent Architectures (Features in Rows, Frameworks in Columns)}
 \label{tab:literature_comparison}
 \footnotesize
-\setlength{\tabcolsep}{3.2pt}
+\setlength{\tabcolsep}{3.0pt}
 \renewcommand{\arraystretch}{1.22}
 \begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash\bfseries}p{2.85cm} *{5}{>{\raggedright\arraybackslash\hyphenpenalty=10000\hsize=0.86\hsize}X} >{\raggedright\arraybackslash\hyphenpenalty=10000\hsize=1.70\hsize\bfseries}X}
 \toprule
@@ -21,7 +21,7 @@ Adaptation Method &
 MCTS code rollout & 
 Genetic search & 
 Contextual bandit & 
-Q-Learning + Neural Policy \\
+\makecell[l]{\textbf{Tabular Q-Learning (Runtime);}\\\textbf{Neural Policy (Offline Exp.)}} \\
 
 Decision Latency & 
 $\mathcal{O}(N^2)$ LLM calls & 

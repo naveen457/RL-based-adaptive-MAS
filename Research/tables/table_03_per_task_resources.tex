@@ -3,9 +3,18 @@
 \caption{Per-Task Resource Consumption and Efficiency Comparison (Production LLM Inference Validation)}
 \label{tab:per_task_resources}
 \footnotesize
-\begin{tabular}{llcccccc}
+\setlength{\tabcolsep}{3.5pt}
+\renewcommand{\arraystretch}{1.12}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{1.6cm} >{\raggedright\arraybackslash}p{2.2cm} *{6}{>{\centering\arraybackslash}X}}
 \toprule
-\textbf{Task ID} & \textbf{Category} & \textbf{Base Tokens} & \textbf{Adapted Tokens} & \textbf{Token Savings} & \textbf{Base Cost (\$)} & \textbf{Adapted Cost (\$)} & \textbf{Selection Engine} \\
+\makecell[l]{\textbf{Task ID}} & 
+\makecell[l]{\textbf{Category}} & 
+\makecell[c]{\textbf{Base}\\\textbf{Tokens}} & 
+\makecell[c]{\textbf{Adapted}\\\textbf{Tokens}} & 
+\makecell[c]{\textbf{Token}\\\textbf{Savings}} & 
+\makecell[c]{\textbf{Base Cost}\\\textbf{(\$)}} & 
+\makecell[c]{\textbf{Adapted Cost}\\\textbf{(\$)}} & 
+\makecell[c]{\textbf{Selection Engine}} \\
 \midrule
 Greet-01 & Greeting & 3,782 & 3,547 & $+6.21\%$ & \$0.00567 & \$0.00532 & LLM Fallback \\
 Greet-02 & Greeting & 4,312 & 4,396 & $-1.95\%$ & \$0.00647 & \$0.00659 & Active RL Hit \\
@@ -28,5 +37,5 @@ Cross-03 & Cross-Domain & 30,676 & 7,066 & $+76.97\%$ & \$0.04601 & \$0.01060 & 
 \midrule
 \textbf{Total / Summary} & --- & \textbf{211,078} & \textbf{83,457} & $\mathbf{+60.46\%}$ & \textbf{\$0.31662} & \textbf{\$0.12517} & \textbf{72.2\% Active RL Hit Rate} \\
 \bottomrule
-\end{tabular}
+\end{tabularx}
 \end{table*}

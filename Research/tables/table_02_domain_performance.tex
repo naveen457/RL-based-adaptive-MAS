@@ -3,9 +3,19 @@
 \caption{Task-Adaptive Architecture and Empirical Performance across Functional Domains (Production LLM Inference Benchmarking)}
 \label{tab:domain_performance}
 \footnotesize
-\begin{tabular}{lcccccccc}
+\setlength{\tabcolsep}{0pt}
+\renewcommand{\arraystretch}{1.22}
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lcccccccc}
 \toprule
-\textbf{Functional Domain} & \textbf{Active Agents $|V_{\mathrm{act}}|$} & \textbf{APR [\%]} & \textbf{Critical Path $L_{\mathrm{crit}}$} & \textbf{Base Tokens} & \textbf{Adapted Tokens} & \textbf{Token Savings} & \textbf{Inference Cost (\$) [Base $\to$ Adapt]} & \textbf{Capability Cov. [\%]} \\
+\makecell[l]{\textbf{Functional}\\\textbf{Domain}} & 
+\makecell[c]{\textbf{Active Agents}\\\textbf{$|V_{\mathrm{act}}|$} / Pool} & 
+\makecell[c]{\textbf{APR}\\\textbf{[\%]}} & 
+\makecell[c]{\textbf{Critical Path}\\\textbf{$L_{\mathrm{crit}}$} \textbf{(Hops)}} & 
+\makecell[c]{\textbf{Base}\\\textbf{Tokens}} & 
+\makecell[c]{\textbf{Adapted}\\\textbf{Tokens}} & 
+\makecell[c]{\textbf{Token}\\\textbf{Savings}} & 
+\makecell[c]{\textbf{Inference Cost (\$)}\\\textbf{[Base} $\to$ \textbf{Adapt]}} & 
+\makecell[c]{\textbf{Capability}\\\textbf{Cov. [\%]}} \\
 \midrule
 Greeting & $2.00 \pm 0.00$ & $60.00 \pm 0.00$ & $2.00 \pm 0.00$ & 11,489 & 11,313 & $+1.53\%$ & \$0.01723 $\to$ \$0.01697 & $100.00 \pm 0.00$ \\
 Mathematics & $3.00 \pm 0.00$ & $40.00 \pm 0.00$ & $3.00 \pm 0.00$ & 16,907 & 13,124 & $+22.38\%$ & \$0.02536 $\to$ \$0.01968 & $100.00 \pm 0.00$ \\
@@ -17,5 +27,5 @@ Cross-Domain & $3.67 \pm 0.58$ & $26.67 \pm 11.55$ & $3.00 \pm 0.00$ & 92,774 & 
 \textbf{Macro Mean / Total} & $\mathbf{3.00 \pm 0.59}$ & $\mathbf{40.00 \pm 11.88}$ & $\mathbf{2.89 \pm 0.47}$ & \textbf{211,078} & \textbf{83,457} & $\mathbf{+60.46\%}$ & \textbf{\$0.31662 $\to$ \$0.12517} & $\mathbf{94.44 \pm 17.15}$ \\
 \textbf{Static Full Baseline} & $5.00 \pm 0.00$ & $0.00 \pm 0.00$ & $5.00 \pm 0.00$ & 211,078 & 211,078 & $0.00\%$ & \$0.31662 $\to$ \$0.31662 & $100.00 \pm 0.00$ \\
 \bottomrule
-\end{tabular}
+\end{tabular*}
 \end{table*}
