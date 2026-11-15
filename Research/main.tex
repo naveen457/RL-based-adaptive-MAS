@@ -22,31 +22,44 @@
 % =========================================================
 \title{Task-Adaptive Architecture Optimization for LLM-Based Multi-Agent Systems via Reinforcement Learning and Dynamic Graph Construction}
 
+
 \author{
 \IEEEauthorblockN{Naveen Tanikonda}
-\IEEEauthorblockA{
-Vellore Institute of Technology -- AP\\
-naveen.23bce9787@vitapstudent.ac.in
-}
+\IEEEauthorblockA{\textit{Computer Science and Engineering} \\
+\textit{VIT-AP University}\\
+Amaravati, India \\
+naveen.23bce9787@vitapstudent.ac.in}
 \and
 \IEEEauthorblockN{VeeraBhadra Jagarlamudi}
-\IEEEauthorblockA{
-Vellore Institute of Technology -- AP\\
-bhadra.23bce9780@vitapstudent.ac.in
-}
+\IEEEauthorblockA{\textit{Computer Science and Engineering} \\
+\textit{VIT-AP University}\\
+Amaravati, India \\
+bhadra.23bce9780@vitapstudent.ac.in}
 \and
 \IEEEauthorblockN{Sriram Somarouthu}
-\IEEEauthorblockA{
-Vellore Institute of Technology -- AP\\
-sriram.23bce20270@vitapstudent.ac.in
-}
+\IEEEauthorblockA{\textit{Computer Science and Engineering} \\
+\textit{VIT-AP University}\\
+Amaravati, India \\
+sriram.23bce20270@vitapstudent.ac.in}
 \and
 \IEEEauthorblockN{Ravi Teja Perumalapalli}
-\IEEEauthorblockA{
-Vellore Institute of Technology -- AP\\
-teja.23bce9392@vitapstudent.ac.in
+\IEEEauthorblockA{\textit{Computer Science and Engineering} \\
+\textit{VIT-AP University}\\
+Amaravati, India \\
+teja.23bce9392@vitapstudent.ac.in}
+\and
+\IEEEauthorblockN{Dr. Srinivasa Rao Pokuri\textsuperscript{*}}
+\IEEEauthorblockA{\textit{Senior Assistant Professor} \\
+\textit{School of Computer Science and Engineering} \\
+\textit{VIT-AP University}\\
+Amaravati, India \\
+Contact: +91 9491860686 \\
+Email: pokuri.srinivasarao@vitap.ac.in}
 }
-}
+
+\thanks{\textsuperscript{*}Corresponding author.}
+
+\IEEEoverridecommandlockouts
 
 \begin{document}
 \maketitle
@@ -209,8 +222,8 @@ Fig.~\ref{fig:architecture_overview} provides an architectural schematic of our 
 
 \begin{figure*}[!t]
 \centering
-\includegraphics[width=0.96\textwidth]{figures/figure_01_architecture_overview.pdf}
-\caption{System architecture schematic showing the four stages of the proposed adaptive multi-agent framework. Stage~1 extracts the task context $c_t$. In Stage~2, the solid green runtime pathway (Contribution C2) utilizes tabular Q-learning and structural validation to drive dynamic state-graph compilation (Stage~3) and agent execution (Stage~4). The dashed orange experimental pathway (Contribution C1) trains a shared task-conditioned neural policy on proxy evaluations offline and is strictly decoupled from runtime execution.}
+\includegraphics[width=0.96\textwidth]{figures/system_architecture_overview.pdf}
+\caption{System architecture schematic of the proposed task-adaptive multi-agent optimization framework, delineating two distinct learning pathways fed by a shared task-context source. Stage~1 extracts the task context $c_t = \langle \kappa_t, d_t, \mathcal{C}_t, \mathbf{f}_t \rangle$. In Stage~2, the operational runtime pathway (Contribution C2) utilizes tabular Q-learning, candidate mutation operators, and structural invariant validation to drive LangGraph state-graph compilation (Stage~3) and active agent execution (Stage~4) with closed-loop reward telemetry. In parallel, the decoupled offline experimental pathway (Contribution C1) investigates cross-task knowledge transfer via dual state/task encoders and a shared MLP policy evaluated on held-out tasks.}
 \label{fig:architecture_overview}
 \end{figure*}
 
@@ -323,6 +336,15 @@ R_t = & \ 0.4 C_{\mathrm{cov}} + 0.3 \left(1.0 - \frac{|V_t|}{6}\right) \\
 & + 0.3 \left(1.0 - \frac{L_{\mathrm{crit}}}{5}\right) - P_{\mathrm{reject}}.
 \end{aligned}
 \end{equation}
+
+Fig.~\ref{fig:mdp_formulation} provides a unified visual synthesis of the formal Markov Decision Process (MDP) transition model, invariant validation gate $\mathcal{V}(G)$, and the dual learning objectives governing the operational C2 tabular Q-learning controller alongside the experimental C1 offline neural policy network.
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=0.96\textwidth]{figures/mdp_formulation_and_learning_objectives.pdf}
+\caption{Formal Markov Decision Process (MDP) formulation and dual learning objectives. Top: Sequential architecture state transitions under candidate mutation actions $\mathcal{A}$ and graph invariant validation $\mathcal{V}(G)$. Bottom Left: Pathway C2 operational tabular Q-learning controller with $\epsilon$-greedy action selection, Bellman TD updates ($\alpha = 0.1, \gamma = 0.9$), and composite runtime reward $R_t$. Bottom Right: Pathway C1 offline neural meta-policy network with dual state/task encoders ($E_G, E_c$), TD loss $\mathcal{L}(\theta)$, and held-out transfer evaluation $\Delta Q_{\mathrm{transfer}}$.}
+\label{fig:mdp_formulation}
+\end{figure*}
 
 % =========================================================
 % 7. EXPERIMENTAL SETUP
